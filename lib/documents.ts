@@ -10,12 +10,18 @@ export type DocumentRow = {
   team_member_id: string | null;
   cert_type_id: string | null;
   insurance_type_id: string | null;
+
+  insurance_type?: { name: string } | null;
+  cert_type?: { name: string } | null;
+
   file_public_url: string;
-  expires_at: string; // YYYY-MM-DD
+  file_path: string;
+  expires_at: string;
   verification_status: "pending" | "approved" | "rejected";
   verification_note: string | null;
   created_at: string;
 };
+
 
 export async function listCertTypes(): Promise<CertType[]> {
   const { data, error } = await supabase.from("cert_types").select("id,name").order("name");
@@ -92,7 +98,7 @@ export async function createCertDocument(params: {
 export async function listCompanyInsurance(companyId: string): Promise<DocumentRow[]> {
   const { data, error } = await supabase
     .from("documents")
-    .select("*")
+    .select("*, insurance_type:insurance_types(name)")
     .eq("doc_kind", "insurance")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
@@ -101,10 +107,11 @@ export async function listCompanyInsurance(companyId: string): Promise<DocumentR
   return (data || []) as DocumentRow[];
 }
 
+
 export async function listMemberCerts(memberId: string): Promise<DocumentRow[]> {
   const { data, error } = await supabase
     .from("documents")
-    .select("*")
+    .select("*, cert_type:cert_types(name)")
     .eq("doc_kind", "cert")
     .eq("team_member_id", memberId)
     .order("created_at", { ascending: false });
@@ -112,3 +119,15 @@ export async function listMemberCerts(memberId: string): Promise<DocumentRow[]> 
   if (error) throw error;
   return (data || []) as DocumentRow[];
 }
+
+
+export async function deleteDocument(doc: { id: string; file_path: string }) {
+  
+  const { error: storageErr } = await supabase.storage.from("docs").remove([doc.file_path]);
+  if (storageErr) throw storageErr;
+
+  
+  const { error: dbErr } = await supabase.from("documents").delete().eq("id", doc.id);
+  if (dbErr) throw dbErr;
+}
+

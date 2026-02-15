@@ -1,4 +1,5 @@
 "use client";
+<a className="underline" href="/contractor/jobs">Open jobs</a>
 
 import { recalcCompanyStatus } from "../../lib/eligibility";
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +24,7 @@ import {
   InsuranceType,
   createCertDocument,
   createInsuranceDocument,
+  deleteDocument,
   listCertTypes,
   listCompanyInsurance,
   listInsuranceTypes,
@@ -387,7 +389,7 @@ export default function ContractorPage() {
             companyInsurance.map((d) => (
               <div key={d.id} className="rounded border p-3">
                 <div className="flex items-center justify-between">
-                  <b>{d.doc_kind}</b>
+                  <b>{d.insurance_type?.name ?? "Insurance"}</b>
                   <span className="text-sm">{d.verification_status}</span>
                 </div>
                 <div className="text-sm text-gray-600">Expires: {d.expires_at}</div>
@@ -397,6 +399,22 @@ export default function ContractorPage() {
                 <a className="text-sm underline" href={d.file_public_url} target="_blank">
                   Open file
                 </a>
+                {(d.verification_status === "rejected" || d.verification_status === "pending") && (
+  <button
+    className="mt-2 rounded border px-3 py-1 text-sm"
+    onClick={async () => {
+      try {
+        await deleteDocument({ id: d.id, file_path: d.file_path });
+        await loadAll();
+      } catch (e: any) {
+        setErr(e.message ?? "Delete error");
+      }
+    }}
+  >
+    Delete
+  </button>
+)}
+
               </div>
             ))
           )}
@@ -478,6 +496,9 @@ export default function ContractorPage() {
 
               {(memberCerts[m.id] || []).map((d) => (
                 <div key={d.id} className="mt-2 rounded border p-2">
+                  <div className="text-sm">
+  <b>{d.cert_type?.name ?? "Certificate"}</b>
+</div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">{d.verification_status}</span>
                     <span className="text-sm">exp {d.expires_at}</span>
@@ -488,6 +509,22 @@ export default function ContractorPage() {
                   <a className="text-sm underline" href={d.file_public_url} target="_blank">
                     Open file
                   </a>
+                  {(d.verification_status === "rejected" || d.verification_status === "pending") && (
+  <button
+    className="mt-2 rounded border px-3 py-1 text-sm"
+    onClick={async () => {
+      try {
+        await deleteDocument({ id: d.id, file_path: d.file_path });
+        await loadAll();
+      } catch (e: any) {
+        setErr(e.message ?? "Delete error");
+      }
+    }}
+  >
+    Delete
+  </button>
+)}
+
                 </div>
               ))}
             </div>

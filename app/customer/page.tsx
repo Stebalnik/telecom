@@ -1,4 +1,5 @@
 "use client";
+<a className="underline" href="/customer/jobs">My jobs</a>
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
