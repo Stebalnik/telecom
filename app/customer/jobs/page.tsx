@@ -12,6 +12,13 @@ import {
   CustomerScopeRequirement,
 } from "../../../lib/customers";
 import { listCertTypes, CertType } from "../../../lib/documents";
+import {
+  listJobFilesForJobs,
+  uploadJobFile,
+  openJobFileSigned,
+  deleteJobFile,
+  JobFileRow,
+} from "../../../lib/jobFiles";
 
 type JobRow = {
   id: string;
@@ -21,10 +28,10 @@ type JobRow = {
   status: string;
   created_at: string;
   customer_id: string | null;
+  deadline_date: string | null; // YYYY-MM-DD
 };
 
 async function setJobScopes(jobId: string, scopeIds: string[]) {
-  // wipe + insert
   const { error: delErr } = await supabase.from("job_scopes").delete().eq("job_id", jobId);
   if (delErr) throw delErr;
 
@@ -49,11 +56,13 @@ export default function CustomerJobsPage() {
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [certTypes, setCertTypes] = useState<CertType[]>([]);
   const [custScopeReq, setCustScopeReq] = useState<CustomerScopeRequirement[]>([]);
+  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>({});
 
   // Create job form
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [deadline, setDeadline] = useState(""); // YYYY-MM-DD
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
 
   const certNameById = useMemo(() => {
@@ -72,17 +81,11 @@ export default function CustomerJobsPage() {
     return selectedScopeIds.map((id) => scopeNameById[id]).filter(Boolean);
   }, [selectedScopeIds, scopeNameById]);
 
-  // UNION requirements for chosen scopes:
-  // group by cert_type_id, take max(min_count_in_team), and list which scopes caused it
   const unionRequirements = useMemo(() => {
     if (!customerId) return [];
-
     const relevant = custScopeReq.filter((r) => selectedScopeIds.includes(r.scope_id));
 
-    const map = new Map<
-      string,
-      { cert_type_id: string; min: number; scopes: Set<string> }
-    >();
+    const map = new Map<string, { cert_type_id: string; min: number; scopes: Set<string> }>();
 
     for (const r of relevant) {
       const key = r.cert_type_id;
@@ -115,7 +118,6 @@ export default function CustomerJobsPage() {
 
     const org = await getMyCustomerOrg();
     if (!org) {
-      // customer выбрал роль, но org не создан/не настроен
       router.replace("/customer/settings");
       return;
     }
@@ -133,14 +135,24 @@ export default function CustomerJobsPage() {
       setCertTypes(ct);
       setCustScopeReq(csr);
 
-      // jobs принадлежат customer (у тебя RLS обычно по customer_user_id)
       const { data: j, error } = await supabase
         .from("jobs")
-        .select("id,title,description,location,status,created_at,customer_id")
+        .select("id,title,description,location,status,created_at,customer_id,deadline_date")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setJobs((j || []) as JobRow[]);
+
+      const jobsArr = (j || []) as JobRow[];
+      setJobs(jobsArr);
+
+      // load job files for these jobs
+      const allFiles = await listJobFilesForJobs(jobsArr.map((x) => x.id));
+      const map: Record<string, JobFileRow[]> = {};
+      for (const f of allFiles) {
+        if (!map[f.job_id]) map[f.job_id] = [];
+        map[f.job_id].push(f);
+      }
+      setFilesByJob(map);
     } catch (e: any) {
       setErr(e.message ?? "Load error");
     } finally {
@@ -165,40 +177,66 @@ export default function CustomerJobsPage() {
     try {
       if (!customerId) throw new Error("Customer org not found. Go to /customer/settings.");
       if (!title.trim()) throw new Error("Title is required.");
+      if (!deadline) throw new Error("Deadline is required.");
       if (selectedScopeIds.length === 0) throw new Error("Select at least one scope.");
 
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr) throw userErr;
       if (!userData.user) throw new Error("Not logged in");
 
-      // создаём job
       const { data: job, error } = await supabase
         .from("jobs")
         .insert({
-          customer_user_id: userData.user.id, // оставляем как было у тебя
-          customer_id: customerId,            // новая логика
+          customer_user_id: userData.user.id,
+          customer_id: customerId,
           title: title.trim(),
           description: description.trim() || null,
           location: location.trim() || null,
           status: "open",
+          deadline_date: deadline,
         })
         .select("id")
         .single();
 
       if (error) throw error;
 
-      // сохраняем scopes (multi-scope)
       await setJobScopes(job.id, selectedScopeIds);
 
       // reset form
       setTitle("");
       setDescription("");
       setLocation("");
+      setDeadline("");
       setSelectedScopeIds([]);
 
       await load();
     } catch (e: any) {
       setErr(e.message ?? "Create job error");
+    }
+  }
+
+  async function onUpload(jobId: string, files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setErr(null);
+
+    try {
+      for (const f of Array.from(files)) {
+        await uploadJobFile(jobId, f);
+      }
+      await load();
+    } catch (e: any) {
+      setErr(e.message ?? "Upload error");
+    }
+  }
+
+  async function onDeleteFile(f: JobFileRow) {
+    setErr(null);
+    try {
+      if (!confirm(`Delete file "${f.file_name}"?`)) return;
+      await deleteJobFile(f);
+      await load();
+    } catch (e: any) {
+      setErr(e.message ?? "Delete file error");
     }
   }
 
@@ -225,6 +263,7 @@ export default function CustomerJobsPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+
           <input
             className="rounded border p-2"
             placeholder="Location (optional)"
@@ -240,26 +279,37 @@ export default function CustomerJobsPage() {
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <div className="rounded border p-3 space-y-2">
-          <div className="font-semibold">Scopes (select all that apply)</div>
-
-          <div className="grid gap-2 md:grid-cols-3">
-            {scopes.map((s) => (
-              <label key={s.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedScopeIds.includes(s.id)}
-                  onChange={() => toggleScope(s.id)}
-                />
-                <span className="capitalize">
-                  {s.name}
-                </span>
-              </label>
-            ))}
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold">Deadline (required)</div>
+            <input
+              className="rounded border p-2 w-full"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+            <div className="text-xs text-gray-600">
+              Contractors must pick a timeframe that does not exceed this deadline.
+            </div>
           </div>
 
-          <div className="text-xs text-gray-600">
-            Selected: {selectedScopes.length ? selectedScopes.join(", ") : "none"}
+          <div className="rounded border p-3 space-y-2">
+            <div className="font-semibold">Scopes (select all that apply)</div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {scopes.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedScopeIds.includes(s.id)}
+                    onChange={() => toggleScope(s.id)}
+                  />
+                  <span className="capitalize">{s.name}</span>
+                </label>
+              ))}
+            </div>
+            <div className="text-xs text-gray-600">
+              Selected: {selectedScopes.length ? selectedScopes.join(", ") : "none"}
+            </div>
           </div>
         </div>
 
@@ -267,7 +317,7 @@ export default function CustomerJobsPage() {
         <div className="rounded border p-3 space-y-2">
           <div className="font-semibold">Requirements for this job (union)</div>
           <div className="text-sm text-gray-600">
-            This is the combined certification requirement based on selected scopes.
+            Combined certification requirements based on selected scopes.
           </div>
 
           {selectedScopeIds.length === 0 && (
@@ -286,9 +336,7 @@ export default function CustomerJobsPage() {
                 <div key={r.cert_type_id} className="flex items-center justify-between gap-4 rounded border p-2">
                   <div className="text-sm">
                     <b>{r.cert_name}</b>
-                    <div className="text-xs text-gray-600">
-                      From scopes: {r.scopes.join(", ")}
-                    </div>
+                    <div className="text-xs text-gray-600">From scopes: {r.scopes.join(", ")}</div>
                   </div>
                   <div className="text-sm">
                     min in team: <b>{r.min}</b>
@@ -299,7 +347,11 @@ export default function CustomerJobsPage() {
           )}
 
           <div className="text-xs text-gray-600">
-            Tip: Configure requirements in <a className="underline" href="/customer/settings">Settings</a>.
+            Tip: Configure requirements in{" "}
+            <a className="underline" href="/customer/settings">
+              Settings
+            </a>
+            .
           </div>
         </div>
 
@@ -315,24 +367,91 @@ export default function CustomerJobsPage() {
         {jobs.length === 0 && <p className="text-sm text-gray-600">No jobs yet.</p>}
 
         <div className="space-y-3">
-          {jobs.map((j) => (
-            <div key={j.id} className="rounded border p-3">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-semibold">{j.title}</div>
-                  {j.location && <div className="text-sm text-gray-600">{j.location}</div>}
-                  {j.description && <div className="text-sm mt-2">{j.description}</div>}
+          {jobs.map((j) => {
+            const files = filesByJob[j.id] || [];
+            return (
+              <div key={j.id} className="rounded border p-3 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-semibold">{j.title}</div>
+                    <div className="text-sm text-gray-600">
+                      Status: <b>{j.status}</b>
+                      {j.deadline_date ? (
+                        <>
+                          {" "}
+                          • Deadline: <b>{j.deadline_date}</b>
+                        </>
+                      ) : null}
+                    </div>
+                    {j.location && <div className="text-sm text-gray-600">{j.location}</div>}
+                    {j.description && <div className="text-sm mt-2">{j.description}</div>}
+                  </div>
                 </div>
-                <div className="text-sm">
-                  Status: <b>{j.status}</b>
-                </div>
-              </div>
 
-              <div className="mt-3 text-xs text-gray-600">
-                Job ID: {j.id}
+                {/* Project files */}
+                <div className="rounded border p-3 space-y-2">
+                  <div className="font-semibold">Project files</div>
+
+                  <div className="text-sm text-gray-600">
+                    Only eligible contractors (approved vendors) can view/download these files.
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label className="rounded bg-black px-4 py-2 text-white cursor-pointer">
+                      Upload files
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        onChange={(e) => onUpload(j.id, e.target.files)}
+                      />
+                    </label>
+
+                    <div className="text-xs text-gray-600">
+                      Path format: jobs/{j.id}/...
+                    </div>
+                  </div>
+
+                  {files.length === 0 && (
+                    <div className="text-sm text-gray-600">No files uploaded yet.</div>
+                  )}
+
+                  {files.length > 0 && (
+                    <div className="space-y-2">
+                      {files.map((f) => (
+                        <div
+                          key={f.id}
+                          className="flex items-center justify-between gap-3 rounded border p-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold truncate">{f.file_name}</div>
+                            <div className="text-xs text-gray-600 truncate">{f.file_path}</div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="rounded border px-3 py-1 text-sm"
+                              onClick={() => openJobFileSigned(f.file_path)}
+                            >
+                              Download
+                            </button>
+                            <button
+                              className="rounded border px-3 py-1 text-sm"
+                              onClick={() => onDeleteFile(f)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs text-gray-600">Job ID: {j.id}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </main>
