@@ -273,10 +273,12 @@ export default function ContractorPage() {
   return (
     <main className="p-6 space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Contractor кабинет</h1>
+        <h1 className="text-2xl font-semibold">Contractor cabinet</h1>
+        <a className="rounded bg-black px-4 py-2 text-white" href="/contractor/jobs"> Browse Jobs </a>
         <a className="underline" href="/dashboard">
           Back
         </a>
+        
       </div>
 
       {loading && <p>Loading...</p>}
