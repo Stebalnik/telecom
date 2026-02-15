@@ -1,5 +1,4 @@
 "use client";
-<a className="underline" href="/customer/jobs">My jobs</a>
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -20,12 +19,51 @@ export default function CustomerPage() {
   }, [router]);
 
   return (
-    <main className="p-6">
+  <main className="p-6 space-y-6">
+    <div className="flex items-center justify-between">
       <h1 className="text-2xl font-semibold">Customer кабинет</h1>
-      <p className="mt-2 text-gray-600">
-        Next: create Job, set requirements, view bids.
-      </p>
-      <a className="mt-4 inline-block underline" href="/dashboard">Back</a>
-    </main>
-  );
+      <a className="underline text-sm" href="/dashboard">
+        Back
+      </a>
+    </div>
+
+    <p className="text-sm text-gray-600">
+      Create jobs, configure requirements and manage contractor approvals.
+    </p>
+
+    {/* Actions */}
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Jobs */}
+      <div className="rounded border p-5 space-y-3">
+        <h2 className="text-lg font-semibold">Jobs</h2>
+        <p className="text-sm text-gray-600">
+          Create new projects and manage bids.
+        </p>
+
+        <a
+          className="block rounded bg-black px-4 py-2 text-white text-center"
+          href="/customer/jobs"
+        >
+          Create / Manage Jobs
+        </a>
+      </div>
+
+      {/* Settings */}
+      <div className="rounded border p-5 space-y-3">
+        <h2 className="text-lg font-semibold">Settings</h2>
+        <p className="text-sm text-gray-600">
+          Configure insurance limits and certification requirements.
+        </p>
+
+        <a
+          className="block rounded bg-black px-4 py-2 text-white text-center"
+          href="/customer/settings"
+        >
+          Settings (Requirements)
+        </a>
+      </div>
+    </div>
+  </main>
+);
+
 }

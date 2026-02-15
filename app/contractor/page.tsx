@@ -595,5 +595,5 @@ export default function ContractorPage() {
         </button>
       </section>
     </main>
-  );
+  )
 }

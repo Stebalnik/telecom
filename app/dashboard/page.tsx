@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
+import { ensureMyCustomerOrg } from "../../lib/customers";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -40,6 +41,22 @@ export default function DashboardPage() {
     try {
       await createMyProfile(r);
       setRole(r);
+
+      if (r === "customer") {
+        await ensureMyCustomerOrg();
+        router.push("/customer/settings");
+        return;
+      }
+
+      if (r === "contractor") {
+        router.push("/contractor");
+        return;
+      }
+
+      if (r === "admin") {
+        router.push("/admin");
+        return;
+      }
     } catch (e: any) {
       setErr(e.message ?? "Error creating profile");
     }
@@ -92,14 +109,17 @@ export default function DashboardPage() {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {role === "customer" && (
-              <a className="rounded bg-black px-4 py-2 text-white" href="/customer">
-                Go to Customer кабинет
+              <a
+                className="rounded bg-black px-4 py-2 text-white"
+                href="/customer/settings"
+              >
+                Go to Customer settings
               </a>
             )}
 
             {role === "contractor" && (
               <a className="rounded bg-black px-4 py-2 text-white" href="/contractor">
-                Go to Contractor кабинет
+                Go to Contractor cabinet
               </a>
             )}
 

@@ -88,3 +88,26 @@ export async function getJobRequiredCerts(jobId: string): Promise<string[]> {
   if (error) throw error;
   return (data || []).map((x: any) => x.cert_type_id);
 }
+
+export async function setJobScopes(jobId: string, scopeIds: string[]) {
+  // wipe + insert
+  const { error: delErr } = await supabase.from("job_scopes").delete().eq("job_id", jobId);
+  if (delErr) throw delErr;
+
+  if (scopeIds.length === 0) return;
+
+  const { error } = await supabase.from("job_scopes").insert(
+    scopeIds.map((id) => ({ job_id: jobId, scope_id: id }))
+  );
+  if (error) throw error;
+}
+
+export async function getJobScopes(jobId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("job_scopes")
+    .select("scope_id")
+    .eq("job_id", jobId);
+
+  if (error) throw error;
+  return (data || []).map((x: any) => x.scope_id);
+}
