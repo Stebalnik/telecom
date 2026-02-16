@@ -153,3 +153,162 @@ export async function ensureMyCustomerOrg() {
   });
   return o;
 }
+
+// ===== Approved contractors + COI =====
+
+export type ApprovedContractorRow = {
+  contractor_company_id: string;
+  status: string;
+  contractor_companies: {
+    id: string;
+    legal_name: string;
+    dba_name: string | null;
+  }[]; // <-- ВАЖНО: массив
+};
+
+
+export type ContractorCoiRow = {
+  id: string;
+  company_id: string;
+  status: string;
+  file_path: string;
+  created_at: string;
+};
+
+export async function getMyCustomerId(): Promise<string> {
+  const org = await ensureMyCustomerOrg();
+  return org.id;
+}
+
+export async function listApprovedContractors(): Promise<ApprovedContractorRow[]> {
+  const customerId = await getMyCustomerId();
+
+  const { data, error } = await supabase
+    .from("customer_contractors")
+    .select(
+      `
+      contractor_company_id,
+      status,
+      contractor_companies:contractor_company_id (
+        id,
+        legal_name,
+        dba_name
+      )
+    `
+    )
+    .eq("customer_id", customerId)
+    .eq("status", "approved");
+
+  if (error) throw error;
+  return (data || []) as ApprovedContractorRow[];
+}
+
+export async function listLatestApprovedCoiByCompanies(
+  companyIds: string[]
+): Promise<Record<string, ContractorCoiRow | null>> {
+  const map: Record<string, ContractorCoiRow | null> = {};
+  companyIds.forEach((id) => (map[id] = null));
+  if (companyIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("contractor_coi")
+    .select("id, company_id, status, file_path, created_at")
+    .in("company_id", companyIds)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  for (const row of (data || []) as ContractorCoiRow[]) {
+    if (!map[row.company_id]) map[row.company_id] = row;
+  }
+
+  return map;
+}
+
+export type ContractorCompanyMini = {
+  id: string;
+  legal_name: string;
+  dba_name: string | null;
+  status: string;
+};
+
+export async function searchContractorCompanies(q: string): Promise<ContractorCompanyMini[]> {
+  const query = q.trim();
+  if (!query) return [];
+
+  const { data, error } = await supabase
+    .from("contractor_companies")
+    .select("id, legal_name, dba_name, status")
+    .or(`legal_name.ilike.%${query}%,dba_name.ilike.%${query}%`)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+  return (data || []) as ContractorCompanyMini[];
+}
+
+export async function upsertCustomerContractor(params: {
+  contractor_company_id: string;
+  status: "approved" | "pending" | "rejected";
+}) {
+  const customerId = await getMyCustomerId();
+  const { error } = await supabase
+    .from("customer_contractors")
+    .upsert(
+      {
+        customer_id: customerId,
+        contractor_company_id: params.contractor_company_id,
+        status: params.status,
+      },
+      { onConflict: "customer_id,contractor_company_id" }
+    );
+  if (error) throw error;
+}
+
+export async function updateCustomerContractorStatus(contractorCompanyId: string, status: "approved" | "pending" | "rejected") {
+  const customerId = await getMyCustomerId();
+  const { error } = await supabase
+    .from("customer_contractors")
+    .update({ status })
+    .eq("customer_id", customerId)
+    .eq("contractor_company_id", contractorCompanyId);
+
+  if (error) throw error;
+}
+
+export async function removeCustomerContractor(contractorCompanyId: string) {
+  const customerId = await getMyCustomerId();
+  const { error } = await supabase
+    .from("customer_contractors")
+    .delete()
+    .eq("customer_id", customerId)
+    .eq("contractor_company_id", contractorCompanyId);
+
+  if (error) throw error;
+}
+
+export async function listCustomerContractorsByStatus(
+  status: "approved" | "pending" | "rejected"
+): Promise<ApprovedContractorRow[]> {
+  const customerId = await getMyCustomerId();
+
+  const { data, error } = await supabase
+    .from("customer_contractors")
+    .select(
+      `
+      contractor_company_id,
+      status,
+      contractor_companies:contractor_company_id (
+        id,
+        legal_name,
+        dba_name
+      )
+    `
+    )
+    .eq("customer_id", customerId)
+    .eq("status", status);
+
+  if (error) throw error;
+  return (data || []) as ApprovedContractorRow[];
+}

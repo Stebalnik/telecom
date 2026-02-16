@@ -27,7 +27,16 @@ export default function DashboardPage() {
 
       try {
         const profile = await getMyProfile();
-        if (profile?.role) setRole(profile.role as UserRole);
+if (profile?.role) {
+  const r = profile.role as UserRole;
+  setRole(r);
+
+  // redirect by role
+  if (r === "customer") return router.replace("/customer");
+  if (r === "contractor") return router.replace("/contractor");
+  if (r === "admin") return router.replace("/admin");
+}
+
       } catch (e: any) {
         setErr(e.message ?? "Error loading profile");
       } finally {

@@ -1,6 +1,8 @@
 "use client";
 <a className="underline" href="/contractor/jobs">Open jobs</a>
 
+
+
 import { recalcCompanyStatus } from "../../lib/eligibility";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -275,6 +277,9 @@ export default function ContractorPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Contractor cabinet</h1>
         <a className="rounded bg-black px-4 py-2 text-white" href="/contractor/jobs"> Browse Jobs </a>
+        <a className="block rounded bg-black px-4 py-2 text-white text-center" href="/contractor/customers">
+  Customers (Apply)
+</a>
         <a className="underline" href="/dashboard">
           Back
         </a>

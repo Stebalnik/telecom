@@ -21,7 +21,7 @@ export default function CustomerPage() {
   return (
   <main className="p-6 space-y-6">
     <div className="flex items-center justify-between">
-      <h1 className="text-2xl font-semibold">Customer кабинет</h1>
+      <h1 className="text-2xl font-semibold">Customer cabinet</h1>
       <a className="underline text-sm" href="/dashboard">
         Back
       </a>
@@ -61,6 +61,15 @@ export default function CustomerPage() {
         >
           Settings (Requirements)
         </a>
+
+        <a
+  className="block rounded bg-black px-4 py-2 text-white text-center"
+  href="/customer/contractors"
+>
+  Approved Contractors
+</a>
+
+
       </div>
     </div>
   </main>
