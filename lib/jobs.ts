@@ -111,3 +111,26 @@ export async function getJobScopes(jobId: string): Promise<string[]> {
   if (error) throw error;
   return (data || []).map((x: any) => x.scope_id);
 }
+
+/**
+ * NEW: customer-specific lists (Active vs Archive)
+ * We use jobs.status:
+ * - open = Active
+ * - closed = Archived
+ */
+export async function listCustomerJobsByStatus(customerOrgId: string, status: "open" | "closed") {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("id,title,description,location,status,created_at,customer_id,deadline_date")
+    .eq("customer_id", customerOrgId)
+    .eq("status", status)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as any[];
+}
+
+export async function updateJobStatus(jobId: string, status: "open" | "closed") {
+  const { error } = await supabase.from("jobs").update({ status }).eq("id", jobId);
+  if (error) throw error;
+}

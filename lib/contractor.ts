@@ -2,12 +2,11 @@ import { supabase } from "./supabaseClient";
 
 export type Company = {
   id: string;
-  owner_user_id: string;
   legal_name: string;
   dba_name: string | null;
-  status: "active" | "blocked";
-  block_reason: string | null;
-  created_at: string;
+  status: string;
+  block_reason?: string | null;
+  onboarding_status?: "draft" | "submitted" | "approved";
 };
 
 export type Team = {

@@ -312,3 +312,102 @@ export async function listCustomerContractorsByStatus(
   if (error) throw error;
   return (data || []) as ApprovedContractorRow[];
 }
+
+export type InsuranceType = {
+  id: string;
+  code: string;
+  name: string;
+  is_core: boolean;
+  limit_schema: any; // jsonb
+};
+
+export type EndorsementType = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type CustomerInsuranceConfig = {
+  customer_id: string;
+  minimum_days_before_expiration: number;
+  warning_days_before_expiration: number;
+  hard_block_if_expired: boolean;
+  notice_of_cancellation_days: number;
+
+  minimum_am_best_rating: string | null;
+  must_be_admitted_carrier: boolean;
+  state_restrictions: string | null;
+
+  bond_required: boolean;
+  bid_bond: boolean;
+  performance_bond: boolean;
+  payment_bond: boolean;
+  bond_amount_percent: number | null;
+};
+
+export async function listInsuranceTypes(): Promise<InsuranceType[]> {
+  const { data, error } = await supabase
+    .from("insurance_types")
+    .select("id, code, name, is_core, limit_schema")
+    .order("is_core", { ascending: false })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as InsuranceType[];
+}
+
+export async function listEndorsementTypes(): Promise<EndorsementType[]> {
+  const { data, error } = await supabase
+    .from("endorsement_types")
+    .select("id, code, name")
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as EndorsementType[];
+}
+
+export async function getCustomerInsuranceConfig(customerId: string): Promise<CustomerInsuranceConfig | null> {
+  const { data, error } = await supabase
+    .from("customer_insurance_config")
+    .select("*")
+    .eq("customer_id", customerId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data ?? null) as CustomerInsuranceConfig | null;
+}
+
+export async function upsertCustomerInsuranceConfig(row: CustomerInsuranceConfig) {
+  const { error } = await supabase
+    .from("customer_insurance_config")
+    .upsert(row, { onConflict: "customer_id" });
+
+  if (error) throw error;
+}
+
+export async function listCustomerRequiredEndorsements(customerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("customer_required_endorsements")
+    .select("endorsement_type_id")
+    .eq("customer_id", customerId);
+
+  if (error) throw error;
+  return (data || []).map((x: any) => x.endorsement_type_id as string);
+}
+
+export async function setCustomerRequiredEndorsements(customerId: string, endorsementTypeIds: string[]) {
+  // простая стратегия: удалить и вставить
+  const { error: delErr } = await supabase
+    .from("customer_required_endorsements")
+    .delete()
+    .eq("customer_id", customerId);
+  if (delErr) throw delErr;
+
+  if (endorsementTypeIds.length === 0) return;
+
+  const { error: insErr } = await supabase
+    .from("customer_required_endorsements")
+    .insert(endorsementTypeIds.map((id) => ({ customer_id: customerId, endorsement_type_id: id })));
+
+  if (insErr) throw insErr;
+}
