@@ -90,3 +90,11 @@ package-lock 2.json
 # =========================
 logs/
 tmp/
+
+# Exported project snapshots
+docs/export_files/*
+!docs/export_files/.gitkeep
+
+# Always keep latest export in repo
+!docs/export_latest/
+!docs/export_latest/**

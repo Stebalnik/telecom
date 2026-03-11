@@ -5,7 +5,8 @@
   "scripts": {"dev": "next dev --webpack",
     "dev:turbo": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "docs:update": "bash ./scripts/update_project_docs.sh"
   },
   "dependencies": {
     "@supabase/realtime-js": "^2.97.0",
