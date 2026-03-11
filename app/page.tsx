@@ -65,17 +65,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-3 text-sm">
-              <div className="rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
-                Verified contractors
-              </div>
-              <div className="rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
-                Insurance compliance
-              </div>
-              <div className="rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
-                Job management
-              </div>
-            </div>
+            
           </div>
         </div>
       </section>
