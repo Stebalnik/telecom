@@ -24,23 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* Global header */}
-        <header className="flex items-center justify-between border-b px-6 py-3">
-          <div className="font-semibold">Telecom Marketplace</div>
-
-          <nav className="flex items-center gap-4 text-sm">
-            <a className="underline" href="/dashboard">
-              Dashboard
-            </a>
-            <a className="underline" href="/logout">
-              Logout
-            </a>
-          </nav>
-        </header>
-
-        {/* Page content */}
-        <div className="min-h-screen">{children}</div>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F4F8FC] text-[#111827]`}
+      >
+        {children}
       </body>
     </html>
   );
