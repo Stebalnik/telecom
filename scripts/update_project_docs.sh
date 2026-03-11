@@ -16,6 +16,7 @@ PROJECT_CONTEXT_FILE="$EXPORT_DIR/PROJECT_CONTEXT.md"
 PROJECT_STRUCTURE_FILE="$EXPORT_DIR/PROJECT_STRUCTURE.md"
 ROUTES_FILE="$EXPORT_DIR/ROUTES.md"
 CODE_SNAPSHOT_FILE="$EXPORT_DIR/CODE_SNAPSHOT.md"
+SUPABASE_SCHEMA_FILE="$EXPORT_DIR/SUPABASE_SCHEMA.sql"
 
 ROOTS=()
 for dir in app lib public supabase components; do
@@ -249,19 +250,69 @@ done
 } > "$CODE_SNAPSHOT_FILE"
 
 # -----------------------------
+# SUPABASE_SCHEMA.sql
+# -----------------------------
+dump_supabase_schema() {
+  echo "Generating Supabase schema dump..."
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Skipping Supabase schema export: Docker is not available."
+    return 0
+  fi
+
+  if ! docker info >/dev/null 2>&1; then
+    echo "Skipping Supabase schema export: Docker daemon is not running."
+    return 0
+  fi
+
+  if ! npx supabase --help >/dev/null 2>&1; then
+    echo "Skipping Supabase schema export: Supabase CLI is not available."
+    return 0
+  fi
+
+  if [ -n "${SUPABASE_DB_URL:-}" ]; then
+    npx supabase db dump --db-url "$SUPABASE_DB_URL" -f "$SUPABASE_SCHEMA_FILE"
+  else
+    npx supabase db dump --linked -f "$SUPABASE_SCHEMA_FILE"
+  fi
+
+  echo "Supabase schema exported to $SUPABASE_SCHEMA_FILE"
+}
+
+if dump_supabase_schema; then
+  :
+else
+  echo "Supabase schema export failed." >&2
+fi
+
+# -----------------------------
 # Update docs/export_latest
 # -----------------------------
 rm -rf "$LATEST_DIR"
 mkdir -p "$LATEST_DIR"
+
 cp "$PROJECT_CONTEXT_FILE" "$LATEST_DIR/PROJECT_CONTEXT.md"
 cp "$PROJECT_STRUCTURE_FILE" "$LATEST_DIR/PROJECT_STRUCTURE.md"
 cp "$ROUTES_FILE" "$LATEST_DIR/ROUTES.md"
 cp "$CODE_SNAPSHOT_FILE" "$LATEST_DIR/CODE_SNAPSHOT.md"
 
+if [ -f "$SUPABASE_SCHEMA_FILE" ]; then
+  cp "$SUPABASE_SCHEMA_FILE" "$LATEST_DIR/SUPABASE_SCHEMA.sql"
+fi
+
 echo "# Latest export" > "$LATEST_DIR/README.md"
 echo >> "$LATEST_DIR/README.md"
 echo "Generated from: $EXPORT_DIR" >> "$LATEST_DIR/README.md"
 echo "Generated at: $(date)" >> "$LATEST_DIR/README.md"
+echo >> "$LATEST_DIR/README.md"
+echo "Files included:" >> "$LATEST_DIR/README.md"
+echo "- PROJECT_CONTEXT.md" >> "$LATEST_DIR/README.md"
+echo "- PROJECT_STRUCTURE.md" >> "$LATEST_DIR/README.md"
+echo "- ROUTES.md" >> "$LATEST_DIR/README.md"
+echo "- CODE_SNAPSHOT.md" >> "$LATEST_DIR/README.md"
+if [ -f "$LATEST_DIR/SUPABASE_SCHEMA.sql" ]; then
+  echo "- SUPABASE_SCHEMA.sql" >> "$LATEST_DIR/README.md"
+fi
 
 echo
 echo "Export completed successfully."
@@ -276,3 +327,6 @@ echo "  $LATEST_DIR/PROJECT_CONTEXT.md"
 echo "  $LATEST_DIR/PROJECT_STRUCTURE.md"
 echo "  $LATEST_DIR/ROUTES.md"
 echo "  $LATEST_DIR/CODE_SNAPSHOT.md"
+if [ -f "$LATEST_DIR/SUPABASE_SCHEMA.sql" ]; then
+  echo "  $LATEST_DIR/SUPABASE_SCHEMA.sql"
+fi
