@@ -1,8 +1,10 @@
 "use client";
 
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,7 +59,11 @@ export default function LoginPage() {
             required
           />
         </div>
-
+<div className="mt-3 text-right">
+  <Link href="/forgot-password" className="text-sm text-[#1F6FB5] hover:underline">
+    Forgot password?
+  </Link>
+</div>
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button
