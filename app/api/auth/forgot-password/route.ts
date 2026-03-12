@@ -26,7 +26,7 @@ function getBaseUrl() {
   return "http://localhost:3000";
 }
 
-async function findUserByEmail(email: string) {
+async function userExistsByEmail(email: string) {
   let page = 1;
   const perPage = 1000;
 
@@ -36,17 +36,16 @@ async function findUserByEmail(email: string) {
       perPage,
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     const users = data?.users ?? [];
-    const found = users.find(
+    const matchedUser = users.find(
       (user) => user.email?.toLowerCase() === email.toLowerCase()
     );
 
-    if (found) return found;
-    if (users.length < perPage) return null;
+    if (matchedUser) return true;
+
+    if (users.length < perPage) return false;
 
     page += 1;
   }
@@ -64,18 +63,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await findUserByEmail(email);
+    const exists = await userExistsByEmail(email);
+    const baseUrl = getBaseUrl();
 
-    if (user) {
-      const redirectTo = `${getBaseUrl()}/reset-password`;
+    if (exists) {
+      const redirectTo = `${baseUrl}/reset-password`;
 
-      const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(
-        email,
-        { redirectTo }
-      );
+      const { error: resetError } =
+        await supabaseAdmin.auth.resetPasswordForEmail(email, {
+          redirectTo,
+        });
 
       if (resetError) {
-        console.error("forgot-password resetPasswordForEmail error:", resetError);
+        console.error(
+          "forgot-password resetPasswordForEmail error:",
+          resetError
+        );
       }
     }
 
