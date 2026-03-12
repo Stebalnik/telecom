@@ -1,76 +1,181 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+
+function getErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("user already registered")) {
+    return "An account with this email already exists.";
+  }
+
+  if (normalized.includes("password should be at least")) {
+    return "Password must be at least 6 characters.";
+  }
+
+  return message;
+}
 
 export default function SignupPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  async function onSubmit(e: React.FormEvent) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setError("");
+    setMessage("");
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setError("Please enter your email address.");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+    });
 
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      setError(getErrorMessage(error.message));
       return;
     }
 
-    router.push("/login");
+    setMessage(
+      "Account created successfully. Check your email if confirmation is required, then log in."
+    );
+
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+
+    setTimeout(() => {
+      router.push("/login");
+    }, 1200);
   }
 
   return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-semibold">Sign up</h1>
+    <main className="min-h-screen bg-[#F4F8FC] px-4 py-10">
+      <div className="mx-auto max-w-md rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-[#111827]">Sign up</h1>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm">Email</label>
-          <input
-            className="mt-1 w-full rounded border p-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            required
-          />
+        <p className="mt-2 text-sm text-[#4B5563]">
+          Create your account to access the Telecom Marketplace.
+        </p>
+
+        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-2 block text-sm font-medium text-[#111827]"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+              placeholder="you@company.com"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-2 block text-sm font-medium text-[#111827]"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+              placeholder="Create a password"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="mb-2 block text-sm font-medium text-[#111827]"
+            >
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+              placeholder="Repeat your password"
+            />
+          </div>
+
+          {message ? (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              {message}
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-[#1F6FB5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Creating account..." : "Create account"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-sm text-[#4B5563]">
+          Already have an account?{" "}
+          <Link href="/login" className="text-[#1F6FB5] hover:underline">
+            Log in
+          </Link>
         </div>
-
-        <div>
-          <label className="block text-sm">Password</label>
-          <input
-            className="mt-1 w-full rounded border p-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            required
-          />
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button
-          className="w-full rounded bg-black px-4 py-2 text-white disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? "Creating..." : "Create account"}
-        </button>
-      </form>
-
-      <p className="mt-4 text-sm">
-        Already have an account?{" "}
-        <a className="underline" href="/login">
-          Log in
-        </a>
-      </p>
+      </div>
     </main>
   );
 }
