@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Wed Mar 11 13:07:50 CDT 2026
+Generated: Wed Mar 11 21:45:30 CDT 2026
 
 ## 1. Root directories
 ```
@@ -11,6 +11,8 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./app/admin/company-change-requests
 ./app/admin/company-change-requests/[id]
 ./app/api
+./app/api/auth
+./app/api/auth/forgot-password
 ./app/api/coi
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
@@ -34,12 +36,15 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./app/customer/settings/certs-per-scope
 ./app/customer/settings/insurance
 ./app/dashboard
+./app/forgot-password
 ./app/login
 ./app/logout
+./app/reset-password
 ./app/signup
 ./docs
 ./lib
 ./lib/supabase
+./project_rules
 ./public
 ./scripts
 ./supabase
@@ -59,6 +64,9 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./app/admin/company-change-requests/page.tsx
 ./app/admin/page.tsx
 ./app/api/.DS_Store
+./app/api/auth/.DS_Store
+./app/api/auth/forgot-password/.DS_Store
+./app/api/auth/forgot-password/route.ts
 ./app/api/coi/.DS_Store
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
@@ -90,11 +98,14 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./app/customer/settings/page.tsx
 ./app/dashboard/page.tsx
 ./app/favicon.ico
+./app/forgot-password/.DS_Store
+./app/forgot-password/page.tsx
 ./app/globals.css
 ./app/layout.tsx
 ./app/login/page.tsx
 ./app/logout/page.tsx
 ./app/page.tsx
+./app/reset-password/page.tsx
 ./app/signup/page.tsx
 ./docs/.DS_Store
 ./docs/AI_CONTEXT.md
@@ -127,6 +138,13 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./package-lock 2.json
 ./package.json
 ./postcss.config.mjs
+./project_rules/AI_CONTEXT.md
+./project_rules/api_contracts.md
+./project_rules/backend_rules.md
+./project_rules/database_schema.md
+./project_rules/frontend_patterns.md
+./project_rules/security_rules.md
+./project_rules/ui_design_rules.md
 ./public/.DS_Store
 ./public/file.svg
 ./public/globe.svg
@@ -136,6 +154,7 @@ Generated: Wed Mar 11 13:07:50 CDT 2026
 ./public/window.svg
 ./README.md
 ./scripts/export_project_context.sh
+./scripts/ship.sh
 ./scripts/update_project_docs.sh
 ./supabase_schema.sql
 ./supabase/.temp/cli-latest
@@ -155,6 +174,7 @@ app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/page.tsx
+app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/contractor/coi/page.tsx
@@ -177,16 +197,21 @@ app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
 app/dashboard/page.tsx
+app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
 app/page.tsx
+app/reset-password/page.tsx
 app/signup/page.tsx
 ```
 
 ## 4. API route files
 ```
 app/api/.DS_Store
+app/api/auth/.DS_Store
+app/api/auth/forgot-password/.DS_Store
+app/api/auth/forgot-password/route.ts
 app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
