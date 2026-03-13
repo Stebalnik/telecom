@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { getMyUserId } from "./auth";
 
 export type Company = {
   id: string;
@@ -25,13 +26,6 @@ export type TeamMember = {
   role_title: string | null;
   created_at: string;
 };
-
-export async function getMyUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  if (!data.session?.user) throw new Error("Not logged in");
-  return data.session?.user.id;
-}
 
 /**
  * В твоём MVP: одна компания на аккаунт.
@@ -69,15 +63,21 @@ export async function listMyCompanies(): Promise<Company[]> {
 
 export async function createCompany(legal_name: string, dba_name?: string) {
   const uid = await getMyUserId();
+
   const { error } = await supabase.from("contractor_companies").insert({
     owner_user_id: uid,
     legal_name,
     dba_name: dba_name || null,
   });
+
   if (error) throw error;
 }
 
-export async function updateCompany(companyId: string, legal_name: string, dba_name?: string) {
+export async function updateCompany(
+  companyId: string,
+  legal_name: string,
+  dba_name?: string
+) {
   const { error } = await supabase
     .from("contractor_companies")
     .update({ legal_name, dba_name: dba_name || null })
@@ -102,6 +102,7 @@ export async function createTeam(companyId: string, name: string) {
     company_id: companyId,
     name,
   });
+
   if (error) throw error;
 }
 
@@ -116,12 +117,17 @@ export async function listMembers(teamId: string): Promise<TeamMember[]> {
   return (data || []) as TeamMember[];
 }
 
-export async function createMember(teamId: string, full_name: string, role_title?: string) {
+export async function createMember(
+  teamId: string,
+  full_name: string,
+  role_title?: string
+) {
   const { error } = await supabase.from("team_members").insert({
     team_id: teamId,
     full_name,
     role_title: role_title || null,
   });
+
   if (error) throw error;
 }
 
