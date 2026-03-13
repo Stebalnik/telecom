@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Wed Mar 11 22:51:15 CDT 2026
+Generated: Thu Mar 12 21:32:46 CDT 2026
 
 ## 1. Root directories
 ```
@@ -41,6 +41,7 @@ Generated: Wed Mar 11 22:51:15 CDT 2026
 ./app/logout
 ./app/reset-password
 ./app/signup
+./components
 ./docs
 ./lib
 ./lib/supabase
@@ -107,6 +108,8 @@ Generated: Wed Mar 11 22:51:15 CDT 2026
 ./app/page.tsx
 ./app/reset-password/page.tsx
 ./app/signup/page.tsx
+./components/AppChrome.tsx
+./components/LogoutButton.tsx
 ./docs/.DS_Store
 ./docs/AI_CONTEXT.md
 ./docs/api_contracts.md
@@ -136,6 +139,7 @@ Generated: Wed Mar 11 22:51:15 CDT 2026
 ./next-env.d.ts
 ./next.config.ts
 ./package-lock 2.json
+./package-lock.json
 ./package.json
 ./postcss.config.mjs
 ./project_rules/AI_CONTEXT.md
@@ -239,7 +243,8 @@ lib/supabaseClient.ts
 
 ## 6. Component files
 ```
-No components directory found.
+components/AppChrome.tsx
+components/LogoutButton.tsx
 ```
 
 ## 7. Public files

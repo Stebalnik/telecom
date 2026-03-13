@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Wed Mar 11 22:51:15 CDT 2026
+Generated: Thu Mar 12 21:32:46 CDT 2026
 
-Export folder: docs/export_files/2026-03-11_22-51-15
+Export folder: docs/export_files/2026-03-12_21-32-46
 
 ## 1. Directory tree
 ```
@@ -42,6 +42,7 @@ app/login
 app/logout
 app/reset-password
 app/signup
+components
 lib
 lib/supabase
 public
@@ -102,6 +103,8 @@ app/logout/page.tsx
 app/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
+components/AppChrome.tsx
+components/LogoutButton.tsx
 lib/.DS_Store
 lib/adminDocs.ts
 lib/bids.ts
@@ -210,6 +213,7 @@ app/signup/page.tsx
 ## 5. Important config files
 ```
 package.json
+package-lock.json
 tsconfig.json
 next.config.ts
 .gitignore
