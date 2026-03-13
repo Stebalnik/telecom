@@ -57,8 +57,8 @@ export default function ContractorCompanySettingsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) {
         router.replace("/login");
         return;
       }
@@ -113,8 +113,8 @@ export default function ContractorCompanySettingsPage() {
         return;
       }
 
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) {
+      const { data: authData } = await supabase.auth.getSession();
+      if (!authData.session?.user) {
         router.replace("/login");
         return;
       }
@@ -125,7 +125,7 @@ export default function ContractorCompanySettingsPage() {
         .from("company_change_requests")
         .insert({
           company_id: company.id,
-          requested_by: authData.user.id,
+          requested_by: authData.session?.user.id,
           proposed_legal_name: legalName.trim() || null,
           proposed_dba_name: dbaName.trim() || null,
           proposed_fein: fein.trim() || null,
@@ -167,7 +167,7 @@ export default function ContractorCompanySettingsPage() {
             .from("company_change_request_files")
             .insert({
               request_id: requestRow.id,
-              uploaded_by: authData.user.id,
+              uploaded_by: authData.session?.user.id,
               file_name: file.name,
               file_path: path,
               file_public_url: publicUrlData.publicUrl,

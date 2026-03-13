@@ -38,14 +38,14 @@ export type CustomerScopeRequirement = {
 };
 
 export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const { data, error } = await supabase
     .from("customers")
     .select("*")
-    .eq("owner_user_id", userData.user.id)
+    .eq("owner_user_id", userData.session?.user.id)
     .maybeSingle();
 
   if (error) throw error;
@@ -53,14 +53,14 @@ export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
 }
 
 export async function createMyCustomerOrg(params: { name: string; description?: string }) {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const { data, error } = await supabase
     .from("customers")
     .insert({
-      owner_user_id: userData.user.id,
+      owner_user_id: userData.session?.user.id,
       name: params.name,
       description: params.description || null,
     })

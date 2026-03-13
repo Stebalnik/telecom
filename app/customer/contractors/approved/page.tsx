@@ -71,14 +71,14 @@ export default function CustomerApprovedContractorsPage() {
       if (!profile) return router.replace("/login");
       if (profile.role !== "customer") return router.replace("/dashboard");
 
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      const { data: userData, error: userErr } = await supabase.auth.getSession();
       if (userErr) throw userErr;
-      if (!userData.user) return router.replace("/login");
+      if (!userData.session?.user) return router.replace("/login");
 
       const { data: cust, error: custErr } = await supabase
         .from("customers")
         .select("id,owner_user_id,name")
-        .eq("owner_user_id", userData.user.id)
+        .eq("owner_user_id", userData.session?.user.id)
         .maybeSingle();
 
       if (custErr) throw custErr;

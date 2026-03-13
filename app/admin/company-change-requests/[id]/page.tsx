@@ -78,8 +78,8 @@ export default function AdminCompanyChangeRequestDetailsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) {
         router.replace("/login");
         return;
       }

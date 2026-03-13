@@ -3,14 +3,14 @@ import { supabase } from "./supabaseClient";
 export type UserRole = "customer" | "contractor" | "admin";
 
 export async function getMyProfile() {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) return null;
+  if (!userData.session?.user) return null;
 
   const { data, error } = await supabase
     .from("profiles")
     .select("id, role, created_at")
-    .eq("id", userData.user.id)
+    .eq("id", userData.session?.user.id)
     .maybeSingle();
 
   if (error) throw error;
@@ -18,12 +18,12 @@ export async function getMyProfile() {
 }
 
 export async function createMyProfile(role: UserRole) {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const { error } = await supabase.from("profiles").insert({
-    id: userData.user.id,
+    id: userData.session?.user.id,
     role,
   });
 

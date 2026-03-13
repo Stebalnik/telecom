@@ -40,9 +40,9 @@ export async function listJobFilesForJobs(jobIds: string[]): Promise<JobFileRow[
 }
 
 export async function uploadJobFile(jobId: string, file: File) {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const clean = safeFilename(file.name);
   const path = `jobs/${jobId}/${Date.now()}-${clean}`;
@@ -62,7 +62,7 @@ export async function uploadJobFile(jobId: string, file: File) {
     file_name: file.name,
     content_type: file.type || null,
     size_bytes: file.size ?? null,
-    uploaded_by_user_id: userData.user.id,
+    uploaded_by_user_id: userData.session?.user.id,
   });
 
   if (metaErr) throw metaErr;

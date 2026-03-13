@@ -18,14 +18,14 @@ export async function createJob(params: {
   budgetMin?: number;
   budgetMax?: number;
 }) {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const { data, error } = await supabase
     .from("jobs")
     .insert({
-      customer_user_id: userData.user.id,
+      customer_user_id: userData.session?.user.id,
       title: params.title,
       description: params.description || null,
       location: params.location || null,
@@ -52,14 +52,14 @@ export async function listOpenJobs(): Promise<Job[]> {
 }
 
 export async function listMyJobs(): Promise<Job[]> {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await supabase.auth.getSession();
   if (userErr) throw userErr;
-  if (!userData.user) throw new Error("Not logged in");
+  if (!userData.session?.user) throw new Error("Not logged in");
 
   const { data, error } = await supabase
     .from("jobs")
     .select("*")
-    .eq("customer_user_id", userData.user.id)
+    .eq("customer_user_id", userData.session?.user.id)
     .order("created_at", { ascending: false });
 
   if (error) throw error;

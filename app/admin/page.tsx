@@ -68,6 +68,51 @@ function mapRequestRow(row: RequestRowDb): RequestRow {
   };
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }) {
+  const styles =
+    status === "approved"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : status === "rejected"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${styles}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-[#1F6FB5] text-white"
+          : "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -77,19 +122,22 @@ export default function AdminPage() {
   const [err, setErr] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<AdminFilter>("all");
+  const [busyDocId, setBusyDocId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session?.user) {
         router.replace("/login");
         return;
       }
 
       const profile = await getMyProfile();
+
       if (!profile || profile.role !== "admin") {
         router.replace("/dashboard");
         return;
@@ -124,6 +172,7 @@ export default function AdminPage() {
       const normalized = ((requestsResult.data ?? []) as RequestRowDb[]).map(
         mapRequestRow
       );
+
       setCompanyRequests(normalized);
     } catch (e: any) {
       setErr(e.message ?? "Load error");
@@ -172,21 +221,29 @@ export default function AdminPage() {
 
   async function onApprove(id: string) {
     setErr(null);
+    setBusyDocId(id);
+
     try {
       await approveDoc(id);
       await load();
     } catch (e: any) {
       setErr(e.message ?? "Approve error");
+    } finally {
+      setBusyDocId(null);
     }
   }
 
   async function onReject(id: string) {
     setErr(null);
+    setBusyDocId(id);
+
     try {
       await rejectDoc(id, rejectNote[id] || "Rejected");
       await load();
     } catch (e: any) {
       setErr(e.message ?? "Reject error");
+    } finally {
+      setBusyDocId(null);
     }
   }
 
@@ -203,199 +260,285 @@ export default function AdminPage() {
   const showCompanyChanges = filter === "all" || filter === "company_changes";
 
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Admin review center</h1>
-          <p className="text-sm text-gray-600">
-            Review pending documents and contractor company change requests.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            className="rounded border px-4 py-2 text-sm"
-            href="/admin/company-change-requests"
-          >
-            View all company change requests
-          </Link>
-
-          <Link className="underline" href="/dashboard">
-            Back
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          className={`rounded border px-4 py-2 text-sm ${
-            filter === "all" ? "bg-black text-white" : ""
-          }`}
-          onClick={() => setFilter("all")}
-        >
-          All ({counts.total})
-        </button>
-
-        <button
-          className={`rounded border px-4 py-2 text-sm ${
-            filter === "documents" ? "bg-black text-white" : ""
-          }`}
-          onClick={() => setFilter("documents")}
-        >
-          Documents ({counts.documents})
-        </button>
-
-        <button
-          className={`rounded border px-4 py-2 text-sm ${
-            filter === "company_changes" ? "bg-black text-white" : ""
-          }`}
-          onClick={() => setFilter("company_changes")}
-        >
-          Company changes ({counts.companyChanges})
-        </button>
-      </div>
-
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-
-      {!loading && counts.total === 0 && (
-        <p className="text-sm text-gray-600">No pending items.</p>
-      )}
-
-      {showDocuments && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
+    <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Pending documents</h2>
-              <p className="text-sm text-gray-600">
-                COI and certifications waiting for review.
+              <h1 className="text-2xl font-semibold text-[#111827]">
+                Admin review center
+              </h1>
+              <p className="mt-2 text-sm text-[#4B5563]">
+                Review pending documents and contractor company change requests.
               </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin/company-change-requests"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                View all company change requests
+              </Link>
+
+              <Link
+                href="/dashboard"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                Back to dashboard
+              </Link>
             </div>
           </div>
 
-          {docs.length === 0 ? (
-            <div className="rounded border p-4 text-sm text-gray-600">
-              No pending documents.
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {docs.map((d) => (
-                <div key={d.id} className="rounded border p-4">
-                  <div className="flex items-center justify-between">
-                    <b>{d.doc_kind.toUpperCase()}</b>
-                    <span className="text-sm">pending</span>
-                  </div>
-
-                  <div className="mt-1 text-sm text-gray-600">
-                    Expires: {d.expires_at}
-                  </div>
-
-                  <div className="mt-2">
-                    <a
-                      className="underline text-sm"
-                      href={d.file_public_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open file
-                    </a>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      className="rounded bg-black px-3 py-2 text-white"
-                      onClick={() => onApprove(d.id)}
-                    >
-                      Approve
-                    </button>
-
-                    <input
-                      className="rounded border p-2 text-sm"
-                      placeholder="Reject reason (optional)"
-                      value={rejectNote[d.id] || ""}
-                      onChange={(e) =>
-                        setRejectNote((prev) => ({
-                          ...prev,
-                          [d.id]: e.target.value,
-                        }))
-                      }
-                    />
-
-                    <button
-                      className="rounded border px-3 py-2 text-sm"
-                      onClick={() => onReject(d.id)}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {showCompanyChanges && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">
-                Pending company change requests
-              </h2>
-              <p className="text-sm text-gray-600">
-                Contractor requests to update company data.
-              </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <div className="text-sm text-[#4B5563]">Total pending</div>
+              <div className="mt-2 text-2xl font-semibold text-[#111827]">
+                {counts.total}
+              </div>
             </div>
 
-            <Link
-              href="/admin/company-change-requests"
-              className="rounded border px-4 py-2 text-sm"
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <div className="text-sm text-[#4B5563]">Documents</div>
+              <div className="mt-2 text-2xl font-semibold text-[#111827]">
+                {counts.documents}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <div className="text-sm text-[#4B5563]">Company changes</div>
+              <div className="mt-2 text-2xl font-semibold text-[#111827]">
+                {counts.companyChanges}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <div className="text-sm text-[#4B5563]">Filter</div>
+              <div className="mt-2 text-sm font-medium text-[#111827] capitalize">
+                {filter === "all"
+                  ? "All requests"
+                  : filter === "documents"
+                  ? "Documents only"
+                  : "Company changes only"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+              All ({counts.total})
+            </FilterButton>
+
+            <FilterButton
+              active={filter === "documents"}
+              onClick={() => setFilter("documents")}
             >
-              View all
-            </Link>
-          </div>
+              Documents ({counts.documents})
+            </FilterButton>
 
-          {companyRequests.length === 0 ? (
-            <div className="rounded border p-4 text-sm text-gray-600">
-              No pending company change requests.
+            <FilterButton
+              active={filter === "company_changes"}
+              onClick={() => setFilter("company_changes")}
+            >
+              Company changes ({counts.companyChanges})
+            </FilterButton>
+          </div>
+        </section>
+
+        {loading ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <p className="text-sm text-[#4B5563]">Loading review queue...</p>
+          </section>
+        ) : null}
+
+        {err ? (
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+            {err}
+          </section>
+        ) : null}
+
+        {!loading && counts.total === 0 ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <p className="text-sm text-[#4B5563]">No pending items.</p>
+          </section>
+        ) : null}
+
+        {showDocuments ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Pending documents
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  COI and certifications waiting for review.
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="rounded border overflow-hidden">
-              <div className="grid grid-cols-5 gap-4 border-b bg-gray-50 p-3 text-sm font-medium">
-                <div>Company</div>
-                <div>DBA</div>
-                <div>Status</div>
-                <div>Created</div>
-                <div></div>
+
+            {docs.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+                No pending documents.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4">
+                {docs.map((d) => {
+                  const isBusy = busyDocId === d.id;
+
+                  return (
+                    <div
+                      key={d.id}
+                      className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-[#111827]">
+                              {d.doc_kind.toUpperCase()}
+                            </h3>
+                            <StatusBadge status="pending" />
+                          </div>
+
+                          <div className="text-sm text-[#4B5563]">
+                            Expires: {d.expires_at || "—"}
+                          </div>
+
+                          <a
+                            className="inline-flex text-sm font-medium text-[#1F6FB5] hover:underline"
+                            href={d.file_public_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open file
+                          </a>
+                        </div>
+
+                        <div className="w-full max-w-md space-y-3">
+                          <input
+                            className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 text-sm outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+                            placeholder="Reject reason (optional)"
+                            value={rejectNote[d.id] || ""}
+                            onChange={(e) =>
+                              setRejectNote((prev) => ({
+                                ...prev,
+                                [d.id]: e.target.value,
+                              }))
+                            }
+                          />
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => onApprove(d.id)}
+                            >
+                              {isBusy ? "Processing..." : "Approve"}
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => onReject(d.id)}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {showCompanyChanges ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Pending company change requests
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  Contractor requests to update company data.
+                </p>
               </div>
 
-              {companyRequests.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid grid-cols-5 gap-4 border-b p-3 text-sm items-center"
-                >
-                  <div>{row.company?.legal_name || "—"}</div>
-                  <div>{row.company?.dba_name || "—"}</div>
-                  <div>
-                    <span className="rounded border px-2 py-1 text-xs">
-                      {row.status}
-                    </span>
-                  </div>
-                  <div>{new Date(row.created_at).toLocaleString()}</div>
-                  <div>
-                    <Link
-                      href={`/admin/company-change-requests/${row.id}`}
-                      className="rounded border px-3 py-2 text-sm"
-                    >
-                      Open
-                    </Link>
-                  </div>
-                </div>
-              ))}
+              <Link
+                href="/admin/company-change-requests"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                View all
+              </Link>
             </div>
-          )}
-        </section>
-      )}
+
+            {companyRequests.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+                No pending company change requests.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4">
+                {companyRequests.map((row) => (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                  >
+                    <div className="grid gap-4 lg:grid-cols-[2fr_2fr_1fr_1.5fr_auto] lg:items-center">
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Company
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {row.company?.legal_name || "—"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          DBA
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {row.company?.dba_name || "—"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Status
+                        </div>
+                        <div className="mt-2">
+                          <StatusBadge status={row.status} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Created
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {formatDate(row.created_at)}
+                        </div>
+                      </div>
+
+                      <div className="lg:text-right">
+                        <Link
+                          href={`/admin/company-change-requests/${row.id}`}
+                          className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                        >
+                          Open
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+      </div>
     </main>
   );
 }

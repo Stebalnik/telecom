@@ -34,8 +34,8 @@ export default function ContractorCustomersPage() {
       setLoading(true);
       setErr(null);
 
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return router.replace("/login");
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) return router.replace("/login");
 
       const profile = await getMyProfile();
       if (!profile || profile.role !== "contractor") return router.replace("/dashboard");

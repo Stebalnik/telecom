@@ -145,9 +145,9 @@ export default function ContractorCompanyOnboardingPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getSession();
 
-      if (!data.user) {
+      if (!data.session?.user) {
         router.replace("/login");
         return;
       }
@@ -159,7 +159,7 @@ export default function ContractorCompanyOnboardingPage() {
         return;
       }
 
-      const c = await getOrCreateDraftCompany(data.user.id);
+      const c = await getOrCreateDraftCompany(data.session?.user.id);
 
       if (c.onboarding_status !== "draft") {
         router.replace("/contractor");

@@ -27,10 +27,10 @@ export type TeamMember = {
 };
 
 export async function getMyUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  if (!data.user) throw new Error("Not logged in");
-  return data.user.id;
+  if (!data.session?.user) throw new Error("Not logged in");
+  return data.session?.user.id;
 }
 
 /**

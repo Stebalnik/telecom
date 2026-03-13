@@ -71,72 +71,73 @@ export default function ContractorPage() {
   );
 
   async function loadAll() {
-    setLoading(true);
-    setErr(null);
+  setLoading(true);
+  setErr(null);
 
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
+  try {
+    const { data } = await supabase.auth.getSession();
+
+    if (!data.session?.user) {
       router.replace("/login");
       return;
     }
 
     const profile = await getMyProfile();
+
     if (!profile || profile.role !== "contractor") {
       router.replace("/dashboard");
       return;
     }
 
-    try {
-      const [insT, certT] = await Promise.all([
-        listInsuranceTypes(),
-        listCertTypes(),
-      ]);
-      setInsuranceTypes(insT);
-      setCertTypes(certT);
+    const [insT, certT] = await Promise.all([
+      listInsuranceTypes(),
+      listCertTypes(),
+    ]);
+    setInsuranceTypes(insT);
+    setCertTypes(certT);
 
-      const c = await getMyCompany();
+    const c = await getMyCompany();
 
-      // если компании нет или она в draft — отправляем на onboarding
-      if (!c || c.onboarding_status === "draft") {
-        router.replace("/contractor/onboarding/company");
-        return;
-      }
-
-      setCompany(c);
-      setLegalName(c.legal_name || "");
-      setDbaName(c.dba_name || "");
-
-      const t = await listTeams(c.id);
-      setTeams(t);
-
-      const ins = await listCompanyInsurance(c.id);
-      setCompanyInsurance(ins);
-
-      if (t.length > 0) {
-        const teamId = selectedTeamId || t[0].id;
-        setSelectedTeamId(teamId);
-
-        const m = await listMembers(teamId);
-        setMembers(m);
-
-        const certMap: Record<string, DocumentRow[]> = {};
-        for (const person of m) {
-          certMap[person.id] = await listMemberCerts(person.id);
-        }
-        setMemberCerts(certMap);
-
-        if (!certMemberId && m[0]) setCertMemberId(m[0].id);
-      } else {
-        setSelectedTeamId(null);
-        setMembers([]);
-        setMemberCerts({});
-      }
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
-    } finally {
-      setLoading(false);
+    if (!c || c.onboarding_status === "draft") {
+      router.replace("/contractor/onboarding/company");
+      return;
     }
+
+    setCompany(c);
+    setLegalName(c.legal_name || "");
+    setDbaName(c.dba_name || "");
+
+    const t = await listTeams(c.id);
+    setTeams(t);
+
+    const ins = await listCompanyInsurance(c.id);
+    setCompanyInsurance(ins);
+
+    if (t.length > 0) {
+      const teamId = selectedTeamId || t[0].id;
+      setSelectedTeamId(teamId);
+
+      const m = await listMembers(teamId);
+      setMembers(m);
+
+      const certMap: Record<string, DocumentRow[]> = {};
+      for (const person of m) {
+        certMap[person.id] = await listMemberCerts(person.id);
+      }
+      setMemberCerts(certMap);
+
+      if (!certMemberId && m[0]) setCertMemberId(m[0].id);
+    } else {
+      setSelectedTeamId(null);
+      setMembers([]);
+      setMemberCerts({});
+    }
+  } catch (e: any) {
+    setErr(e.message ?? "Load error");
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadAll();
