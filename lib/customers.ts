@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { getMyUserId } from "./auth";
 
 export type CustomerOrg = {
   id: string;
@@ -38,29 +39,28 @@ export type CustomerScopeRequirement = {
 };
 
 export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
-  const { data: userData, error: userErr } = await supabase.auth.getSession();
-  if (userErr) throw userErr;
-  if (!userData.session?.user) throw new Error("Not logged in");
+  const userId = await getMyUserId();
 
   const { data, error } = await supabase
     .from("customers")
     .select("*")
-    .eq("owner_user_id", userData.session?.user.id)
+    .eq("owner_user_id", userId)
     .maybeSingle();
 
   if (error) throw error;
   return (data ?? null) as CustomerOrg | null;
 }
 
-export async function createMyCustomerOrg(params: { name: string; description?: string }) {
-  const { data: userData, error: userErr } = await supabase.auth.getSession();
-  if (userErr) throw userErr;
-  if (!userData.session?.user) throw new Error("Not logged in");
+export async function createMyCustomerOrg(params: {
+  name: string;
+  description?: string;
+}) {
+  const userId = await getMyUserId();
 
   const { data, error } = await supabase
     .from("customers")
     .insert({
-      owner_user_id: userData.session?.user.id,
+      owner_user_id: userId,
       name: params.name,
       description: params.description || null,
     })
@@ -72,12 +72,18 @@ export async function createMyCustomerOrg(params: { name: string; description?: 
 }
 
 export async function listScopes(): Promise<Scope[]> {
-  const { data, error } = await supabase.from("scopes").select("*").order("name");
+  const { data, error } = await supabase
+    .from("scopes")
+    .select("*")
+    .order("name");
+
   if (error) throw error;
   return (data || []) as Scope[];
 }
 
-export async function listCustomerInsuranceReq(customerId: string): Promise<CustomerInsuranceRequirement[]> {
+export async function listCustomerInsuranceReq(
+  customerId: string
+): Promise<CustomerInsuranceRequirement[]> {
   const { data, error } = await supabase
     .from("customer_insurance_requirements")
     .select("*")
@@ -87,7 +93,9 @@ export async function listCustomerInsuranceReq(customerId: string): Promise<Cust
   return (data || []) as CustomerInsuranceRequirement[];
 }
 
-export async function upsertCustomerInsuranceReq(row: Omit<CustomerInsuranceRequirement, "id"> & { id?: string }) {
+export async function upsertCustomerInsuranceReq(
+  row: Omit<CustomerInsuranceRequirement, "id"> & { id?: string }
+) {
   const payload: any = { ...row };
   if (!row.id) delete payload.id;
 
@@ -98,7 +106,9 @@ export async function upsertCustomerInsuranceReq(row: Omit<CustomerInsuranceRequ
   if (error) throw error;
 }
 
-export async function listCustomerScopeReq(customerId: string): Promise<CustomerScopeRequirement[]> {
+export async function listCustomerScopeReq(
+  customerId: string
+): Promise<CustomerScopeRequirement[]> {
   const { data, error } = await supabase
     .from("customer_scope_requirements")
     .select("*")
@@ -131,7 +141,11 @@ export async function upsertCustomerScopeReq(row: {
   if (error) throw error;
 }
 
-export async function deleteCustomerScopeReq(customerId: string, scopeId: string, certTypeId: string) {
+export async function deleteCustomerScopeReq(
+  customerId: string,
+  scopeId: string,
+  certTypeId: string
+) {
   const { error } = await supabase
     .from("customer_scope_requirements")
     .delete()
@@ -146,15 +160,30 @@ export async function ensureMyCustomerOrg() {
   const existing = await getMyCustomerOrg();
   if (existing) return existing;
 
-  // создаём с дефолтным названием (потом в settings поменяет)
-  const o = await createMyCustomerOrg({
+  return await createMyCustomerOrg({
     name: "My Customer Org",
     description: "",
   });
-  return o;
 }
 
 // ===== Approved contractors + COI =====
+
+type ApprovedContractorRowDb = {
+  contractor_company_id: string;
+  status: string;
+  contractor_companies:
+    | {
+        id: string;
+        legal_name: string;
+        dba_name: string | null;
+      }
+    | {
+        id: string;
+        legal_name: string;
+        dba_name: string | null;
+      }[]
+    | null;
+};
 
 export type ApprovedContractorRow = {
   contractor_company_id: string;
@@ -163,9 +192,8 @@ export type ApprovedContractorRow = {
     id: string;
     legal_name: string;
     dba_name: string | null;
-  }[]; // <-- ВАЖНО: массив
+  } | null;
 };
-
 
 export type ContractorCoiRow = {
   id: string;
@@ -174,6 +202,18 @@ export type ContractorCoiRow = {
   file_path: string;
   created_at: string;
 };
+
+function normalizeApprovedContractors(
+  rows: ApprovedContractorRowDb[]
+): ApprovedContractorRow[] {
+  return rows.map((row) => ({
+    contractor_company_id: row.contractor_company_id,
+    status: row.status,
+    contractor_companies: Array.isArray(row.contractor_companies)
+      ? row.contractor_companies[0] ?? null
+      : row.contractor_companies,
+  }));
+}
 
 export async function getMyCustomerId(): Promise<string> {
   const org = await ensureMyCustomerOrg();
@@ -200,7 +240,10 @@ export async function listApprovedContractors(): Promise<ApprovedContractorRow[]
     .eq("status", "approved");
 
   if (error) throw error;
-  return (data || []) as ApprovedContractorRow[];
+
+  return normalizeApprovedContractors(
+    (data || []) as ApprovedContractorRowDb[]
+  );
 }
 
 export async function listLatestApprovedCoiByCompanies(
@@ -233,7 +276,9 @@ export type ContractorCompanyMini = {
   status: string;
 };
 
-export async function searchContractorCompanies(q: string): Promise<ContractorCompanyMini[]> {
+export async function searchContractorCompanies(
+  q: string
+): Promise<ContractorCompanyMini[]> {
   const query = q.trim();
   if (!query) return [];
 
@@ -253,6 +298,7 @@ export async function upsertCustomerContractor(params: {
   status: "approved" | "pending" | "rejected";
 }) {
   const customerId = await getMyCustomerId();
+
   const { error } = await supabase
     .from("customer_contractors")
     .upsert(
@@ -263,11 +309,16 @@ export async function upsertCustomerContractor(params: {
       },
       { onConflict: "customer_id,contractor_company_id" }
     );
+
   if (error) throw error;
 }
 
-export async function updateCustomerContractorStatus(contractorCompanyId: string, status: "approved" | "pending" | "rejected") {
+export async function updateCustomerContractorStatus(
+  contractorCompanyId: string,
+  status: "approved" | "pending" | "rejected"
+) {
   const customerId = await getMyCustomerId();
+
   const { error } = await supabase
     .from("customer_contractors")
     .update({ status })
@@ -279,6 +330,7 @@ export async function updateCustomerContractorStatus(contractorCompanyId: string
 
 export async function removeCustomerContractor(contractorCompanyId: string) {
   const customerId = await getMyCustomerId();
+
   const { error } = await supabase
     .from("customer_contractors")
     .delete()
@@ -310,7 +362,10 @@ export async function listCustomerContractorsByStatus(
     .eq("status", status);
 
   if (error) throw error;
-  return (data || []) as ApprovedContractorRow[];
+
+  return normalizeApprovedContractors(
+    (data || []) as ApprovedContractorRowDb[]
+  );
 }
 
 export type InsuranceType = {
@@ -318,7 +373,7 @@ export type InsuranceType = {
   code: string;
   name: string;
   is_core: boolean;
-  limit_schema: any; // jsonb
+  limit_schema: any;
 };
 
 export type EndorsementType = {
@@ -333,11 +388,9 @@ export type CustomerInsuranceConfig = {
   warning_days_before_expiration: number;
   hard_block_if_expired: boolean;
   notice_of_cancellation_days: number;
-
   minimum_am_best_rating: string | null;
   must_be_admitted_carrier: boolean;
   state_restrictions: string | null;
-
   bond_required: boolean;
   bid_bond: boolean;
   performance_bond: boolean;
@@ -366,7 +419,9 @@ export async function listEndorsementTypes(): Promise<EndorsementType[]> {
   return (data || []) as EndorsementType[];
 }
 
-export async function getCustomerInsuranceConfig(customerId: string): Promise<CustomerInsuranceConfig | null> {
+export async function getCustomerInsuranceConfig(
+  customerId: string
+): Promise<CustomerInsuranceConfig | null> {
   const { data, error } = await supabase
     .from("customer_insurance_config")
     .select("*")
@@ -377,7 +432,9 @@ export async function getCustomerInsuranceConfig(customerId: string): Promise<Cu
   return (data ?? null) as CustomerInsuranceConfig | null;
 }
 
-export async function upsertCustomerInsuranceConfig(row: CustomerInsuranceConfig) {
+export async function upsertCustomerInsuranceConfig(
+  row: CustomerInsuranceConfig
+) {
   const { error } = await supabase
     .from("customer_insurance_config")
     .upsert(row, { onConflict: "customer_id" });
@@ -385,7 +442,9 @@ export async function upsertCustomerInsuranceConfig(row: CustomerInsuranceConfig
   if (error) throw error;
 }
 
-export async function listCustomerRequiredEndorsements(customerId: string): Promise<string[]> {
+export async function listCustomerRequiredEndorsements(
+  customerId: string
+): Promise<string[]> {
   const { data, error } = await supabase
     .from("customer_required_endorsements")
     .select("endorsement_type_id")
@@ -395,19 +454,27 @@ export async function listCustomerRequiredEndorsements(customerId: string): Prom
   return (data || []).map((x: any) => x.endorsement_type_id as string);
 }
 
-export async function setCustomerRequiredEndorsements(customerId: string, endorsementTypeIds: string[]) {
-  // простая стратегия: удалить и вставить
+export async function setCustomerRequiredEndorsements(
+  customerId: string,
+  endorsementTypeIds: string[]
+) {
   const { error: delErr } = await supabase
     .from("customer_required_endorsements")
     .delete()
     .eq("customer_id", customerId);
+
   if (delErr) throw delErr;
 
   if (endorsementTypeIds.length === 0) return;
 
   const { error: insErr } = await supabase
     .from("customer_required_endorsements")
-    .insert(endorsementTypeIds.map((id) => ({ customer_id: customerId, endorsement_type_id: id })));
+    .insert(
+      endorsementTypeIds.map((id) => ({
+        customer_id: customerId,
+        endorsement_type_id: id,
+      }))
+    );
 
   if (insErr) throw insErr;
 }

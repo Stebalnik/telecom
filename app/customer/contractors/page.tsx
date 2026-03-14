@@ -249,7 +249,10 @@ export default function CustomerContractorsPage() {
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Contractors</h1>
+        <h1 className="text-2xl font-semibold">Manage contractors</h1>
+        <p className="text-sm text-gray-600">
+  Search contractors, review COI, and set your relationship status.
+</p>
         <a className="underline text-sm" href="/customer">
           Back
         </a>
