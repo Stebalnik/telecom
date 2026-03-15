@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Thu Mar 12 22:10:36 CDT 2026
+Generated: Sun Mar 15 16:41:18 CDT 2026
 
 ## App router files
 ```
@@ -8,16 +8,29 @@ app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/page.tsx
+app/admin/team-change-requests/[id]/page.tsx
+app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
+app/contractor/company/change-request/page.tsx
+app/contractor/company/page.tsx
 app/contractor/customers/page.tsx
+app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
+app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
+app/contractor/requests/page.tsx
 app/contractor/settings/company/page.tsx
+app/contractor/teams/change-request/page.tsx
+app/contractor/teams/new/page.tsx
+app/contractor/teams/page.tsx
+app/contractor/teams/requests/page.tsx
+app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
 app/customer/contractors/layout.tsx
 app/customer/contractors/page.tsx

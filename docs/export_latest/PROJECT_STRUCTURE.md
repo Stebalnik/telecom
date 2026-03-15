@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Thu Mar 12 22:10:36 CDT 2026
+Generated: Sun Mar 15 16:41:18 CDT 2026
 
 ## 1. Root directories
 ```
@@ -10,6 +10,8 @@ Generated: Thu Mar 12 22:10:36 CDT 2026
 ./app/admin
 ./app/admin/company-change-requests
 ./app/admin/company-change-requests/[id]
+./app/admin/team-change-requests
+./app/admin/team-change-requests/[id]
 ./app/api
 ./app/api/auth
 ./app/api/auth/forgot-password
@@ -17,16 +19,26 @@ Generated: Thu Mar 12 22:10:36 CDT 2026
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
 ./app/contractor
+./app/contractor/certifications
 ./app/contractor/coi
+./app/contractor/company
+./app/contractor/company/change-request
 ./app/contractor/customers
+./app/contractor/insurance
 ./app/contractor/jobs
 ./app/contractor/jobs/[id]
 ./app/contractor/onboarding
 ./app/contractor/onboarding/company
+./app/contractor/requests
 ./app/contractor/settings
 ./app/contractor/settings/company
+./app/contractor/teams
+./app/contractor/teams/change-request
+./app/contractor/teams/new
+./app/contractor/teams/requests
 ./app/customer
 ./app/customer/contractors
+./app/customer/contractors/all
 ./app/customer/contractors/approved
 ./app/customer/jobs
 ./app/customer/jobs/active
@@ -64,6 +76,9 @@ Generated: Thu Mar 12 22:10:36 CDT 2026
 ./app/admin/company-change-requests/[id]/page.tsx
 ./app/admin/company-change-requests/page.tsx
 ./app/admin/page.tsx
+./app/admin/team-change-requests/.DS_Store
+./app/admin/team-change-requests/[id]/page.tsx
+./app/admin/team-change-requests/page.tsx
 ./app/api/.DS_Store
 ./app/api/auth/.DS_Store
 ./app/api/auth/forgot-password/.DS_Store
@@ -72,17 +87,28 @@ Generated: Thu Mar 12 22:10:36 CDT 2026
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
 ./app/contractor/.DS_Store
+./app/contractor/certifications/page.tsx
 ./app/contractor/coi/page.tsx
+./app/contractor/company/change-request/page.tsx
+./app/contractor/company/page.tsx
 ./app/contractor/customers/page.tsx
+./app/contractor/insurance/page.tsx
 ./app/contractor/jobs/[id]/page.tsx
 ./app/contractor/jobs/page.tsx
+./app/contractor/layout.tsx
 ./app/contractor/onboarding/.DS_Store
 ./app/contractor/onboarding/company/page.tsx
 ./app/contractor/page.tsx
+./app/contractor/requests/page.tsx
 ./app/contractor/settings/.DS_Store
 ./app/contractor/settings/company/page.tsx
+./app/contractor/teams/change-request/page.tsx
+./app/contractor/teams/new/page.tsx
+./app/contractor/teams/page.tsx
+./app/contractor/teams/requests/page.tsx
 ./app/customer/.DS_Store
 ./app/customer/contractors/.DS_Store
+./app/customer/contractors/all/page.tsx
 ./app/customer/contractors/approved/page.tsx
 ./app/customer/contractors/layout.tsx
 ./app/customer/contractors/page.tsx
@@ -122,11 +148,12 @@ Generated: Thu Mar 12 22:10:36 CDT 2026
 ./eslint.config.mjs
 ./lib/.DS_Store
 ./lib/adminDocs.ts
+./lib/auth.ts
 ./lib/bids.ts
 ./lib/coi.ts
 ./lib/coiDownload.ts
 ./lib/contractor.ts
-./lib/customer_old.ts
+./lib/contractorMarketplace.ts
 ./lib/customers.ts
 ./lib/dateUtils.ts
 ./lib/documents.ts
@@ -178,16 +205,29 @@ app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/page.tsx
+app/admin/team-change-requests/[id]/page.tsx
+app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
+app/contractor/company/change-request/page.tsx
+app/contractor/company/page.tsx
 app/contractor/customers/page.tsx
+app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
+app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
+app/contractor/requests/page.tsx
 app/contractor/settings/company/page.tsx
+app/contractor/teams/change-request/page.tsx
+app/contractor/teams/new/page.tsx
+app/contractor/teams/page.tsx
+app/contractor/teams/requests/page.tsx
+app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
 app/customer/contractors/layout.tsx
 app/customer/contractors/page.tsx
@@ -225,11 +265,12 @@ app/api/coi/signed-url/route.ts
 ```
 lib/.DS_Store
 lib/adminDocs.ts
+lib/auth.ts
 lib/bids.ts
 lib/coi.ts
 lib/coiDownload.ts
 lib/contractor.ts
-lib/customer_old.ts
+lib/contractorMarketplace.ts
 lib/customers.ts
 lib/dateUtils.ts
 lib/documents.ts

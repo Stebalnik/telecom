@@ -52,6 +52,119 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE OR REPLACE FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_request public.team_change_requests%rowtype;
+begin
+  select *
+  into v_request
+  from public.team_change_requests
+  where id = p_request_id;
+
+  if not found then
+    raise exception 'Team change request not found';
+  end if;
+
+  if v_request.status <> 'approved' then
+    raise exception 'Only approved requests can be applied';
+  end if;
+
+  -- remove current team members for this team
+  delete from public.team_members
+  where team_id = v_request.team_id;
+
+  -- insert requested composition
+  insert into public.team_members (
+    team_id,
+    full_name,
+    role_title,
+    phone,
+    email,
+    date_of_birth
+  )
+  select
+    v_request.team_id,
+    m.full_name,
+    m.role_title,
+    m.phone,
+    m.email,
+    m.date_of_birth
+  from public.team_change_request_members m
+  where m.request_id = v_request.id
+  order by m.sort_order asc;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."archive_contractor_coi_before_update"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  insert into public.contractor_coi_history (
+    source_coi_id,
+    company_id,
+    issue_date,
+    expiration_date,
+    carrier_name,
+    am_best_rating,
+    admitted_carrier,
+    file_path,
+    status,
+    review_notes,
+    insured_name,
+    broker_name,
+    broker_phone,
+    broker_email,
+    certificate_holder,
+    description_of_operations,
+    additional_insured_text,
+    waiver_of_subrogation_text,
+    primary_non_contributory_text,
+    included_entities_text,
+    version_no,
+    archived_at,
+    created_at
+  )
+  values (
+    old.id,
+    old.company_id,
+    old.issue_date,
+    old.expiration_date,
+    old.carrier_name,
+    old.am_best_rating,
+    old.admitted_carrier,
+    old.file_path,
+    old.status,
+    old.review_notes,
+    old.insured_name,
+    old.broker_name,
+    old.broker_phone,
+    old.broker_email,
+    old.certificate_holder,
+    old.description_of_operations,
+    old.additional_insured_text,
+    old.waiver_of_subrogation_text,
+    old.primary_non_contributory_text,
+    old.included_entities_text,
+    old.version_no,
+    now(),
+    old.created_at
+  );
+
+  new.version_no = coalesce(old.version_no, 1) + 1;
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."archive_contractor_coi_before_update"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."can_bid_job"("p_job_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE
     AS $$
@@ -236,6 +349,108 @@ $$;
 ALTER FUNCTION "public"."job_id_from_storage_path"("p_name" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."list_marketplace_contractors"("p_search" "text" DEFAULT NULL::"text") RETURNS TABLE("company_id" "uuid", "legal_name" "text", "dba_name" "text", "headline" "text", "markets" "text"[], "available_teams_count" integer, "insurance_types" "text"[], "average_rating" numeric, "reviews_count" integer)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  with base as (
+    select
+      c.id as company_id,
+      c.legal_name,
+      c.dba_name,
+      p.headline,
+      p.markets
+    from public.contractor_companies c
+    join public.contractor_public_profiles p
+      on p.company_id = c.id
+    where c.status = 'active'
+      and c.onboarding_status = 'approved'
+      and p.is_listed = true
+      and (
+        p_search is null
+        or trim(p_search) = ''
+        or c.legal_name ilike '%' || trim(p_search) || '%'
+        or coalesce(c.dba_name, '') ilike '%' || trim(p_search) || '%'
+        or coalesce(p.headline, '') ilike '%' || trim(p_search) || '%'
+      )
+  ),
+  team_counts as (
+    select
+      t.company_id,
+      count(*)::int as available_teams_count
+    from public.teams t
+    where t.status = 'active'
+      and not exists (
+        select 1
+        from public.team_availability_blocks b
+        where b.team_id = t.id
+          and b.status = 'busy'
+          and current_date between b.start_date and b.end_date
+      )
+    group by t.company_id
+  ),
+  insurance_summary as (
+    select
+      d.company_id,
+      array_agg(distinct it.name order by it.name) as insurance_types
+    from public.documents d
+    join public.insurance_types it
+      on it.id = d.insurance_type_id
+    where d.doc_kind = 'insurance'
+      and d.verification_status = 'approved'
+      and d.expires_at >= current_date
+    group by d.company_id
+  ),
+  rating_summary as (
+    select
+      contractor_company_id as company_id,
+      round(avg(rating)::numeric, 2) as average_rating,
+      count(*)::int as reviews_count
+    from public.work_reviews
+    where reviewee_role = 'contractor'
+      and contractor_company_id is not null
+    group by contractor_company_id
+  )
+  select
+    b.company_id,
+    b.legal_name,
+    b.dba_name,
+    b.headline,
+    b.markets,
+    coalesce(tc.available_teams_count, 0) as available_teams_count,
+    coalesce(ins.insurance_types, '{}'::text[]) as insurance_types,
+    coalesce(rs.average_rating, 0::numeric) as average_rating,
+    coalesce(rs.reviews_count, 0) as reviews_count
+  from base b
+  left join team_counts tc on tc.company_id = b.company_id
+  left join insurance_summary ins on ins.company_id = b.company_id
+  left join rating_summary rs on rs.company_id = b.company_id
+  order by
+    coalesce(rs.average_rating, 0::numeric) desc,
+    coalesce(tc.available_teams_count, 0) desc,
+    b.legal_name asc;
+$$;
+
+
+ALTER FUNCTION "public"."list_marketplace_contractors"("p_search" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."prevent_team_request_redecision"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  if old.status in ('approved', 'rejected') and new.status <> old.status then
+    raise exception 'This team change request has already been finalized.';
+  end if;
+
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."prevent_team_request_redecision"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -291,6 +506,19 @@ $$;
 
 
 ALTER FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."set_updated_at"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."team_cert_count"("p_team_id" "uuid", "p_cert_type_id" "uuid") RETURNS integer
@@ -451,6 +679,18 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_coi" (
     "status" "text" DEFAULT 'pending'::"text" NOT NULL,
     "review_notes" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "insured_name" "text",
+    "broker_name" "text",
+    "broker_phone" "text",
+    "broker_email" "text",
+    "certificate_holder" "text",
+    "description_of_operations" "text",
+    "additional_insured_text" "text",
+    "waiver_of_subrogation_text" "text",
+    "primary_non_contributory_text" "text",
+    "included_entities_text" "text",
+    "version_no" integer DEFAULT 1 NOT NULL,
+    "archived_at" timestamp with time zone,
     CONSTRAINT "contractor_coi_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))
 );
 
@@ -466,6 +706,37 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_coi_endorsements" (
 
 
 ALTER TABLE "public"."contractor_coi_endorsements" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."contractor_coi_history" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "source_coi_id" "uuid",
+    "company_id" "uuid" NOT NULL,
+    "issue_date" "date",
+    "expiration_date" "date",
+    "carrier_name" "text",
+    "am_best_rating" "text",
+    "admitted_carrier" boolean,
+    "file_path" "text",
+    "status" "text",
+    "review_notes" "text",
+    "insured_name" "text",
+    "broker_name" "text",
+    "broker_phone" "text",
+    "broker_email" "text",
+    "certificate_holder" "text",
+    "description_of_operations" "text",
+    "additional_insured_text" "text",
+    "waiver_of_subrogation_text" "text",
+    "primary_non_contributory_text" "text",
+    "included_entities_text" "text",
+    "version_no" integer DEFAULT 1 NOT NULL,
+    "archived_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."contractor_coi_history" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."contractor_coi_insured_entities" (
@@ -494,6 +765,19 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_coi_policies" (
 
 
 ALTER TABLE "public"."contractor_coi_policies" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."contractor_coi_supporting_files" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "coi_id" "uuid" NOT NULL,
+    "uploaded_by" "uuid",
+    "file_name" "text",
+    "file_path" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."contractor_coi_supporting_files" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."contractor_companies" (
@@ -548,6 +832,18 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_insurance_policies" (
 
 
 ALTER TABLE "public"."contractor_insurance_policies" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."contractor_public_profiles" (
+    "company_id" "uuid" NOT NULL,
+    "headline" "text",
+    "markets" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "is_listed" boolean DEFAULT true NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."contractor_public_profiles" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."customer_contractors" (
@@ -834,16 +1130,37 @@ CREATE TABLE IF NOT EXISTS "public"."team_availability_blocks" (
 ALTER TABLE "public"."team_availability_blocks" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."team_members" (
+CREATE TABLE IF NOT EXISTS "public"."team_change_request_members" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "team_id" "uuid" NOT NULL,
+    "request_id" "uuid" NOT NULL,
     "full_name" "text" NOT NULL,
     "role_title" "text",
+    "phone" "text",
+    "email" "text",
+    "date_of_birth" "date",
+    "sort_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 
-ALTER TABLE "public"."team_members" OWNER TO "postgres";
+ALTER TABLE "public"."team_change_request_members" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."team_change_requests" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "company_id" "uuid" NOT NULL,
+    "team_id" "uuid" NOT NULL,
+    "requested_by" "uuid" NOT NULL,
+    "reason" "text" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "admin_note" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "team_change_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))
+);
+
+
+ALTER TABLE "public"."team_change_requests" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."teams" (
@@ -860,6 +1177,42 @@ CREATE TABLE IF NOT EXISTS "public"."teams" (
 ALTER TABLE "public"."teams" OWNER TO "postgres";
 
 
+CREATE OR REPLACE VIEW "public"."team_change_requests_with_company" AS
+ SELECT "r"."id",
+    "r"."company_id",
+    "r"."team_id",
+    "r"."requested_by",
+    "r"."reason",
+    "r"."status",
+    "r"."admin_note",
+    "r"."created_at",
+    "r"."updated_at",
+    "c"."legal_name" AS "company_legal_name",
+    "c"."dba_name" AS "company_dba_name",
+    "t"."name" AS "team_name"
+   FROM (("public"."team_change_requests" "r"
+     LEFT JOIN "public"."contractor_companies" "c" ON (("c"."id" = "r"."company_id")))
+     LEFT JOIN "public"."teams" "t" ON (("t"."id" = "r"."team_id")));
+
+
+ALTER VIEW "public"."team_change_requests_with_company" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."team_members" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "team_id" "uuid" NOT NULL,
+    "full_name" "text" NOT NULL,
+    "role_title" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "phone" "text",
+    "email" "text",
+    "date_of_birth" "date"
+);
+
+
+ALTER TABLE "public"."team_members" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."vendor_approvals" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "customer_id" "uuid" NOT NULL,
@@ -874,6 +1227,26 @@ CREATE TABLE IF NOT EXISTS "public"."vendor_approvals" (
 
 
 ALTER TABLE "public"."vendor_approvals" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."work_reviews" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "job_id" "uuid",
+    "customer_id" "uuid",
+    "contractor_company_id" "uuid",
+    "reviewer_user_id" "uuid" NOT NULL,
+    "reviewer_role" "text" NOT NULL,
+    "reviewee_role" "text" NOT NULL,
+    "rating" integer NOT NULL,
+    "comment" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "work_reviews_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 5))),
+    CONSTRAINT "work_reviews_reviewee_role_check" CHECK (("reviewee_role" = ANY (ARRAY['customer'::"text", 'contractor'::"text"]))),
+    CONSTRAINT "work_reviews_reviewer_role_check" CHECK (("reviewer_role" = ANY (ARRAY['customer'::"text", 'contractor'::"text"])))
+);
+
+
+ALTER TABLE "public"."work_reviews" OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."bids"
@@ -907,6 +1280,11 @@ ALTER TABLE ONLY "public"."company_change_requests"
 
 
 ALTER TABLE ONLY "public"."contractor_coi"
+    ADD CONSTRAINT "contractor_coi_company_id_key" UNIQUE ("company_id");
+
+
+
+ALTER TABLE ONLY "public"."contractor_coi"
     ADD CONSTRAINT "contractor_coi_company_unique" UNIQUE ("company_id");
 
 
@@ -918,6 +1296,11 @@ ALTER TABLE ONLY "public"."contractor_coi_endorsements"
 
 ALTER TABLE ONLY "public"."contractor_coi_endorsements"
     ADD CONSTRAINT "contractor_coi_endorsements_unique" UNIQUE ("coi_id", "endorsement_code");
+
+
+
+ALTER TABLE ONLY "public"."contractor_coi_history"
+    ADD CONSTRAINT "contractor_coi_history_pkey" PRIMARY KEY ("id");
 
 
 
@@ -936,6 +1319,11 @@ ALTER TABLE ONLY "public"."contractor_coi_policies"
 
 
 
+ALTER TABLE ONLY "public"."contractor_coi_supporting_files"
+    ADD CONSTRAINT "contractor_coi_supporting_files_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."contractor_coi"
     ADD CONSTRAINT "contractor_coi_unique" UNIQUE ("company_id");
 
@@ -948,6 +1336,11 @@ ALTER TABLE ONLY "public"."contractor_companies"
 
 ALTER TABLE ONLY "public"."contractor_insurance_policies"
     ADD CONSTRAINT "contractor_insurance_policies_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."contractor_public_profiles"
+    ADD CONSTRAINT "contractor_public_profiles_pkey" PRIMARY KEY ("company_id");
 
 
 
@@ -1086,6 +1479,16 @@ ALTER TABLE ONLY "public"."team_availability_blocks"
 
 
 
+ALTER TABLE ONLY "public"."team_change_request_members"
+    ADD CONSTRAINT "team_change_request_members_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."team_change_requests"
+    ADD CONSTRAINT "team_change_requests_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."team_members"
     ADD CONSTRAINT "team_members_pkey" PRIMARY KEY ("id");
 
@@ -1098,6 +1501,11 @@ ALTER TABLE ONLY "public"."teams"
 
 ALTER TABLE ONLY "public"."vendor_approvals"
     ADD CONSTRAINT "vendor_approvals_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."work_reviews"
+    ADD CONSTRAINT "work_reviews_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1185,6 +1593,26 @@ CREATE INDEX "idx_company_change_requests_status" ON "public"."company_change_re
 
 
 
+CREATE INDEX "idx_contractor_coi_company_id" ON "public"."contractor_coi" USING "btree" ("company_id");
+
+
+
+CREATE INDEX "idx_contractor_coi_history_archived_at" ON "public"."contractor_coi_history" USING "btree" ("archived_at" DESC);
+
+
+
+CREATE INDEX "idx_contractor_coi_history_company_id" ON "public"."contractor_coi_history" USING "btree" ("company_id");
+
+
+
+CREATE INDEX "idx_contractor_coi_history_source_coi_id" ON "public"."contractor_coi_history" USING "btree" ("source_coi_id");
+
+
+
+CREATE INDEX "idx_contractor_coi_supporting_files_coi_id" ON "public"."contractor_coi_supporting_files" USING "btree" ("coi_id");
+
+
+
 CREATE INDEX "idx_contractor_companies_owner" ON "public"."contractor_companies" USING "btree" ("owner_user_id");
 
 
@@ -1221,6 +1649,38 @@ CREATE INDEX "idx_team_avail_team" ON "public"."team_availability_blocks" USING 
 
 
 
+CREATE INDEX "idx_team_change_request_members_request_id" ON "public"."team_change_request_members" USING "btree" ("request_id");
+
+
+
+CREATE INDEX "idx_team_change_requests_company_id" ON "public"."team_change_requests" USING "btree" ("company_id");
+
+
+
+CREATE INDEX "idx_team_change_requests_company_status" ON "public"."team_change_requests" USING "btree" ("company_id", "status");
+
+
+
+CREATE INDEX "idx_team_change_requests_requested_by" ON "public"."team_change_requests" USING "btree" ("requested_by");
+
+
+
+CREATE INDEX "idx_team_change_requests_status" ON "public"."team_change_requests" USING "btree" ("status");
+
+
+
+CREATE INDEX "idx_team_change_requests_team_id" ON "public"."team_change_requests" USING "btree" ("team_id");
+
+
+
+CREATE INDEX "idx_team_members_dob" ON "public"."team_members" USING "btree" ("date_of_birth");
+
+
+
+CREATE INDEX "idx_team_members_email" ON "public"."team_members" USING "btree" ("email");
+
+
+
 CREATE INDEX "idx_teams_company" ON "public"."teams" USING "btree" ("company_id");
 
 
@@ -1254,6 +1714,18 @@ CREATE UNIQUE INDEX "uq_required_insurance_type" ON "public"."required_company_i
 
 
 CREATE UNIQUE INDEX "uq_vendor_customer_company" ON "public"."vendor_approvals" USING "btree" ("customer_id", "contractor_company_id");
+
+
+
+CREATE OR REPLACE TRIGGER "trg_archive_contractor_coi_before_update" BEFORE UPDATE ON "public"."contractor_coi" FOR EACH ROW EXECUTE FUNCTION "public"."archive_contractor_coi_before_update"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_prevent_team_request_redecision" BEFORE UPDATE ON "public"."team_change_requests" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_team_request_redecision"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_team_change_requests_updated_at" BEFORE UPDATE ON "public"."team_change_requests" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -1312,6 +1784,11 @@ ALTER TABLE ONLY "public"."contractor_coi_endorsements"
 
 
 
+ALTER TABLE ONLY "public"."contractor_coi_history"
+    ADD CONSTRAINT "contractor_coi_history_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."contractor_coi_insured_entities"
     ADD CONSTRAINT "contractor_coi_insured_entities_coi_id_fkey" FOREIGN KEY ("coi_id") REFERENCES "public"."contractor_coi"("id") ON DELETE CASCADE;
 
@@ -1337,6 +1814,16 @@ ALTER TABLE ONLY "public"."contractor_coi_policies"
 
 
 
+ALTER TABLE ONLY "public"."contractor_coi_supporting_files"
+    ADD CONSTRAINT "contractor_coi_supporting_files_coi_id_fkey" FOREIGN KEY ("coi_id") REFERENCES "public"."contractor_coi"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."contractor_coi_supporting_files"
+    ADD CONSTRAINT "contractor_coi_supporting_files_uploaded_by_fkey" FOREIGN KEY ("uploaded_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."contractor_companies"
     ADD CONSTRAINT "contractor_companies_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
@@ -1349,6 +1836,11 @@ ALTER TABLE ONLY "public"."contractor_insurance_policies"
 
 ALTER TABLE ONLY "public"."contractor_insurance_policies"
     ADD CONSTRAINT "contractor_insurance_policies_insurance_type_id_fkey" FOREIGN KEY ("insurance_type_id") REFERENCES "public"."insurance_types"("id");
+
+
+
+ALTER TABLE ONLY "public"."contractor_public_profiles"
+    ADD CONSTRAINT "contractor_public_profiles_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
 
 
 
@@ -1517,6 +2009,26 @@ ALTER TABLE ONLY "public"."team_availability_blocks"
 
 
 
+ALTER TABLE ONLY "public"."team_change_request_members"
+    ADD CONSTRAINT "team_change_request_members_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "public"."team_change_requests"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."team_change_requests"
+    ADD CONSTRAINT "team_change_requests_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."team_change_requests"
+    ADD CONSTRAINT "team_change_requests_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."team_change_requests"
+    ADD CONSTRAINT "team_change_requests_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."team_members"
     ADD CONSTRAINT "team_members_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE CASCADE;
 
@@ -1539,6 +2051,26 @@ ALTER TABLE ONLY "public"."vendor_approvals"
 
 ALTER TABLE ONLY "public"."vendor_approvals"
     ADD CONSTRAINT "vendor_approvals_reviewed_by_admin_fkey" FOREIGN KEY ("reviewed_by_admin") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."work_reviews"
+    ADD CONSTRAINT "work_reviews_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."work_reviews"
+    ADD CONSTRAINT "work_reviews_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."work_reviews"
+    ADD CONSTRAINT "work_reviews_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."work_reviews"
+    ADD CONSTRAINT "work_reviews_reviewer_user_id_fkey" FOREIGN KEY ("reviewer_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -1841,10 +2373,47 @@ ALTER TABLE "public"."contractor_coi" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."contractor_coi_endorsements" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."contractor_coi_history" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "contractor_coi_history_delete_admin" ON "public"."contractor_coi_history" FOR DELETE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "contractor_coi_history_select_owner_or_admin" ON "public"."contractor_coi_history" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "contractor_coi_history"."company_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
 ALTER TABLE "public"."contractor_coi_insured_entities" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."contractor_coi_policies" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."contractor_coi_supporting_files" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "contractor_coi_supporting_files_delete_owner_or_admin" ON "public"."contractor_coi_supporting_files" FOR DELETE USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."contractor_coi" "c"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "c"."company_id")))
+  WHERE (("c"."id" = "contractor_coi_supporting_files"."coi_id") AND ("cc"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "contractor_coi_supporting_files_insert_owner_or_admin" ON "public"."contractor_coi_supporting_files" FOR INSERT WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."contractor_coi" "c"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "c"."company_id")))
+  WHERE (("c"."id" = "contractor_coi_supporting_files"."coi_id") AND ("cc"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "contractor_coi_supporting_files_select_owner_or_admin" ON "public"."contractor_coi_supporting_files" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."contractor_coi" "c"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "c"."company_id")))
+  WHERE (("c"."id" = "contractor_coi_supporting_files"."coi_id") AND ("cc"."owner_user_id" = "auth"."uid"()))))));
+
 
 
 ALTER TABLE "public"."contractor_companies" ENABLE ROW LEVEL SECURITY;
@@ -1867,6 +2436,29 @@ CREATE POLICY "contractor_companies_owner_select" ON "public"."contractor_compan
 
 
 CREATE POLICY "contractor_companies_owner_update_draft" ON "public"."contractor_companies" FOR UPDATE USING ((("owner_user_id" = "auth"."uid"()) AND ("onboarding_status" = 'draft'::"text"))) WITH CHECK ((("owner_user_id" = "auth"."uid"()) AND ("onboarding_status" = ANY (ARRAY['draft'::"text", 'submitted'::"text"]))));
+
+
+
+ALTER TABLE "public"."contractor_public_profiles" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "contractor_public_profiles_insert_owner" ON "public"."contractor_public_profiles" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "contractor_public_profiles_select" ON "public"."contractor_public_profiles" FOR SELECT TO "authenticated" USING ((("is_listed" = true) OR (EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "contractor_public_profiles_update_owner" ON "public"."contractor_public_profiles" FOR UPDATE TO "authenticated" USING (((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"())) WITH CHECK (((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
 
 
 
@@ -2135,6 +2727,51 @@ CREATE POLICY "team_avail_write_owner" ON "public"."team_availability_blocks" US
 ALTER TABLE "public"."team_availability_blocks" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."team_change_request_members" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "team_change_request_members_delete_admin" ON "public"."team_change_request_members" FOR DELETE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "team_change_request_members_insert_own_or_admin" ON "public"."team_change_request_members" FOR INSERT WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."team_change_requests" "r"
+     JOIN "public"."contractor_companies" "c" ON (("c"."id" = "r"."company_id")))
+  WHERE (("r"."id" = "team_change_request_members"."request_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "team_change_request_members_select_own_or_admin" ON "public"."team_change_request_members" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."team_change_requests" "r"
+     JOIN "public"."contractor_companies" "c" ON (("c"."id" = "r"."company_id")))
+  WHERE (("r"."id" = "team_change_request_members"."request_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "team_change_request_members_update_admin" ON "public"."team_change_request_members" FOR UPDATE USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+ALTER TABLE "public"."team_change_requests" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "team_change_requests_insert_own" ON "public"."team_change_requests" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM ("public"."teams" "t"
+     JOIN "public"."contractor_companies" "c" ON (("c"."id" = "t"."company_id")))
+  WHERE (("t"."id" = "team_change_requests"."team_id") AND ("c"."id" = "team_change_requests"."company_id") AND ("c"."owner_user_id" = "auth"."uid"()) AND ("team_change_requests"."requested_by" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "team_change_requests_select_own_or_admin" ON "public"."team_change_requests" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "team_change_requests"."company_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "team_change_requests_update_admin" ON "public"."team_change_requests" FOR UPDATE USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
 ALTER TABLE "public"."team_members" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2179,6 +2816,17 @@ CREATE POLICY "vendor_select" ON "public"."vendor_approvals" FOR SELECT USING ((
 
 
 CREATE POLICY "vendor_update_admin" ON "public"."vendor_approvals" FOR UPDATE USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+ALTER TABLE "public"."work_reviews" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "work_reviews_insert_own" ON "public"."work_reviews" FOR INSERT TO "authenticated" WITH CHECK (("reviewer_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "work_reviews_select_authenticated" ON "public"."work_reviews" FOR SELECT TO "authenticated" USING (true);
 
 
 
@@ -2360,6 +3008,19 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."archive_contractor_coi_before_update"() TO "anon";
+GRANT ALL ON FUNCTION "public"."archive_contractor_coi_before_update"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."archive_contractor_coi_before_update"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "service_role";
@@ -2396,10 +3057,28 @@ GRANT ALL ON FUNCTION "public"."job_id_from_storage_path"("p_name" "text") TO "s
 
 
 
+GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."prevent_team_request_redecision"() TO "anon";
+GRANT ALL ON FUNCTION "public"."prevent_team_request_redecision"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."prevent_team_request_redecision"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
 
 
 
@@ -2478,6 +3157,12 @@ GRANT ALL ON TABLE "public"."contractor_coi_endorsements" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."contractor_coi_history" TO "anon";
+GRANT ALL ON TABLE "public"."contractor_coi_history" TO "authenticated";
+GRANT ALL ON TABLE "public"."contractor_coi_history" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."contractor_coi_insured_entities" TO "anon";
 GRANT ALL ON TABLE "public"."contractor_coi_insured_entities" TO "authenticated";
 GRANT ALL ON TABLE "public"."contractor_coi_insured_entities" TO "service_role";
@@ -2490,6 +3175,12 @@ GRANT ALL ON TABLE "public"."contractor_coi_policies" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."contractor_coi_supporting_files" TO "anon";
+GRANT ALL ON TABLE "public"."contractor_coi_supporting_files" TO "authenticated";
+GRANT ALL ON TABLE "public"."contractor_coi_supporting_files" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."contractor_companies" TO "anon";
 GRANT ALL ON TABLE "public"."contractor_companies" TO "authenticated";
 GRANT ALL ON TABLE "public"."contractor_companies" TO "service_role";
@@ -2499,6 +3190,12 @@ GRANT ALL ON TABLE "public"."contractor_companies" TO "service_role";
 GRANT ALL ON TABLE "public"."contractor_insurance_policies" TO "anon";
 GRANT ALL ON TABLE "public"."contractor_insurance_policies" TO "authenticated";
 GRANT ALL ON TABLE "public"."contractor_insurance_policies" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "anon";
+GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "authenticated";
+GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "service_role";
 
 
 
@@ -2622,9 +3319,15 @@ GRANT ALL ON TABLE "public"."team_availability_blocks" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."team_members" TO "anon";
-GRANT ALL ON TABLE "public"."team_members" TO "authenticated";
-GRANT ALL ON TABLE "public"."team_members" TO "service_role";
+GRANT ALL ON TABLE "public"."team_change_request_members" TO "anon";
+GRANT ALL ON TABLE "public"."team_change_request_members" TO "authenticated";
+GRANT ALL ON TABLE "public"."team_change_request_members" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."team_change_requests" TO "anon";
+GRANT ALL ON TABLE "public"."team_change_requests" TO "authenticated";
+GRANT ALL ON TABLE "public"."team_change_requests" TO "service_role";
 
 
 
@@ -2634,9 +3337,27 @@ GRANT ALL ON TABLE "public"."teams" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."team_change_requests_with_company" TO "anon";
+GRANT ALL ON TABLE "public"."team_change_requests_with_company" TO "authenticated";
+GRANT ALL ON TABLE "public"."team_change_requests_with_company" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."team_members" TO "anon";
+GRANT ALL ON TABLE "public"."team_members" TO "authenticated";
+GRANT ALL ON TABLE "public"."team_members" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "anon";
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "authenticated";
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."work_reviews" TO "anon";
+GRANT ALL ON TABLE "public"."work_reviews" TO "authenticated";
+GRANT ALL ON TABLE "public"."work_reviews" TO "service_role";
 
 
 
