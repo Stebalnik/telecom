@@ -1,27 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
 import { getMyCompany } from "../../../lib/contractor";
 import {
+  addCOISupportingFile,
   createOrUpdateMyCOI,
-  getMyCOI,
-  listInsuranceTypes,
-  listEndorsementTypes,
-  listCOIPolicies,
-  upsertCOIPolicy,
   deleteCOIPolicy,
+  getMyCOI,
   listCOIEndorsements,
+  listCOIHistory,
+  listCOIPolicies,
+  listCOISupportingFiles,
+  listEndorsementTypes,
+  listInsuranceTypes,
   saveCOIEndorsements,
-  COIRow,
-  InsuranceTypeRow,
-  EndorsementTypeRow,
+  upsertCOIPolicy,
+  COIHistoryRow,
   COIPolicyRow,
+  COIRow,
+  COISupportingFileRow,
+  EndorsementTypeRow,
+  InsuranceTypeRow,
 } from "../../../lib/coi";
 
-function iso(d: string) {
+function iso(d?: string | null) {
   return d || "";
 }
 
@@ -55,33 +61,115 @@ function parseLimitSchemaKeys(limit_schema: any): { key: string; label: string }
   return [];
 }
 
+function StatusBadge({ status }: { status?: string | null }) {
+  const normalized = (status || "draft").toLowerCase();
+
+  const cls =
+    normalized === "approved" || normalized === "active"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : normalized === "pending"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : normalized === "rejected" || normalized === "expired"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-blue-200 bg-blue-50 text-blue-700";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${cls}`}
+    >
+      {status || "draft"}
+    </span>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-[#111827]">{title}</h2>
+        {subtitle ? (
+          <p className="mt-1 text-sm text-[#4B5563]">{subtitle}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-medium text-[#111827] whitespace-pre-wrap break-words">
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString();
+}
+
 export default function ContractorCOIPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
   const [companyId, setCompanyId] = useState<string | null>(null);
 
-  // COI header
   const [coi, setCoi] = useState<COIRow | null>(null);
+
   const [issueDate, setIssueDate] = useState<string>(todayISO());
   const [expDate, setExpDate] = useState<string>("");
   const [carrierName, setCarrierName] = useState<string>("");
   const [amBest, setAmBest] = useState<string>("");
   const [admitted, setAdmitted] = useState<boolean>(false);
-  const [file, setFile] = useState<File | null>(null);
 
-  // reference data
+  const [insuredName, setInsuredName] = useState<string>("");
+  const [brokerName, setBrokerName] = useState<string>("");
+  const [brokerPhone, setBrokerPhone] = useState<string>("");
+  const [brokerEmail, setBrokerEmail] = useState<string>("");
+  const [certificateHolder, setCertificateHolder] = useState<string>("");
+  const [operationsDescription, setOperationsDescription] = useState<string>("");
+  const [additionalInsuredText, setAdditionalInsuredText] = useState<string>("");
+  const [waiverText, setWaiverText] = useState<string>("");
+  const [primaryNonContribText, setPrimaryNonContribText] = useState<string>("");
+  const [includedEntitiesText, setIncludedEntitiesText] = useState<string>("");
+
+  const [file, setFile] = useState<File | null>(null);
+  const [supportingFiles, setSupportingFiles] = useState<FileList | null>(null);
+
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceTypeRow[]>([]);
   const [endorsementTypes, setEndorsementTypes] = useState<EndorsementTypeRow[]>([]);
 
-  // policies & endorsements
   const [policies, setPolicies] = useState<COIPolicyRow[]>([]);
   const [endorsementCodes, setEndorsementCodes] = useState<string[]>([]);
   const [noticeDays, setNoticeDays] = useState<number>(30);
 
-  // policy editor
+  const [supportingFileRows, setSupportingFileRows] = useState<COISupportingFileRow[]>([]);
+  const [historyRows, setHistoryRows] = useState<COIHistoryRow[]>([]);
+
   const [selectedInsuranceTypeId, setSelectedInsuranceTypeId] = useState<string>("");
   const [policyIssue, setPolicyIssue] = useState<string>(todayISO());
   const [policyExp, setPolicyExp] = useState<string>("");
@@ -97,21 +185,105 @@ export default function ContractorCOIPage() {
     return parseLimitSchemaKeys(selectedInsuranceType?.limit_schema);
   }, [selectedInsuranceType]);
 
+  const insuranceNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    insuranceTypes.forEach((x) => (m[x.id] = x.name));
+    return m;
+  }, [insuranceTypes]);
+
+  async function uploadCurrentCOI(company_id: string): Promise<string | null> {
+    if (!file) return null;
+
+    const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+    if (sessErr) throw sessErr;
+
+    const accessToken = sessData.session?.access_token;
+    if (!accessToken) throw new Error("No session token. Please login again.");
+
+    const res = await fetch("/api/coi/signed-upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        companyId: company_id,
+        filename: file.name,
+        contentType: file.type || "application/pdf",
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || "Failed to create signed upload");
+
+    const bucketName = "coi-files";
+    const path = json.path as string;
+    const token = json.token as string;
+
+    const { error: upErr } = await supabase.storage
+      .from(bucketName)
+      .uploadToSignedUrl(path, token, file, {
+        contentType: file.type || "application/pdf",
+        upsert: false,
+      });
+
+    if (upErr) throw upErr;
+
+    return path;
+  }
+
+  async function uploadSupportingFiles(currentCoiId: string, company_id: string) {
+    if (!supportingFiles || supportingFiles.length === 0) return;
+
+    const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+    if (sessErr) throw sessErr;
+
+    const userId = sessData.session?.user?.id || null;
+
+    for (const f of Array.from(supportingFiles)) {
+      const ext = f.name.includes(".") ? f.name.split(".").pop() : "bin";
+      const path = `${company_id}/${currentCoiId}/supporting/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("coi-files")
+        .upload(path, f, { upsert: false });
+
+      if (uploadErr) {
+        throw new Error(uploadErr.message);
+      }
+
+      await addCOISupportingFile({
+        coi_id: currentCoiId,
+        uploaded_by: userId,
+        file_name: f.name,
+        file_path: path,
+      });
+    }
+  }
+
   async function load() {
     setLoading(true);
     setErr(null);
+    setOk(null);
 
     try {
       const profile = await getMyProfile();
-      if (!profile) return router.replace("/login");
-      if (profile.role !== "contractor") return router.replace("/dashboard");
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+      if (profile.role !== "contractor") {
+        router.replace("/dashboard");
+        return;
+      }
 
       const myCompany = await getMyCompany();
       if (!myCompany) {
-        setErr("Create your company first in Contractor cabinet.");
+        setErr("Create your company first in Contractor portal.");
         setLoading(false);
         return;
       }
+
       setCompanyId(myCompany.id);
 
       const [it, et, coi0] = await Promise.all([
@@ -119,29 +291,49 @@ export default function ContractorCOIPage() {
         listEndorsementTypes(),
         getMyCOI(myCompany.id),
       ]);
+
       setInsuranceTypes(it);
       setEndorsementTypes(et);
 
       if (coi0) {
         setCoi(coi0);
+
         setIssueDate(coi0.issue_date ?? todayISO());
         setExpDate(coi0.expiration_date ?? "");
         setCarrierName(coi0.carrier_name ?? "");
         setAmBest(coi0.am_best_rating ?? "");
         setAdmitted(!!coi0.admitted_carrier);
 
-        const [p, e] = await Promise.all([
+        setInsuredName(coi0.insured_name ?? "");
+        setBrokerName(coi0.broker_name ?? "");
+        setBrokerPhone(coi0.broker_phone ?? "");
+        setBrokerEmail(coi0.broker_email ?? "");
+        setCertificateHolder(coi0.certificate_holder ?? "");
+        setOperationsDescription(coi0.description_of_operations ?? "");
+        setAdditionalInsuredText(coi0.additional_insured_text ?? "");
+        setWaiverText(coi0.waiver_of_subrogation_text ?? "");
+        setPrimaryNonContribText(coi0.primary_non_contributory_text ?? "");
+        setIncludedEntitiesText(coi0.included_entities_text ?? "");
+
+        const [p, e, supportingRows, history] = await Promise.all([
           listCOIPolicies(coi0.id),
           listCOIEndorsements(coi0.id),
+          listCOISupportingFiles(coi0.id),
+          listCOIHistory(myCompany.id),
         ]);
+
         setPolicies(p);
         setEndorsementCodes(e.codes);
         setNoticeDays(e.noticeDays ?? 30);
+        setSupportingFileRows(supportingRows);
+        setHistoryRows(history);
       } else {
         setCoi(null);
         setPolicies([]);
         setEndorsementCodes([]);
         setNoticeDays(30);
+        setSupportingFileRows([]);
+        setHistoryRows([]);
       }
     } catch (e: any) {
       setErr(e.message ?? "Load error");
@@ -162,58 +354,15 @@ export default function ContractorCOIPage() {
     });
   }
 
-  // ✅ NEW: upload via /api/coi/signed-upload (private bucket, no storage policies)
- async function uploadToStorage(company_id: string): Promise<string | null> {
-  if (!file) return null;
-
-  // 1) take user session token
-  const { data: sessData, error: sessErr } = await supabase.auth.getSession();
-  if (sessErr) throw sessErr;
-  const accessToken = sessData.session?.access_token;
-  if (!accessToken) throw new Error("No session token. Please login again.");
-
-  // 2) ask server for signed upload
-  const res = await fetch("/api/coi/signed-upload", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      companyId: company_id,
-      filename: file.name,
-      contentType: file.type || "application/pdf",
-    }),
-  });
-
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.error || "Failed to create signed upload");
-
-  const bucketName = "coi-files";
-  const path = json.path as string;
-  const token = json.token as string;
-
-  // 3) upload using signed token (private bucket OK)
-  const { error: upErr } = await supabase.storage
-    .from(bucketName)
-    .uploadToSignedUrl(path, token, file, {
-      contentType: file.type || "application/pdf",
-      upsert: false,
-    });
-
-  if (upErr) throw upErr;
-
-  // 4) return stored path to save into contractor_coi.file_path
-  return path;
-}
-
   async function saveCOI() {
     if (!companyId) return;
+
+    setSaving(true);
     setErr(null);
+    setOk(null);
 
     try {
-      // ✅ use signed upload if a new file selected
-      const filePath = await uploadToStorageSigned(companyId);
+      const filePath = await uploadCurrentCOI(companyId);
 
       const saved = await createOrUpdateMyCOI({
         company_id: companyId,
@@ -223,26 +372,55 @@ export default function ContractorCOIPage() {
         am_best_rating: amBest || null,
         admitted_carrier: admitted,
         file_path: filePath ?? coi?.file_path ?? null,
+
+        insured_name: insuredName || null,
+        broker_name: brokerName || null,
+        broker_phone: brokerPhone || null,
+        broker_email: brokerEmail || null,
+        certificate_holder: certificateHolder || null,
+        description_of_operations: operationsDescription || null,
+        additional_insured_text: additionalInsuredText || null,
+        waiver_of_subrogation_text: waiverText || null,
+        primary_non_contributory_text: primaryNonContribText || null,
+        included_entities_text: includedEntitiesText || null,
       });
 
       setCoi(saved);
 
       await saveCOIEndorsements(saved.id, endorsementCodes, noticeDays);
 
-      const [p, e] = await Promise.all([listCOIPolicies(saved.id), listCOIEndorsements(saved.id)]);
+      const [p, e] = await Promise.all([
+        listCOIPolicies(saved.id),
+        listCOIEndorsements(saved.id),
+      ]);
+
       setPolicies(p);
       setEndorsementCodes(e.codes);
       setNoticeDays(e.noticeDays ?? 30);
 
-      alert("COI saved");
+      await uploadSupportingFiles(saved.id, companyId);
+
+      const [supportingRows, history] = await Promise.all([
+        listCOISupportingFiles(saved.id),
+        listCOIHistory(companyId),
+      ]);
+
+      setSupportingFileRows(supportingRows);
+      setHistoryRows(history);
+
+      setOk("COI saved successfully.");
+      setFile(null);
+      setSupportingFiles(null);
     } catch (e: any) {
       setErr(e.message ?? "Save COI error");
+    } finally {
+      setSaving(false);
     }
   }
 
-  // ✅ FIXED: use your existing GET /api/coi/signed-url?coiId=... with Bearer token
   async function downloadCOI() {
     if (!coi?.id) return;
+
     setErr(null);
 
     try {
@@ -273,7 +451,8 @@ export default function ContractorCOIPage() {
     setErr(null);
 
     try {
-      const limitsJson: any = {};
+      const limitsJson: Record<string, any> = {};
+
       Object.entries(limits).forEach(([k, v]) => {
         const num = v.replace(/[^0-9]/g, "");
         limitsJson[k] = num ? Number(num) : v;
@@ -303,7 +482,9 @@ export default function ContractorCOIPage() {
 
   async function removePolicy(id: string) {
     if (!coi?.id) return;
+
     setErr(null);
+
     try {
       await deleteCOIPolicy(id);
       const p = await listCOIPolicies(coi.id);
@@ -313,74 +494,240 @@ export default function ContractorCOIPage() {
     }
   }
 
-  const insuranceNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    insuranceTypes.forEach((x) => (m[x.id] = x.name));
-    return m;
-  }, [insuranceTypes]);
-
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">COI</h1>
-        <a className="underline text-sm" href="/contractor">
-          Back
-        </a>
-      </div>
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-[#111827]">
+              Certificate of Insurance
+            </h1>
+            <p className="mt-2 text-sm text-[#4B5563]">
+              Upload and manage the current COI, structured policy information, endorsements,
+              and compliance details. Only one current COI should be active at a time.
+            </p>
+          </div>
 
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={coi?.status ?? "draft"} />
 
-      <section className="rounded border p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Certificate of Insurance (COI)</h2>
-          <div className="text-sm">
-            Status: <b className="capitalize">{coi?.status ?? "draft"}</b>
+            <Link
+              href="/contractor"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              Back to overview
+            </Link>
           </div>
         </div>
+      </section>
 
-        <div className="grid gap-3 md:grid-cols-2">
+      {loading ? (
+        <SectionCard title="Loading">
+          <p className="text-sm text-[#4B5563]">Loading COI workspace...</p>
+        </SectionCard>
+      ) : null}
+
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
+
+      {ok ? (
+        <section className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 shadow-sm">
+          {ok}
+        </section>
+      ) : null}
+
+      <SectionCard
+        title="Current COI file"
+        subtitle="Upload the active COI file, replace it when needed, and keep the current certificate linked to this company."
+      >
+        <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Current COI file
+              </label>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4">
+              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                Active file path
+              </div>
+              <div className="mt-1 text-sm font-medium text-[#111827] break-all">
+                {coi?.file_path || "No active file uploaded"}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={downloadCOI}
+              disabled={!coi?.id}
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Download current COI
+            </button>
+
+            <button
+              type="button"
+              onClick={load}
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              Refresh data
+            </button>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Certificate details"
+        subtitle="Enter the core data shown on the certificate."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <div className="text-xs text-gray-600">Issue date</div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Issue date
+            </label>
             <input
               type="date"
-              className="w-full rounded border p-2"
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
               value={iso(issueDate)}
               onChange={(e) => setIssueDate(e.target.value)}
             />
           </div>
 
           <div>
-            <div className="text-xs text-gray-600">Expiration date</div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Expiration date
+            </label>
             <input
               type="date"
-              className="w-full rounded border p-2"
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
               value={iso(expDate)}
               onChange={(e) => setExpDate(e.target.value)}
             />
           </div>
 
           <div>
-            <div className="text-xs text-gray-600">Carrier name</div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Insured company name
+            </label>
             <input
-              className="w-full rounded border p-2"
-              placeholder="e.g. Travelers"
-              value={carrierName}
-              onChange={(e) => setCarrierName(e.target.value)}
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={insuredName}
+              onChange={(e) => setInsuredName(e.target.value)}
+              placeholder="Named insured"
             />
           </div>
 
           <div>
-            <div className="text-xs text-gray-600">AM Best rating</div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Certificate holder
+            </label>
             <input
-              className="w-full rounded border p-2"
-              placeholder='e.g. "A-"'
-              value={amBest}
-              onChange={(e) => setAmBest(e.target.value)}
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={certificateHolder}
+              onChange={(e) => setCertificateHolder(e.target.value)}
+              placeholder="Certificate holder"
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Description of operations
+            </label>
+            <textarea
+              className="min-h-[120px] w-full rounded-2xl border border-[#D9E2EC] p-3 text-sm"
+              value={operationsDescription}
+              onChange={(e) => setOperationsDescription(e.target.value)}
+              placeholder="Description of operations / locations / vehicles / project wording"
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Broker / Agent"
+        subtitle="Record the producer / broker details from the certificate."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Broker / agent name
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={brokerName}
+              onChange={(e) => setBrokerName(e.target.value)}
+              placeholder="Broker or agency name"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Broker phone
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={brokerPhone}
+              onChange={(e) => setBrokerPhone(e.target.value)}
+              placeholder="Phone"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Broker email
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={brokerEmail}
+              onChange={(e) => setBrokerEmail(e.target.value)}
+              placeholder="Email"
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Carrier details"
+        subtitle="Store carrier information displayed on the COI."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Carrier name
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={carrierName}
+              onChange={(e) => setCarrierName(e.target.value)}
+              placeholder="e.g. Travelers"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              AM Best rating
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={amBest}
+              onChange={(e) => setAmBest(e.target.value)}
+              placeholder='e.g. "A-"'
+            />
+          </div>
+
+          <label className="flex items-center gap-3 rounded-xl border border-[#D9E2EC] p-4 text-sm text-[#111827]">
             <input
               type="checkbox"
               checked={admitted}
@@ -388,39 +735,190 @@ export default function ContractorCOIPage() {
             />
             Admitted carrier
           </label>
+        </div>
+      </SectionCard>
 
-          <div>
-            <div className="text-xs text-gray-600">Upload COI PDF</div>
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            {coi?.file_path && (
-              <div className="mt-2 flex items-center gap-2">
-                <button className="rounded border px-3 py-1 text-sm" onClick={downloadCOI}>
-                  Download current
-                </button>
-                <div className="text-xs text-gray-600 truncate">{coi.file_path}</div>
+      <SectionCard
+        title="Policies"
+        subtitle="Add every policy shown on the certificate with dates, policy number, and limits."
+      >
+        <div className="space-y-4">
+          {policies.length === 0 ? (
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No policies added yet.
+            </div>
+          ) : (
+            policies.map((p) => (
+              <div
+                key={p.id}
+                className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-[#111827]">
+                      {insuranceNameById[p.insurance_type_id] ?? "Insurance"}
+                    </div>
+                    <div className="mt-1 text-sm text-[#4B5563]">
+                      Policy #{p.policy_number || "—"} · {p.issue_date || "—"} →{" "}
+                      {p.expiration_date || "—"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                    onClick={() => removePolicy(p.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <pre className="mt-4 overflow-auto rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-xs text-[#111827]">
+{JSON.stringify(p.limits ?? {}, null, 2)}
+                </pre>
               </div>
-            )}
+            ))
+          )}
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-5 space-y-4">
+            <div className="text-base font-semibold text-[#111827]">Add a policy</div>
+
+            <select
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={selectedInsuranceTypeId}
+              onChange={(e) => {
+                setSelectedInsuranceTypeId(e.target.value);
+                setLimits({});
+              }}
+            >
+              <option value="">Select insurance type...</option>
+              {insuranceTypes.map((it) => (
+                <option key={it.id} value={it.id}>
+                  {it.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Issue date
+                </label>
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                  value={iso(policyIssue)}
+                  onChange={(e) => setPolicyIssue(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Expiration date
+                </label>
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                  value={iso(policyExp)}
+                  onChange={(e) => setPolicyExp(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Policy number
+                </label>
+                <input
+                  className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                  value={policyNumber}
+                  onChange={(e) => setPolicyNumber(e.target.value)}
+                  placeholder="Policy number"
+                />
+              </div>
+            </div>
+
+            {selectedInsuranceTypeId ? (
+              <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4">
+                <div className="mb-3 text-sm font-semibold text-[#111827]">Limits</div>
+
+                {limitFields.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {limitFields.map((f) => (
+                      <div key={f.key}>
+                        <label className="mb-1 block text-sm font-medium text-[#111827]">
+                          {f.label}
+                        </label>
+                        <input
+                          className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                          value={limits[f.key] ?? ""}
+                          onChange={(e) =>
+                            setLimits((prev) => ({ ...prev, [f.key]: e.target.value }))
+                          }
+                          placeholder="e.g. 1000000"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-sm text-[#4B5563]">
+                    <p>No limit schema found for this insurance type.</p>
+
+                    <input
+                      className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                      placeholder="Type a limit key and tab away"
+                      onBlur={(e) => {
+                        const k = e.target.value.trim();
+                        if (!k) return;
+                        setLimits((prev) => ({ ...prev, [k]: prev[k] ?? "" }));
+                        e.target.value = "";
+                      }}
+                    />
+
+                    {Object.keys(limits).length > 0 ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {Object.keys(limits).map((k) => (
+                          <div key={k}>
+                            <label className="mb-1 block text-sm font-medium text-[#111827]">
+                              {k}
+                            </label>
+                            <input
+                              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                              value={limits[k] ?? ""}
+                              onChange={(e) =>
+                                setLimits((prev) => ({ ...prev, [k]: e.target.value }))
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+              onClick={addPolicy}
+            >
+              Add policy
+            </button>
           </div>
         </div>
+      </SectionCard>
 
-        <div className="flex items-center gap-2">
-          <button className="rounded bg-black px-4 py-2 text-white" onClick={saveCOI}>
-            Save COI
-          </button>
-          <button className="rounded border px-4 py-2" onClick={load}>
-            Refresh
-          </button>
-        </div>
-
-        <div className="rounded border p-3 space-y-3">
-          <div className="font-semibold">Endorsements included in COI</div>
-          <div className="grid gap-2 md:grid-cols-2">
+      <SectionCard
+        title="Endorsements and additional wording"
+        subtitle="Track standard COI endorsements and custom wording used for compliance."
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 md:grid-cols-2">
             {endorsementTypes.map((e) => (
-              <label key={e.code} className="flex items-center gap-2 text-sm">
+              <label
+                key={e.code}
+                className="flex items-center gap-3 rounded-xl border border-[#D9E2EC] p-4 text-sm text-[#111827]"
+              >
                 <input
                   type="checkbox"
                   checked={endorsementCodes.includes(e.code)}
@@ -432,169 +930,190 @@ export default function ContractorCOIPage() {
           </div>
 
           <div className="max-w-sm">
-            <div className="text-xs text-gray-600">Notice of Cancellation (days)</div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Notice of cancellation (days)
+            </label>
             <input
-              className="w-full rounded border p-2"
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
               value={noticeDays}
               onChange={(e) => setNoticeDays(Number(e.target.value || "0"))}
             />
-            <div className="text-xs text-gray-500 mt-1">
-              (If required/used. We store one value for all endorsements.)
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Additional insured wording
+              </label>
+              <textarea
+                className="min-h-[120px] w-full rounded-2xl border border-[#D9E2EC] p-3 text-sm"
+                value={additionalInsuredText}
+                onChange={(e) => setAdditionalInsuredText(e.target.value)}
+                placeholder="Additional insured wording"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Waiver of subrogation wording
+              </label>
+              <textarea
+                className="min-h-[120px] w-full rounded-2xl border border-[#D9E2EC] p-3 text-sm"
+                value={waiverText}
+                onChange={(e) => setWaiverText(e.target.value)}
+                placeholder="Waiver of subrogation wording"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Primary & non-contributory wording
+              </label>
+              <textarea
+                className="min-h-[120px] w-full rounded-2xl border border-[#D9E2EC] p-3 text-sm"
+                value={primaryNonContribText}
+                onChange={(e) => setPrimaryNonContribText(e.target.value)}
+                placeholder="Primary and non-contributory wording"
+              />
             </div>
           </div>
         </div>
-      </section>
+      </SectionCard>
 
-      <section className="rounded border p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Policies listed on COI</h2>
-          <div className="text-sm text-gray-600">
-            Add each insurance policy (limits, numbers, dates)
-          </div>
-        </div>
+      <SectionCard
+        title="Included entities"
+        subtitle="List subsidiaries, additional named insureds, or other included entities tied to this certificate."
+      >
+        <textarea
+          className="min-h-[140px] w-full rounded-2xl border border-[#D9E2EC] p-3 text-sm"
+          value={includedEntitiesText}
+          onChange={(e) => setIncludedEntitiesText(e.target.value)}
+          placeholder="List included entities, one per line or as free-form text"
+        />
+      </SectionCard>
 
-        <div className="space-y-2">
-          {policies.map((p) => (
-            <div key={p.id} className="rounded border p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm">
-                    <b>{insuranceNameById[p.insurance_type_id] ?? "Insurance"}</b>
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    Policy #{p.policy_number || "-"} • {p.issue_date || "-"} → {p.expiration_date || "-"}
-                  </div>
+      <SectionCard
+        title="Supporting attachments"
+        subtitle="Attach supporting files related to the COI package."
+      >
+        <input
+          type="file"
+          multiple
+          onChange={(e) => setSupportingFiles(e.target.files)}
+          className="block w-full text-sm"
+        />
+
+        <p className="mt-2 text-sm text-[#4B5563]">
+          Supporting attachments upload on save.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {supportingFileRows.length === 0 ? (
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No supporting files uploaded yet.
+            </div>
+          ) : (
+            supportingFileRows.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-4"
+              >
+                <div className="text-sm font-medium text-[#111827]">
+                  {row.file_name || row.file_path}
                 </div>
-                <button className="rounded border px-3 py-1 text-sm" onClick={() => removePolicy(p.id)}>
-                  Delete
-                </button>
+                <div className="mt-1 text-xs text-[#6B7280] break-all">
+                  {row.file_path}
+                </div>
+                <div className="mt-1 text-xs text-[#6B7280]">
+                  Uploaded: {formatDate(row.created_at)}
+                </div>
               </div>
-
-              <pre className="mt-2 text-xs bg-gray-50 rounded p-2 overflow-auto">
-{JSON.stringify(p.limits ?? {}, null, 2)}
-              </pre>
-            </div>
-          ))}
-
-          {policies.length === 0 && (
-            <div className="text-sm text-gray-600">No policies added yet.</div>
+            ))
           )}
         </div>
+      </SectionCard>
 
-        <div className="rounded border p-3 space-y-3">
-          <div className="font-semibold">Add a policy</div>
-
-          <select
-            className="w-full rounded border p-2"
-            value={selectedInsuranceTypeId}
-            onChange={(e) => {
-              setSelectedInsuranceTypeId(e.target.value);
-              setLimits({});
-            }}
-          >
-            <option value="">Select insurance type...</option>
-            {insuranceTypes.map((it) => (
-              <option key={it.id} value={it.id}>
-                {it.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <div>
-              <div className="text-xs text-gray-600">Issue date</div>
-              <input
-                type="date"
-                className="w-full rounded border p-2"
-                value={iso(policyIssue)}
-                onChange={(e) => setPolicyIssue(e.target.value)}
-              />
-            </div>
-            <div>
-              <div className="text-xs text-gray-600">Expiration date</div>
-              <input
-                type="date"
-                className="w-full rounded border p-2"
-                value={iso(policyExp)}
-                onChange={(e) => setPolicyExp(e.target.value)}
-              />
-            </div>
-            <div>
-              <div className="text-xs text-gray-600">Policy number</div>
-              <input
-                className="w-full rounded border p-2"
-                placeholder="e.g. ABC123..."
-                value={policyNumber}
-                onChange={(e) => setPolicyNumber(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {selectedInsuranceTypeId && (
-            <div className="rounded border p-3 space-y-2">
-              <div className="text-sm font-semibold">Limits</div>
-
-              {limitFields.length > 0 ? (
-                <div className="grid gap-2 md:grid-cols-2">
-                  {limitFields.map((f) => (
-                    <div key={f.key}>
-                      <div className="text-xs text-gray-600">{f.label}</div>
-                      <input
-                        className="w-full rounded border p-2"
-                        placeholder="e.g. 1000000"
-                        value={limits[f.key] ?? ""}
-                        onChange={(e) =>
-                          setLimits((prev) => ({ ...prev, [f.key]: e.target.value }))
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600">
-                  No limit schema found for this insurance type. You can still add custom limits below:
-                  <div className="mt-2 grid gap-2 md:grid-cols-2">
-                    <input
-                      className="rounded border p-2"
-                      placeholder="Limit key (e.g. per_occurrence)"
-                      onBlur={(e) => {
-                        const k = e.target.value.trim();
-                        if (!k) return;
-                        setLimits((prev) => ({ ...prev, [k]: prev[k] ?? "" }));
-                        e.target.value = "";
-                      }}
-                    />
-                    <div className="text-xs text-gray-500">
-                      Type a key, then it will appear as editable field.
-                    </div>
-                  </div>
-
-                  {Object.keys(limits).length > 0 && (
-                    <div className="mt-2 grid gap-2 md:grid-cols-2">
-                      {Object.keys(limits).map((k) => (
-                        <div key={k}>
-                          <div className="text-xs text-gray-600">{k}</div>
-                          <input
-                            className="w-full rounded border p-2"
-                            value={limits[k] ?? ""}
-                            onChange={(e) =>
-                              setLimits((prev) => ({ ...prev, [k]: e.target.value }))
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          <button className="rounded bg-black px-4 py-2 text-white" onClick={addPolicy}>
-            Add Policy
-          </button>
+      <SectionCard
+        title="Read-only compliance summary"
+        subtitle="Use this block as a review summary before saving or sending for compliance verification."
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Current status" value={coi?.status || "draft"} />
+          <Field label="Issue date" value={issueDate} />
+          <Field label="Expiration date" value={expDate} />
+          <Field label="Insured company" value={insuredName} />
+          <Field label="Carrier" value={carrierName} />
+          <Field label="AM Best" value={amBest} />
+          <Field label="Certificate holder" value={certificateHolder} />
+          <Field label="Broker / agent" value={brokerName} />
+          <Field label="Broker phone" value={brokerPhone} />
+          <Field label="Broker email" value={brokerEmail} />
+          <Field label="Policies count" value={String(policies.length)} />
+          <Field
+            label="Endorsements selected"
+            value={endorsementCodes.length ? endorsementCodes.join(", ") : "—"}
+          />
         </div>
-      </section>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Field label="Operations description" value={operationsDescription} />
+          <Field label="Included entities" value={includedEntitiesText} />
+          <Field label="Additional insured" value={additionalInsuredText} />
+          <Field label="Waiver of subrogation" value={waiverText} />
+          <Field
+            label="Primary & non-contributory"
+            value={primaryNonContribText}
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="COI history"
+        subtitle="Previous COI versions are archived automatically when the current COI is updated."
+      >
+        <div className="space-y-3">
+          {historyRows.length === 0 ? (
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No archived COI versions yet.
+            </div>
+          ) : (
+            historyRows.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-4"
+              >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  <Field label="Version" value={String(row.version_no)} />
+                  <Field label="Carrier" value={row.carrier_name} />
+                  <Field label="Issue date" value={row.issue_date} />
+                  <Field label="Expiration date" value={row.expiration_date} />
+                  <Field label="Archived at" value={formatDate(row.archived_at)} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </SectionCard>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={saveCOI}
+          disabled={saving || loading}
+          className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Saving..." : "Save COI"}
+        </button>
+
+        <button
+          type="button"
+          onClick={load}
+          disabled={saving}
+          className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Refresh
+        </button>
+      </div>
     </main>
   );
 }

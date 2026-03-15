@@ -11,8 +11,12 @@ import {
   rejectDoc,
   AdminDoc,
 } from "../../lib/adminDocs";
+import {
+  listAdminTeamChangeRequests,
+  type TeamChangeRequest,
+} from "../../lib/contractor";
 
-type AdminFilter = "all" | "documents" | "company_changes";
+type AdminFilter = "all" | "documents" | "company_changes" | "team_changes";
 
 type RequestRow = {
   id: string;
@@ -118,6 +122,7 @@ export default function AdminPage() {
 
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [companyRequests, setCompanyRequests] = useState<RequestRow[]>([]);
+  const [teamRequests, setTeamRequests] = useState<TeamChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
@@ -143,7 +148,7 @@ export default function AdminPage() {
         return;
       }
 
-      const [docsResult, requestsResult] = await Promise.all([
+      const [docsResult, requestsResult, teamRequestsResult] = await Promise.all([
         listPendingDocs(),
         supabase
           .from("company_change_requests")
@@ -161,6 +166,7 @@ export default function AdminPage() {
           `)
           .eq("status", "pending")
           .order("created_at", { ascending: false }),
+        listAdminTeamChangeRequests(),
       ]);
 
       setDocs(docsResult);
@@ -174,6 +180,7 @@ export default function AdminPage() {
       );
 
       setCompanyRequests(normalized);
+      setTeamRequests(teamRequestsResult.filter((row) => row.status === "pending"));
     } catch (e: any) {
       setErr(e.message ?? "Load error");
     } finally {
@@ -211,10 +218,20 @@ export default function AdminPage() {
       )
       .subscribe();
 
+    const teamRequestsChannel = supabase
+      .channel("admin-team-change-requests-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "team_change_requests" },
+        () => scheduleReload()
+      )
+      .subscribe();
+
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       supabase.removeChannel(docsChannel);
       supabase.removeChannel(companyRequestsChannel);
+      supabase.removeChannel(teamRequestsChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -251,13 +268,15 @@ export default function AdminPage() {
     () => ({
       documents: docs.length,
       companyChanges: companyRequests.length,
-      total: docs.length + companyRequests.length,
+      teamChanges: teamRequests.length,
+      total: docs.length + companyRequests.length + teamRequests.length,
     }),
-    [docs.length, companyRequests.length]
+    [docs.length, companyRequests.length, teamRequests.length]
   );
 
   const showDocuments = filter === "all" || filter === "documents";
   const showCompanyChanges = filter === "all" || filter === "company_changes";
+  const showTeamChanges = filter === "all" || filter === "team_changes";
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
@@ -269,7 +288,7 @@ export default function AdminPage() {
                 Admin review center
               </h1>
               <p className="mt-2 text-sm text-[#4B5563]">
-                Review pending documents and contractor company change requests.
+                Review pending documents, contractor company change requests, and team change requests.
               </p>
             </div>
 
@@ -282,6 +301,13 @@ export default function AdminPage() {
               </Link>
 
               <Link
+                href="/admin/team-change-requests"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                View all team change requests
+              </Link>
+
+              <Link
                 href="/dashboard"
                 className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
               >
@@ -290,7 +316,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
               <div className="text-sm text-[#4B5563]">Total pending</div>
               <div className="mt-2 text-2xl font-semibold text-[#111827]">
@@ -313,13 +339,22 @@ export default function AdminPage() {
             </div>
 
             <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <div className="text-sm text-[#4B5563]">Team changes</div>
+              <div className="mt-2 text-2xl font-semibold text-[#111827]">
+                {counts.teamChanges}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
               <div className="text-sm text-[#4B5563]">Filter</div>
               <div className="mt-2 text-sm font-medium text-[#111827] capitalize">
                 {filter === "all"
                   ? "All requests"
                   : filter === "documents"
                   ? "Documents only"
-                  : "Company changes only"}
+                  : filter === "company_changes"
+                  ? "Company changes only"
+                  : "Team changes only"}
               </div>
             </div>
           </div>
@@ -341,6 +376,13 @@ export default function AdminPage() {
               onClick={() => setFilter("company_changes")}
             >
               Company changes ({counts.companyChanges})
+            </FilterButton>
+
+            <FilterButton
+              active={filter === "team_changes"}
+              onClick={() => setFilter("team_changes")}
+            >
+              Team changes ({counts.teamChanges})
             </FilterButton>
           </div>
         </section>
@@ -526,6 +568,90 @@ export default function AdminPage() {
                       <div className="lg:text-right">
                         <Link
                           href={`/admin/company-change-requests/${row.id}`}
+                          className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                        >
+                          Open
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {showTeamChanges ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Pending team change requests
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  Contractor requests to change team composition.
+                </p>
+              </div>
+
+              <Link
+                href="/admin/team-change-requests"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                View all
+              </Link>
+            </div>
+
+            {teamRequests.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+                No pending team change requests.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4">
+                {teamRequests.map((row) => (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                  >
+                    <div className="grid gap-4 lg:grid-cols-[1.6fr_2fr_1fr_1.5fr_auto] lg:items-center">
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Request ID
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {row.id}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Reason
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {row.reason}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Status
+                        </div>
+                        <div className="mt-2">
+                          <StatusBadge status={row.status} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Created
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-[#111827]">
+                          {formatDate(row.created_at)}
+                        </div>
+                      </div>
+
+                      <div className="lg:text-right">
+                        <Link
+                          href={`/admin/team-change-requests/${row.id}`}
                           className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
                         >
                           Open

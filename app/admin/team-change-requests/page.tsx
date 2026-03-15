@@ -3,62 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
+import { supabase } from "../../../lib/supabaseClient";
+import { listAdminTeamChangeRequests, type TeamChangeRequest } from "../../../lib/contractor";
 
-type RequestRow = {
-  id: string;
-  company_id: string;
-  requested_by: string;
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-  reviewed_at: string | null;
+type TeamChangeRequestRow = TeamChangeRequest & {
   company?: {
+    id: string;
     legal_name: string | null;
     dba_name: string | null;
   } | null;
 };
-
-type RequestRowDb = {
-  id: string;
-  company_id: string;
-  requested_by: string;
-  status: string | null;
-  created_at: string;
-  reviewed_at: string | null;
-  company:
-    | {
-        legal_name: string | null;
-        dba_name: string | null;
-      }
-    | {
-        legal_name: string | null;
-        dba_name: string | null;
-      }[]
-    | null;
-};
-
-function mapRequestRow(row: RequestRowDb): RequestRow {
-  const company = Array.isArray(row.company) ? row.company[0] ?? null : row.company;
-
-  return {
-    id: row.id,
-    company_id: row.company_id,
-    requested_by: row.requested_by,
-    status:
-      row.status === "approved" || row.status === "rejected"
-        ? row.status
-        : "pending",
-    created_at: row.created_at,
-    reviewed_at: row.reviewed_at,
-    company: company
-      ? {
-          legal_name: company.legal_name,
-          dba_name: company.dba_name,
-        }
-      : null,
-  };
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
@@ -81,13 +36,14 @@ function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }
   );
 }
 
-export default function AdminCompanyChangeRequestsPage() {
+export default function AdminTeamChangeRequestsPage() {
   const router = useRouter();
+
+  const [rows, setRows] = useState<TeamChangeRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [rows, setRows] = useState<RequestRow[]>([]);
 
-  async function loadPage() {
+  async function load() {
     setLoading(true);
     setErr(null);
 
@@ -106,26 +62,34 @@ export default function AdminCompanyChangeRequestsPage() {
         return;
       }
 
-      const { data: requests, error } = await supabase
-        .from("company_change_requests")
+      const { data: requestRows, error } = await supabase
+        .from("team_change_requests")
         .select(`
           id,
           company_id,
+          team_id,
           requested_by,
+          reason,
           status,
+          admin_note,
           created_at,
-          reviewed_at,
+          updated_at,
           company:contractor_companies (
+            id,
             legal_name,
             dba_name
           )
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
-      const normalized = ((requests ?? []) as RequestRowDb[]).map(mapRequestRow);
-      setRows(normalized);
+      const normalized = (requestRows || []).map((row: any) => ({
+        ...row,
+        company: Array.isArray(row.company) ? row.company[0] ?? null : row.company,
+      }));
+
+      setRows(normalized as TeamChangeRequestRow[]);
     } catch (e: any) {
       setErr(e.message ?? "Load error");
     } finally {
@@ -134,22 +98,22 @@ export default function AdminCompanyChangeRequestsPage() {
   }
 
   useEffect(() => {
-    loadPage();
+    load();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        loadPage();
+        load();
       }, 300);
     };
 
     const requestsChannel = supabase
-      .channel("admin-company-change-requests-list-live")
+      .channel("admin-team-change-requests-live")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "company_change_requests" },
+        { event: "*", schema: "public", table: "team_change_requests" },
         () => scheduleReload()
       )
       .subscribe();
@@ -168,10 +132,10 @@ export default function AdminCompanyChangeRequestsPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-[#111827]">
-                Company change requests
+                Team change requests
               </h1>
               <p className="mt-2 text-sm text-[#4B5563]">
-                Review contractor requests to update company data.
+                Review contractor requests to change team composition.
               </p>
             </div>
 
@@ -200,7 +164,7 @@ export default function AdminCompanyChangeRequestsPage() {
 
         {!loading && rows.length === 0 ? (
           <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#4B5563]">No requests yet.</p>
+            <p className="text-sm text-[#4B5563]">No team change requests.</p>
           </section>
         ) : null}
 
@@ -212,7 +176,7 @@ export default function AdminCompanyChangeRequestsPage() {
                   key={row.id}
                   className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
                 >
-                  <div className="grid gap-4 lg:grid-cols-[2fr_2fr_1fr_1.5fr_auto] lg:items-center">
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr_1.8fr_1fr_1.2fr_1.4fr_auto] lg:items-center">
                     <div>
                       <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
                         Company
@@ -220,14 +184,17 @@ export default function AdminCompanyChangeRequestsPage() {
                       <div className="mt-1 text-sm font-medium text-[#111827]">
                         {row.company?.legal_name || "—"}
                       </div>
+                      <div className="mt-1 text-xs text-[#6B7280]">
+                        Company ID: {row.company?.id || row.company_id}
+                      </div>
                     </div>
 
                     <div>
                       <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                        DBA
+                        Reason
                       </div>
                       <div className="mt-1 text-sm font-medium text-[#111827]">
-                        {row.company?.dba_name || "—"}
+                        {row.reason}
                       </div>
                     </div>
 
@@ -242,6 +209,15 @@ export default function AdminCompanyChangeRequestsPage() {
 
                     <div>
                       <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Request ID
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827] break-all">
+                        {row.id}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
                         Created
                       </div>
                       <div className="mt-1 text-sm font-medium text-[#111827]">
@@ -251,7 +227,7 @@ export default function AdminCompanyChangeRequestsPage() {
 
                     <div className="lg:text-right">
                       <Link
-                        href={`/admin/company-change-requests/${row.id}`}
+                        href={`/admin/team-change-requests/${row.id}`}
                         className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
                       >
                         Open

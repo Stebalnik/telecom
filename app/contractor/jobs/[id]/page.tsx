@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
-import { listMyCompanies, listCompanyTeams } from "../../../../lib/contractor";
-import { openJobFileSigned, listJobFiles, JobFileRow } from "../../../../lib/jobFiles";
+import { listCompanyTeams, listMyCompanies } from "../../../../lib/contractor";
+import {
+  listJobFiles,
+  openJobFileSigned,
+  JobFileRow,
+} from "../../../../lib/jobFiles";
 import { businessDaysBetweenInclusive } from "../../../../lib/dateUtils";
 
 type JobRow = {
@@ -18,18 +23,78 @@ type JobRow = {
   customer_id: string | null;
 };
 
+type CompanyOption = {
+  id: string;
+  legal_name?: string | null;
+  dba_name?: string | null;
+  name?: string | null;
+};
+
+type TeamOption = {
+  id: string;
+  name?: string | null;
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString();
+}
+
+function StatusBadge({ status }: { status?: string | null }) {
+  const normalized = (status || "").toLowerCase();
+
+  const cls =
+    normalized === "open"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : normalized === "pending"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : normalized === "closed" || normalized === "cancelled"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-blue-200 bg-blue-50 text-blue-700";
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${cls}`}
+    >
+      {status || "Unknown"}
+    </span>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-[#111827]">{title}</h2>
+        {subtitle ? (
+          <p className="mt-1 text-sm text-[#4B5563]">{subtitle}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function ContractorJobBidPage() {
   const router = useRouter();
   const params = useParams();
   const jobId = String(params?.id || "");
 
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [job, setJob] = useState<JobRow | null>(null);
   const [files, setFiles] = useState<JobFileRow[]>([]);
 
-  // bid form
   const [companyId, setCompanyId] = useState<string>("");
   const [teamId, setTeamId] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -37,8 +102,8 @@ export default function ContractorJobBidPage() {
   const [endDate, setEndDate] = useState<string>("");
   const [workDays, setWorkDays] = useState<string>("");
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [teams, setTeams] = useState<TeamOption[]>([]);
 
   const maxBusinessDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
@@ -49,11 +114,17 @@ export default function ContractorJobBidPage() {
     setLoading(true);
     setErr(null);
 
-    const profile = await getMyProfile();
-    if (!profile) return router.replace("/login");
-    if (profile.role !== "contractor") return router.replace("/dashboard");
-
     try {
+      const profile = await getMyProfile();
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+      if (profile.role !== "contractor") {
+        router.replace("/dashboard");
+        return;
+      }
+
       const { data: j, error } = await supabase
         .from("jobs")
         .select("id,title,description,location,status,deadline_date,customer_id")
@@ -63,15 +134,15 @@ export default function ContractorJobBidPage() {
       if (error) throw error;
       setJob(j as JobRow);
 
-      // файлы (RLS сам отфильтрует)
       const f = await listJobFiles(jobId);
       setFiles(f);
 
-      const comps = await listMyCompanies();
+      const comps = (await listMyCompanies()) as CompanyOption[];
       setCompanies(comps);
+
       if (comps?.[0]?.id) {
         setCompanyId(comps[0].id);
-        const ts = await listCompanyTeams(comps[0].id);
+        const ts = (await listCompanyTeams(comps[0].id)) as TeamOption[];
         setTeams(ts);
       }
     } catch (e: any) {
@@ -90,7 +161,7 @@ export default function ContractorJobBidPage() {
     (async () => {
       try {
         if (!companyId) return;
-        const ts = await listCompanyTeams(companyId);
+        const ts = (await listCompanyTeams(companyId)) as TeamOption[];
         setTeams(ts);
         setTeamId("");
       } catch {
@@ -110,19 +181,29 @@ export default function ContractorJobBidPage() {
     if (endDate < startDate) throw new Error("End date must be after start date");
 
     if (job.deadline_date && endDate > job.deadline_date) {
-      throw new Error(`End date must be on/before job deadline (${job.deadline_date})`);
+      throw new Error(
+        `End date must be on or before the job deadline (${job.deadline_date})`
+      );
     }
 
     const wd = Number(workDays);
-    if (!workDays || !Number.isFinite(wd) || wd < 1) throw new Error("Enter work days (>= 1)");
+    if (!workDays || !Number.isFinite(wd) || wd < 1) {
+      throw new Error("Enter work days (>= 1)");
+    }
 
     const maxWd = businessDaysBetweenInclusive(startDate, endDate);
     if (maxWd <= 0) throw new Error("Time window contains 0 business days");
-    if (wd > maxWd) throw new Error(`Work days (${wd}) must fit into business days in timeframe (${maxWd})`);
+    if (wd > maxWd) {
+      throw new Error(
+        `Work days (${wd}) must fit into business days in the selected timeframe (${maxWd})`
+      );
+    }
   }
 
   async function submitBid() {
     setErr(null);
+    setSubmitting(true);
+
     try {
       validateBid();
 
@@ -139,52 +220,105 @@ export default function ContractorJobBidPage() {
 
       if (error) throw error;
 
-      router.push("/contractor"); // или /contractor/jobs
+      router.push("/contractor/jobs");
     } catch (e: any) {
       setErr(e.message ?? "Bid error");
+      setSubmitting(false);
     }
   }
 
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Job</h1>
-        <a className="underline text-sm" href="/contractor/jobs">
-          Back
-        </a>
-      </div>
-
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-
-      {job && (
-        <div className="rounded border p-4 space-y-2">
-          <div className="text-lg font-semibold">{job.title}</div>
-          <div className="text-sm text-gray-600">
-            Deadline: <b>{job.deadline_date ?? "—"}</b>
-            {job.location ? ` • ${job.location}` : ""}
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-[#111827]">Job</h1>
+            <p className="mt-2 text-sm text-[#4B5563]">
+              Review job details, download files, and submit your bid.
+            </p>
           </div>
-          {job.description && <div className="text-sm mt-2">{job.description}</div>}
-        </div>
-      )}
 
-      {/* Files */}
-      <div className="rounded border p-4 space-y-2">
-        <div className="font-semibold">Project files</div>
+          <Link
+            href="/contractor/jobs"
+            className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+          >
+            Back to jobs
+          </Link>
+        </div>
+      </section>
+
+      {loading ? (
+        <SectionCard title="Loading">
+          <p className="text-sm text-[#4B5563]">Loading job details...</p>
+        </SectionCard>
+      ) : null}
+
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
+
+      {job ? (
+        <SectionCard title="Job details">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  {job.title}
+                </h2>
+                <StatusBadge status={job.status} />
+              </div>
+
+              <div className="mt-2 text-sm text-[#4B5563]">
+                Deadline:{" "}
+                <span className="font-medium text-[#111827]">
+                  {formatDate(job.deadline_date)}
+                </span>
+                {job.location ? ` • ${job.location}` : ""}
+              </div>
+
+              {job.description ? (
+                <p className="mt-3 text-sm leading-6 text-[#111827]">
+                  {job.description}
+                </p>
+              ) : null}
+
+              <div className="mt-3 text-xs text-[#6B7280] break-all">
+                Job ID: {job.id}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard
+        title="Project files"
+        subtitle="These files are visible only when your access level allows it."
+      >
         {files.length === 0 ? (
-          <div className="text-sm text-gray-600">
-            No files (or you are not eligible to view files for this job).
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+            No files available, or you are not eligible to view files for this job.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {files.map((f) => (
-              <div key={f.id} className="flex items-center justify-between gap-3 rounded border p-2">
+              <div
+                key={f.id}
+                className="flex flex-col gap-3 rounded-xl border border-[#D9E2EC] bg-[#FCFDFE] p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{f.file_name}</div>
-                  <div className="text-xs text-gray-600 truncate">{f.file_path}</div>
+                  <div className="truncate text-sm font-semibold text-[#111827]">
+                    {f.file_name}
+                  </div>
+                  <div className="mt-1 truncate text-xs text-[#6B7280]">
+                    {f.file_path}
+                  </div>
                 </div>
+
                 <button
-                  className="rounded border px-3 py-1 text-sm"
+                  type="button"
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
                   onClick={() => openJobFileSigned(f.file_path)}
                 >
                   Download
@@ -193,75 +327,122 @@ export default function ContractorJobBidPage() {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
-      {/* Bid form */}
-      <div className="rounded border p-4 space-y-4">
-        <div className="text-lg font-semibold">Submit bid</div>
-
-        <div className="grid gap-2 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Company</div>
-            <select className="w-full rounded border p-2" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+      <SectionCard
+        title="Submit bid"
+        subtitle="Your planned dates and work days must fit within the allowed job timeframe."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Company
+            </label>
+            <select
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+            >
               <option value="">Select...</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name ?? c.id}
+                  {c.legal_name || c.dba_name || c.name || c.id}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Team</div>
-            <select className="w-full rounded border p-2" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Team
+            </label>
+            <select
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+            >
               <option value="">Select...</option>
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name ?? t.id}
+                  {t.name || t.id}
                 </option>
               ))}
             </select>
           </div>
-        </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Bid price</div>
-            <input className="w-full rounded border p-2" placeholder="e.g. 25000" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Bid price
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              placeholder="e.g. 25000"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
           </div>
 
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Work days</div>
-            <input className="w-full rounded border p-2" placeholder="e.g. 5" value={workDays} onChange={(e) => setWorkDays(e.target.value)} />
-            {startDate && endDate && (
-              <div className="text-xs text-gray-600">
-                Business days in selected timeframe: <b>{maxBusinessDays}</b>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Work days
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              placeholder="e.g. 5"
+              value={workDays}
+              onChange={(e) => setWorkDays(e.target.value)}
+            />
+            {startDate && endDate ? (
+              <div className="mt-2 text-xs text-[#6B7280]">
+                Business days in selected timeframe:{" "}
+                <span className="font-semibold text-[#111827]">
+                  {maxBusinessDays}
+                </span>
               </div>
-            )}
+            ) : null}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Planned start date
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Planned end date
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Planned start date</div>
-            <input className="w-full rounded border p-2" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Planned end date</div>
-            <input className="w-full rounded border p-2" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={submitBid}
+            disabled={submitting}
+          >
+            {submitting ? "Submitting..." : "Submit bid"}
+          </button>
         </div>
 
-        <button className="rounded bg-black px-4 py-2 text-white" onClick={submitBid}>
-          Submit bid
-        </button>
-
-        <div className="text-xs text-gray-600">
-          Rules: end date must be on/before deadline; work days must fit into business days between start/end.
+        <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-xs text-[#4B5563]">
+          Rules: the planned end date must be on or before the deadline, and work days
+          must fit into business days between the selected start and end dates.
         </div>
-      </div>
+      </SectionCard>
     </main>
   );
 }
