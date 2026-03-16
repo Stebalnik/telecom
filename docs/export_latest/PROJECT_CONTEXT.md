@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Sun Mar 15 16:50:04 CDT 2026
+Generated: Sun Mar 15 22:47:50 CDT 2026
 
-Export folder: docs/export_files/2026-03-15_16-50-04
+Export folder: docs/export_files/2026-03-15_22-47-50
 
 ## 1. Directory tree
 ```
@@ -38,6 +38,10 @@ app/contractor/teams/change-request
 app/contractor/teams/new
 app/contractor/teams/requests
 app/customer
+app/customer/agreements
+app/customer/bids
+app/customer/bids/[jobId]
+app/customer/compliance
 app/customer/contractors
 app/customer/contractors/all
 app/customer/contractors/approved
@@ -45,6 +49,7 @@ app/customer/jobs
 app/customer/jobs/active
 app/customer/jobs/archive
 app/customer/jobs/new
+app/customer/requests
 app/customer/settings
 app/customer/settings/certs-per-scope
 app/customer/settings/insurance
@@ -102,6 +107,11 @@ app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
 app/customer/.DS_Store
+app/customer/agreements/page.tsx
+app/customer/bids/.DS_Store
+app/customer/bids/[jobId]/page.tsx
+app/customer/bids/page.tsx
+app/customer/compliance/page.tsx
 app/customer/contractors/.DS_Store
 app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
@@ -113,7 +123,9 @@ app/customer/jobs/archive/page.tsx
 app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
+app/customer/layout.tsx
 app/customer/page.tsx
+app/customer/requests/page.tsx
 app/customer/settings/.DS_Store
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
@@ -193,6 +205,10 @@ app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
+app/customer/agreements/page.tsx
+app/customer/bids/[jobId]/page.tsx
+app/customer/bids/page.tsx
+app/customer/compliance/page.tsx
 app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
 app/customer/contractors/layout.tsx
@@ -202,7 +218,9 @@ app/customer/jobs/archive/page.tsx
 app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
+app/customer/layout.tsx
 app/customer/page.tsx
+app/customer/requests/page.tsx
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx

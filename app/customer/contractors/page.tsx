@@ -32,8 +32,46 @@ type CustomerContractorLink = {
   status: "pending" | "approved" | "rejected" | string;
 };
 
+type StatusTone = "neutral" | "success" | "warning" | "danger" | "info";
+
 function iso(d: string | null | undefined) {
   return d ?? "";
+}
+
+function StatusPill({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: StatusTone;
+}) {
+  const styles =
+    tone === "success"
+      ? "bg-green-50 text-green-700 border-green-200"
+      : tone === "warning"
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : tone === "danger"
+      ? "bg-red-50 text-red-700 border-red-200"
+      : tone === "info"
+      ? "bg-[#EAF3FF] text-[#0A2E5C] border-[#BFD7F2]"
+      : "bg-[#F4F8FC] text-[#4B5563] border-[#D9E2EC]";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${styles}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function relationshipTone(
+  status: string
+): "neutral" | "success" | "warning" | "danger" {
+  if (status === "approved") return "success";
+  if (status === "pending") return "warning";
+  if (status === "rejected") return "danger";
+  return "neutral";
 }
 
 export default function CustomerContractorsPage() {
@@ -48,19 +86,21 @@ export default function CustomerContractorsPage() {
   const [companies, setCompanies] = useState<ContractorCompanyRow[]>([]);
   const [links, setLinks] = useState<Record<string, CustomerContractorLink>>({});
 
-  // COI view state per contractor
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [coiByCompany, setCoiByCompany] = useState<Record<string, COIRow | null>>({});
   const [policiesByCoi, setPoliciesByCoi] = useState<Record<string, COIPolicyRow[]>>({});
-  const [endorseByCoi, setEndorseByCoi] = useState<Record<string, { codes: string[]; noticeDays: number | null }>>(
-    {}
-  );
+  const [endorseByCoi, setEndorseByCoi] = useState<
+    Record<string, { codes: string[]; noticeDays: number | null }>
+  >({});
   const [coiLoading, setCoiLoading] = useState<Record<string, boolean>>({});
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceTypeRow[]>([]);
+
   const insuranceNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    insuranceTypes.forEach((x) => (m[x.id] = x.name));
+    insuranceTypes.forEach((x) => {
+      m[x.id] = x.name;
+    });
     return m;
   }, [insuranceTypes]);
 
@@ -70,37 +110,45 @@ export default function CustomerContractorsPage() {
 
     try {
       const profile = await getMyProfile();
-      if (!profile) return router.replace("/login");
-      if (profile.role !== "customer") return router.replace("/dashboard");
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+      if (profile.role !== "customer") {
+        router.replace("/dashboard");
+        return;
+      }
 
-      // load customer org by owner_user_id
       const { data: userData, error: userErr } = await supabase.auth.getSession();
       if (userErr) throw userErr;
-      if (!userData.session?.user) return router.replace("/login");
+      if (!userData.session?.user) {
+        router.replace("/login");
+        return;
+      }
 
       const { data: cust, error: custErr } = await supabase
         .from("customers")
         .select("id,owner_user_id,name")
-        .eq("owner_user_id", userData.session?.user.id)
+        .eq("owner_user_id", userData.session.user.id)
         .maybeSingle();
 
       if (custErr) throw custErr;
+
       if (!cust) {
         setErr("Customer org not found. Go to Settings and create it first.");
         setCustomer(null);
-        setLoading(false);
         return;
       }
+
       setCustomer(cust as CustomerOrgRow);
 
-      // insurance types for COI policy labels
       const it = await listInsuranceTypes();
       setInsuranceTypes(it);
 
-      // initial search load
       await searchCompanies("", cust.id);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Load error";
+      setErr(message);
     } finally {
       setLoading(false);
     }
@@ -114,7 +162,6 @@ export default function CustomerContractorsPage() {
   async function searchCompanies(query: string, customerId: string) {
     setErr(null);
 
-    // show latest first; simple search by legal_name / dba_name
     const like = query.trim();
     const q1 = like ? `%${like}%` : `%`;
 
@@ -130,7 +177,6 @@ export default function CustomerContractorsPage() {
     const list = (comps || []) as ContractorCompanyRow[];
     setCompanies(list);
 
-    // pull link statuses for these companies for this customer
     const ids = list.map((c) => c.id);
     if (ids.length === 0) {
       setLinks({});
@@ -146,19 +192,25 @@ export default function CustomerContractorsPage() {
     if (lnkErr) throw lnkErr;
 
     const map: Record<string, CustomerContractorLink> = {};
-    (lnk || []).forEach((r: any) => {
-      map[r.contractor_company_id] = { contractor_company_id: r.contractor_company_id, status: r.status };
+    (lnk || []).forEach((r: { contractor_company_id: string; status: string }) => {
+      map[r.contractor_company_id] = {
+        contractor_company_id: r.contractor_company_id,
+        status: r.status,
+      };
     });
+
     setLinks(map);
   }
 
   async function onSearch() {
     if (!customer) return;
+
     setLoading(true);
     try {
       await searchCompanies(q, customer.id);
-    } catch (e: any) {
-      setErr(e.message ?? "Search error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Search error";
+      setErr(message);
     } finally {
       setLoading(false);
     }
@@ -168,12 +220,14 @@ export default function CustomerContractorsPage() {
     return links[companyId]?.status ?? "not_added";
   }
 
-  async function setContractorStatus(companyId: string, status: "approved" | "pending" | "rejected") {
+  async function setContractorStatus(
+    companyId: string,
+    status: "approved" | "pending" | "rejected"
+  ) {
     if (!customer) return;
     setErr(null);
 
     try {
-      // upsert link row
       const { error } = await supabase.from("customer_contractors").upsert(
         {
           customer_id: customer.id,
@@ -182,11 +236,13 @@ export default function CustomerContractorsPage() {
         },
         { onConflict: "customer_id,contractor_company_id" }
       );
+
       if (error) throw error;
 
       await searchCompanies(q, customer.id);
-    } catch (e: any) {
-      setErr(e.message ?? "Update status error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Update status error";
+      setErr(message);
     }
   }
 
@@ -194,14 +250,13 @@ export default function CustomerContractorsPage() {
     const next = !expanded[companyId];
     setExpanded((p) => ({ ...p, [companyId]: next }));
 
-    if (!next) return; // collapsing
-    if (coiByCompany[companyId] !== undefined) return; // already loaded (including null)
+    if (!next) return;
+    if (coiByCompany[companyId] !== undefined) return;
 
     setCoiLoading((p) => ({ ...p, [companyId]: true }));
     setErr(null);
 
     try {
-      // load latest COI for this company
       const { data: coi, error: coiErr } = await supabase
         .from("contractor_coi")
         .select("*")
@@ -215,12 +270,17 @@ export default function CustomerContractorsPage() {
       setCoiByCompany((p) => ({ ...p, [companyId]: coiRow }));
 
       if (coiRow?.id) {
-        const [pol, end] = await Promise.all([listCOIPolicies(coiRow.id), listCOIEndorsements(coiRow.id)]);
+        const [pol, end] = await Promise.all([
+          listCOIPolicies(coiRow.id),
+          listCOIEndorsements(coiRow.id),
+        ]);
+
         setPoliciesByCoi((p) => ({ ...p, [coiRow.id]: pol }));
         setEndorseByCoi((p) => ({ ...p, [coiRow.id]: end }));
       }
-    } catch (e: any) {
-      setErr(e.message ?? "Failed to load COI");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to load COI";
+      setErr(message);
     } finally {
       setCoiLoading((p) => ({ ...p, [companyId]: false }));
     }
@@ -228,6 +288,7 @@ export default function CustomerContractorsPage() {
 
   async function downloadCOIPdf(coiId: string) {
     setErr(null);
+
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -237,51 +298,70 @@ export default function CustomerContractorsPage() {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Failed to get signed url");
-      const url = json.url as string;
-      window.open(url, "_blank");
-    } catch (e: any) {
-      setErr(e.message ?? "Download error");
+
+      const json = (await res.json()) as { error?: string; url?: string };
+      if (!res.ok) throw new Error(json.error || "Failed to get signed url");
+      if (!json.url) throw new Error("Signed URL was not returned.");
+
+      window.open(json.url, "_blank");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Download error";
+      setErr(message);
     }
   }
 
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Manage contractors</h1>
-        <p className="text-sm text-gray-600">
-  Search contractors, review COI, and set your relationship status.
-</p>
-        <a className="underline text-sm" href="/customer">
-          Back
-        </a>
-      </div>
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+          Manage Contractors
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+          Search contractors, review COI details, and manage your relationship
+          status with each company.
+        </p>
+      </section>
 
-      {err && <p className="text-sm text-red-600">{err}</p>}
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
 
-      <section className="rounded border p-4 space-y-3">
-        <div className="text-sm text-gray-600">Search contractors</div>
-        <div className="flex gap-2">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <input
-            className="flex-1 rounded border p-2"
-            placeholder="Type contractor name..."
+            className="flex-1 rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+            placeholder="Search contractor name..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") onSearch();
             }}
           />
-          <button className="rounded bg-black px-4 py-2 text-white" onClick={onSearch} disabled={loading}>
+
+          <button
+            className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:bg-[#9CA3AF]"
+            onClick={onSearch}
+            disabled={loading}
+          >
             Search
           </button>
         </div>
-        <div className="text-xs text-gray-500">
-          Customer can view COI details of any contractor. Download PDF is available only after you approve the contractor.
-        </div>
+
+        <p className="mt-3 text-xs text-[#6B7280]">
+          You can review COI details for any contractor. PDF download becomes
+          available after the contractor is approved by your organization.
+        </p>
       </section>
 
-      <section className="space-y-3">
+      {companies.length === 0 && !loading ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">No contractors found.</p>
+        </section>
+      ) : null}
+
+      <section className="space-y-4">
         {companies.map((c) => {
           const st = linkStatus(c.id);
           const isApproved = st === "approved";
@@ -293,46 +373,59 @@ export default function CustomerContractorsPage() {
           const coiEnd = coi?.id ? endorseByCoi[coi.id] : null;
 
           return (
-            <div key={c.id} className="rounded border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">{c.legal_name}</div>
-                  {c.dba_name && <div className="text-sm text-gray-600">DBA: {c.dba_name}</div>}
-                  <div className="text-xs text-gray-500 mt-1">Company status: {c.status ?? "-"}</div>
-                  {c.block_reason && <div className="text-xs text-red-600">Block reason: {c.block_reason}</div>}
+            <section
+              key={c.id}
+              className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm"
+            >
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-semibold text-[#111827]">
+                      {c.legal_name}
+                    </h2>
+                    <StatusPill tone={relationshipTone(st)}>
+                      Your status: {st === "not_added" ? "not added" : st}
+                    </StatusPill>
+                    <StatusPill tone="info">
+                      Company status: {c.status ?? "-"}
+                    </StatusPill>
+                  </div>
+
+                  {c.dba_name ? (
+                    <p className="mt-2 text-sm text-[#4B5563]">DBA: {c.dba_name}</p>
+                  ) : null}
+
+                  {c.block_reason ? (
+                    <p className="mt-2 text-sm text-red-700">
+                      Block reason: {c.block_reason}
+                    </p>
+                  ) : null}
                 </div>
 
-                <div className="flex flex-col gap-2 items-end">
-                  <div className="text-xs">
-                    Your status:{" "}
-                    <b className="capitalize">
-                      {st === "not_added" ? "not added" : st}
-                    </b>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    <button
-                      className="rounded border px-3 py-1 text-sm"
-                      onClick={() => setContractorStatus(c.id, "pending")}
-                    >
-                      Add / Pending
-                    </button>
-                    <button
-                      className="rounded bg-black px-3 py-1 text-sm text-white"
-                      onClick={() => setContractorStatus(c.id, "approved")}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="rounded border px-3 py-1 text-sm"
-                      onClick={() => setContractorStatus(c.id, "rejected")}
-                    >
-                      Reject
-                    </button>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  <button
+                    className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                    onClick={() => setContractorStatus(c.id, "pending")}
+                  >
+                    Add / Pending
+                  </button>
 
                   <button
-                    className="rounded border px-3 py-1 text-sm"
+                    className="rounded-xl bg-[#1F6FB5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+                    onClick={() => setContractorStatus(c.id, "approved")}
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                    onClick={() => setContractorStatus(c.id, "rejected")}
+                  >
+                    Reject
+                  </button>
+
+                  <button
+                    className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
                     onClick={() => toggleCOI(c.id)}
                   >
                     {isExpanded ? "Hide COI" : "View COI"}
@@ -340,115 +433,171 @@ export default function CustomerContractorsPage() {
                 </div>
               </div>
 
-              {/* COI panel */}
-              {isExpanded && (
-                <div className="mt-4 rounded border p-3 bg-gray-50 space-y-3">
-                  {coiIsLoading && <div className="text-sm text-gray-600">Loading COI...</div>}
-
-                  {!coiIsLoading && !coi && (
-                    <div className="text-sm text-gray-600">No COI submitted for this contractor.</div>
-                  )}
-
-                  {!coiIsLoading && coi && (
-                    <>
-                      <div className="flex items-center justify-between gap-3">
+              {isExpanded ? (
+                <div className="mt-6 rounded-2xl border border-[#E5EDF5] bg-[#FBFDFF] p-4">
+                  {coiIsLoading ? (
+                    <div className="text-sm text-[#4B5563]">Loading COI...</div>
+                  ) : !coi ? (
+                    <div className="text-sm text-[#4B5563]">
+                      No COI submitted for this contractor.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                          <div className="text-sm">
-                            <b>COI header</b>
-                          </div>
-                          <div className="text-xs text-gray-700">
-                            Issue: <b>{iso(coi.issue_date) || "-"}</b> • Exp: <b>{iso(coi.expiration_date) || "-"}</b>
-                          </div>
-                          <div className="text-xs text-gray-700">
-                            Carrier: <b>{coi.carrier_name || "-"}</b> • AM Best: <b>{coi.am_best_rating || "-"}</b> • Admitted:{" "}
-                            <b>{coi.admitted_carrier ? "Yes" : "No"}</b>
-                          </div>
-                          <div className="text-xs text-gray-700">
-                            Status: <b className="capitalize">{coi.status || "draft"}</b>
+                          <h3 className="text-base font-semibold text-[#0A2E5C]">
+                            COI Header
+                          </h3>
+
+                          <div className="mt-2 space-y-1 text-sm text-[#4B5563]">
+                            <div>
+                              Issue:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {iso(coi.issue_date) || "-"}
+                              </span>
+                              {" · "}
+                              Exp:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {iso(coi.expiration_date) || "-"}
+                              </span>
+                            </div>
+                            <div>
+                              Carrier:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {coi.carrier_name || "-"}
+                              </span>
+                              {" · "}
+                              AM Best:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {coi.am_best_rating || "-"}
+                              </span>
+                              {" · "}
+                              Admitted:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {coi.admitted_carrier ? "Yes" : "No"}
+                              </span>
+                            </div>
+                            <div>
+                              Status:{" "}
+                              <span className="font-medium capitalize text-[#111827]">
+                                {coi.status || "draft"}
+                              </span>
+                            </div>
                             {coi.review_notes ? (
-                              <>
-                                {" "}• Notes: <span className="text-gray-600">{coi.review_notes}</span>
-                              </>
+                              <div>
+                                Notes:{" "}
+                                <span className="text-[#4B5563]">
+                                  {coi.review_notes}
+                                </span>
+                              </div>
                             ) : null}
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-col items-start gap-2 lg:items-end">
                           <button
-                            className={`rounded px-3 py-1 text-sm ${
-                              isApproved ? "bg-black text-white" : "border text-gray-500"
+                            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                              isApproved
+                                ? "bg-[#1F6FB5] text-white hover:bg-[#0A2E5C]"
+                                : "cursor-not-allowed border border-[#D9E2EC] bg-white text-[#9CA3AF]"
                             }`}
                             disabled={!isApproved}
                             onClick={() => downloadCOIPdf(coi.id)}
-                            title={isApproved ? "Download COI PDF" : "Approve contractor to enable download"}
+                            title={
+                              isApproved
+                                ? "Download COI PDF"
+                                : "Approve contractor to enable download"
+                            }
                           >
                             Download PDF
                           </button>
-                          {!isApproved && (
-                            <div className="text-xs text-gray-500">
-                              Download доступен после approval
+
+                          {!isApproved ? (
+                            <div className="text-xs text-[#6B7280]">
+                              Download available after approval.
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
-                      {/* endorsements */}
-                      <div className="rounded border bg-white p-3">
-                        <div className="text-sm font-semibold">Endorsements</div>
+                      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4">
+                        <h4 className="text-sm font-semibold text-[#0A2E5C]">
+                          Endorsements
+                        </h4>
+
                         {coiEnd ? (
                           <>
-                            <div className="text-xs text-gray-600 mt-1">
-                              Notice days: <b>{coiEnd.noticeDays ?? "-"}</b>
+                            <div className="mt-2 text-sm text-[#4B5563]">
+                              Notice days:{" "}
+                              <span className="font-medium text-[#111827]">
+                                {coiEnd.noticeDays ?? "-"}
+                              </span>
                             </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
+
+                            <div className="mt-3 flex flex-wrap gap-2">
                               {coiEnd.codes.length > 0 ? (
                                 coiEnd.codes.map((code) => (
-                                  <span key={code} className="text-xs rounded border px-2 py-1">
+                                  <span
+                                    key={code}
+                                    className="rounded-full border border-[#D9E2EC] bg-[#F8FAFC] px-3 py-1 text-xs font-medium text-[#374151]"
+                                  >
                                     {code}
                                   </span>
                                 ))
                               ) : (
-                                <div className="text-xs text-gray-600">No endorsements recorded.</div>
+                                <div className="text-sm text-[#4B5563]">
+                                  No endorsements recorded.
+                                </div>
                               )}
                             </div>
                           </>
                         ) : (
-                          <div className="text-xs text-gray-600">No endorsements recorded.</div>
-                        )}
-                      </div>
-
-                      {/* policies */}
-                      <div className="rounded border bg-white p-3 space-y-2">
-                        <div className="text-sm font-semibold">Policies</div>
-                        {coiPolicies.length === 0 && (
-                          <div className="text-xs text-gray-600">No policies recorded.</div>
-                        )}
-
-                        {coiPolicies.map((p) => (
-                          <div key={p.id} className="rounded border p-2">
-                            <div className="text-sm">
-                              <b>{insuranceNameById[p.insurance_type_id] ?? "Insurance"}</b>
-                            </div>
-                            <div className="text-xs text-gray-600">
-                              Policy #{p.policy_number || "-"} • {iso(p.issue_date) || "-"} → {iso(p.expiration_date) || "-"}
-                            </div>
-                            <pre className="mt-2 text-xs bg-gray-50 rounded p-2 overflow-auto">
-{JSON.stringify(p.limits ?? {}, null, 2)}
-                            </pre>
+                          <div className="mt-2 text-sm text-[#4B5563]">
+                            No endorsements recorded.
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </>
+
+                      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4">
+                        <h4 className="text-sm font-semibold text-[#0A2E5C]">
+                          Policies
+                        </h4>
+
+                        {coiPolicies.length === 0 ? (
+                          <div className="mt-2 text-sm text-[#4B5563]">
+                            No policies recorded.
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-3">
+                            {coiPolicies.map((p) => (
+                              <div
+                                key={p.id}
+                                className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4"
+                              >
+                                <div className="text-sm font-semibold text-[#111827]">
+                                  {insuranceNameById[p.insurance_type_id] ?? "Insurance"}
+                                </div>
+
+                                <div className="mt-1 text-xs text-[#6B7280]">
+                                  Policy #{p.policy_number || "-"} {" · "}
+                                  {iso(p.issue_date) || "-"} → {iso(p.expiration_date) || "-"}
+                                </div>
+
+                                <pre className="mt-3 overflow-auto rounded-xl border border-[#E5EDF5] bg-white p-3 text-xs text-[#374151]">
+{JSON.stringify(p.limits ?? {}, null, 2)}
+                                </pre>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              ) : null}
+            </section>
           );
         })}
-
-        {companies.length === 0 && !loading && (
-          <div className="text-sm text-gray-600">No contractors found.</div>
-        )}
       </section>
     </main>
   );

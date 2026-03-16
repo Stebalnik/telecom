@@ -521,6 +521,19 @@ $$;
 ALTER FUNCTION "public"."set_updated_at"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."set_updated_at_bids"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."set_updated_at_bids"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."team_cert_count"("p_team_id" "uuid", "p_cert_type_id" "uuid") RETURNS integer
     LANGUAGE "sql" STABLE
     AS $$
@@ -589,6 +602,21 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
+CREATE TABLE IF NOT EXISTS "public"."bid_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "bid_id" "uuid" NOT NULL,
+    "event_type" "text" NOT NULL,
+    "from_status" "text",
+    "to_status" "text",
+    "note" "text",
+    "actor_user_id" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."bid_events" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."bids" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "job_id" "uuid" NOT NULL,
@@ -601,7 +629,11 @@ CREATE TABLE IF NOT EXISTS "public"."bids" (
     "planned_start_date" "date",
     "planned_end_date" "date",
     "work_days" integer,
-    CONSTRAINT "bids_status_check" CHECK (("status" = ANY (ARRAY['submitted'::"text", 'accepted'::"text", 'rejected'::"text"])))
+    "review_notes" "text",
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "uuid",
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "bids_status_check" CHECK (("status" = ANY (ARRAY['submitted'::"text", 'revision_requested'::"text", 'accepted'::"text", 'rejected'::"text", 'withdrawn'::"text"])))
 );
 
 
@@ -998,6 +1030,21 @@ CREATE TABLE IF NOT EXISTS "public"."insurance_types" (
 ALTER TABLE "public"."insurance_types" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."job_awards" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "job_id" "uuid" NOT NULL,
+    "bid_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "team_id" "uuid",
+    "awarded_price" integer NOT NULL,
+    "awarded_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "awarded_by" "uuid"
+);
+
+
+ALTER TABLE "public"."job_awards" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."job_documents" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "job_id" "uuid" NOT NULL,
@@ -1249,6 +1296,11 @@ CREATE TABLE IF NOT EXISTS "public"."work_reviews" (
 ALTER TABLE "public"."work_reviews" OWNER TO "postgres";
 
 
+ALTER TABLE ONLY "public"."bid_events"
+    ADD CONSTRAINT "bid_events_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."bids"
     ADD CONSTRAINT "bids_pkey" PRIMARY KEY ("id");
 
@@ -1429,6 +1481,21 @@ ALTER TABLE ONLY "public"."insurance_types"
 
 
 
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_bid_id_key" UNIQUE ("bid_id");
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_job_id_key" UNIQUE ("job_id");
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."job_documents"
     ADD CONSTRAINT "job_documents_pkey" PRIMARY KEY ("id");
 
@@ -1557,6 +1624,14 @@ CREATE INDEX "customer_contractors_customer_id_idx" ON "public"."customer_contra
 
 
 
+CREATE INDEX "idx_bid_events_bid_id" ON "public"."bid_events" USING "btree" ("bid_id");
+
+
+
+CREATE INDEX "idx_bid_events_created_at" ON "public"."bid_events" USING "btree" ("created_at" DESC);
+
+
+
 CREATE INDEX "idx_bids_job" ON "public"."bids" USING "btree" ("job_id");
 
 
@@ -1630,6 +1705,10 @@ CREATE INDEX "idx_documents_member" ON "public"."documents" USING "btree" ("team
 
 
 CREATE INDEX "idx_documents_status" ON "public"."documents" USING "btree" ("verification_status");
+
+
+
+CREATE INDEX "idx_job_awards_company" ON "public"."job_awards" USING "btree" ("contractor_company_id");
 
 
 
@@ -1721,11 +1800,25 @@ CREATE OR REPLACE TRIGGER "trg_archive_contractor_coi_before_update" BEFORE UPDA
 
 
 
+CREATE OR REPLACE TRIGGER "trg_bids_updated_at" BEFORE UPDATE ON "public"."bids" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at_bids"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_prevent_team_request_redecision" BEFORE UPDATE ON "public"."team_change_requests" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_team_request_redecision"();
 
 
 
 CREATE OR REPLACE TRIGGER "trg_team_change_requests_updated_at" BEFORE UPDATE ON "public"."team_change_requests" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+ALTER TABLE ONLY "public"."bid_events"
+    ADD CONSTRAINT "bid_events_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."bid_events"
+    ADD CONSTRAINT "bid_events_bid_id_fkey" FOREIGN KEY ("bid_id") REFERENCES "public"."bids"("id") ON DELETE CASCADE;
 
 
 
@@ -1736,6 +1829,11 @@ ALTER TABLE ONLY "public"."bids"
 
 ALTER TABLE ONLY "public"."bids"
     ADD CONSTRAINT "bids_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."bids"
+    ADD CONSTRAINT "bids_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -1939,6 +2037,31 @@ ALTER TABLE ONLY "public"."insurance_policy_data"
 
 
 
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_awarded_by_fkey" FOREIGN KEY ("awarded_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_bid_id_fkey" FOREIGN KEY ("bid_id") REFERENCES "public"."bids"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."job_awards"
+    ADD CONSTRAINT "job_awards_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."job_documents"
     ADD CONSTRAINT "job_documents_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE CASCADE;
 
@@ -2071,6 +2194,29 @@ ALTER TABLE ONLY "public"."work_reviews"
 
 ALTER TABLE ONLY "public"."work_reviews"
     ADD CONSTRAINT "work_reviews_reviewer_user_id_fkey" FOREIGN KEY ("reviewer_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE "public"."bid_events" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "bid_events_insert_customer_or_contractor" ON "public"."bid_events" FOR INSERT WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."bids" "b"
+     JOIN "public"."jobs" "j" ON (("j"."id" = "b"."job_id")))
+  WHERE (("b"."id" = "bid_events"."bid_id") AND ("j"."customer_user_id" = "auth"."uid"())))) OR (EXISTS ( SELECT 1
+   FROM ("public"."bids" "b"
+     JOIN "public"."contractor_companies" "c" ON (("c"."id" = "b"."company_id")))
+  WHERE (("b"."id" = "bid_events"."bid_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "bid_events_select" ON "public"."bid_events" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM ("public"."bids" "b"
+     JOIN "public"."jobs" "j" ON (("j"."id" = "b"."job_id")))
+  WHERE (("b"."id" = "bid_events"."bid_id") AND ("j"."customer_user_id" = "auth"."uid"())))) OR (EXISTS ( SELECT 1
+   FROM ("public"."bids" "b"
+     JOIN "public"."contractor_companies" "c" ON (("c"."id" = "b"."company_id")))
+  WHERE (("b"."id" = "bid_events"."bid_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
 
 
 
@@ -2554,6 +2700,23 @@ ALTER TABLE "public"."insurance_types" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "insurance_types_read_all" ON "public"."insurance_types" FOR SELECT USING (true);
+
+
+
+ALTER TABLE "public"."job_awards" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "job_awards_insert_customer" ON "public"."job_awards" FOR INSERT WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM "public"."jobs" "j"
+  WHERE (("j"."id" = "job_awards"."job_id") AND ("j"."customer_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "job_awards_select" ON "public"."job_awards" FOR SELECT USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+   FROM "public"."jobs" "j"
+  WHERE (("j"."id" = "job_awards"."job_id") AND ("j"."customer_user_id" = "auth"."uid"())))) OR (EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "c"
+  WHERE (("c"."id" = "job_awards"."contractor_company_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
 
 
 
@@ -3082,6 +3245,12 @@ GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."set_updated_at_bids"() TO "anon";
+GRANT ALL ON FUNCTION "public"."set_updated_at_bids"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_updated_at_bids"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."team_cert_count"("p_team_id" "uuid", "p_cert_type_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."team_cert_count"("p_team_id" "uuid", "p_cert_type_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."team_cert_count"("p_team_id" "uuid", "p_cert_type_id" "uuid") TO "service_role";
@@ -3118,6 +3287,12 @@ GRANT ALL ON FUNCTION "public"."vendor_is_approved"("p_customer_id" "uuid", "p_c
 
 
 
+
+
+
+GRANT ALL ON TABLE "public"."bid_events" TO "anon";
+GRANT ALL ON TABLE "public"."bid_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."bid_events" TO "service_role";
 
 
 
@@ -3256,6 +3431,12 @@ GRANT ALL ON TABLE "public"."insurance_policy_data" TO "service_role";
 GRANT ALL ON TABLE "public"."insurance_types" TO "anon";
 GRANT ALL ON TABLE "public"."insurance_types" TO "authenticated";
 GRANT ALL ON TABLE "public"."insurance_types" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."job_awards" TO "anon";
+GRANT ALL ON TABLE "public"."job_awards" TO "authenticated";
+GRANT ALL ON TABLE "public"."job_awards" TO "service_role";
 
 
 

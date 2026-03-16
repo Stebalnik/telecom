@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getMyProfile } from "../../../lib/profile";
-import { supabase } from "../../../lib/supabaseClient";
 import { createMyCustomerOrg, getMyCustomerOrg, CustomerOrg } from "../../../lib/customers";
 
 export default function CustomerSettingsHomePage() {
@@ -15,6 +15,7 @@ export default function CustomerSettingsHomePage() {
   const [org, setOrg] = useState<CustomerOrg | null>(null);
   const [orgName, setOrgName] = useState("");
   const [orgDesc, setOrgDesc] = useState("");
+  const [creating, setCreating] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -22,13 +23,20 @@ export default function CustomerSettingsHomePage() {
 
     try {
       const profile = await getMyProfile();
-      if (!profile) return router.replace("/login");
-      if (profile.role !== "customer") return router.replace("/dashboard");
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+
+      if (profile.role !== "customer") {
+        router.replace("/dashboard");
+        return;
+      }
 
       const o = await getMyCustomerOrg();
       setOrg(o ?? null);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
       setLoading(false);
     }
@@ -41,70 +49,152 @@ export default function CustomerSettingsHomePage() {
 
   async function createOrg() {
     setErr(null);
+    setCreating(true);
+
     try {
       if (!orgName.trim()) throw new Error("Customer name is required.");
-      await createMyCustomerOrg(orgName.trim(), orgDesc.trim() || null);
+
+      await createMyCustomerOrg(orgName.trim());
       await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Create org error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Create org error");
+    } finally {
+      setCreating(false);
     }
   }
 
-  return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Customer settings</h1>
-        <a className="underline" href="/customer">
-          Back
-        </a>
-      </div>
-
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-
-      {!org && !loading && (
-        <section className="rounded border p-4 space-y-3">
-          <h2 className="font-semibold">Create your Customer org (one per account)</h2>
-          <input
-            className="w-full rounded border p-2"
-            placeholder="Customer name (e.g., MasTec)"
-            value={orgName}
-            onChange={(e) => setOrgName(e.target.value)}
-          />
-          <textarea
-            className="w-full rounded border p-2"
-            placeholder="Description (optional)"
-            value={orgDesc}
-            onChange={(e) => setOrgDesc(e.target.value)}
-          />
-          <button className="rounded bg-black px-4 py-2 text-white" onClick={createOrg}>
-            Create
-          </button>
+  if (loading) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">Loading customer settings...</p>
         </section>
-      )}
+      </main>
+    );
+  }
 
-      {org && (
+  return (
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+              Customer Settings
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Manage your customer organization profile, insurance rules, and
+              certificate requirements for contractor qualification.
+            </p>
+          </div>
+
+          <Link
+            href="/customer"
+            className="inline-flex items-center justify-center rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </section>
+
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
+
+      {!org ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-[#0A2E5C]">
+            Create Your Customer Organization
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Each customer account needs one organization before jobs, bids, and
+            contractor requirements can be managed.
+          </p>
+
+          <div className="mt-5 grid gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Customer name
+              </label>
+              <input
+                className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                placeholder="Customer name (e.g. MasTec)"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                disabled={creating}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Description
+              </label>
+              <textarea
+                className="min-h-[110px] w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                placeholder="Description (optional)"
+                value={orgDesc}
+                onChange={(e) => setOrgDesc(e.target.value)}
+                disabled={creating}
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white transition ${
+                  creating
+                    ? "bg-[#9CA3AF]"
+                    : "bg-[#1F6FB5] hover:bg-[#0A2E5C]"
+                }`}
+                onClick={createOrg}
+                disabled={creating}
+              >
+                {creating ? "Creating..." : "Create Organization"}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : (
         <>
-          <section className="rounded border p-4">
-            <div className="text-sm text-gray-600">Org</div>
-            <div className="text-lg font-semibold">{org.name}</div>
-            {org.description && <div className="text-sm text-gray-700">{org.description}</div>}
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+              Organization
+            </div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {org.name}
+            </div>
+            {org.description ? (
+              <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                {org.description}
+              </p>
+            ) : null}
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <a className="rounded border p-5 hover:bg-gray-50" href="/customer/settings/insurance">
-              <div className="text-lg font-semibold">Insurance requirements</div>
-              <div className="text-sm text-gray-600 mt-1">
-                Insurance limits, endorsements, expiration rules, bonds.
+            <Link
+              href="/customer/settings/insurance"
+              className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm transition hover:bg-[#F8FAFC]"
+            >
+              <div className="text-lg font-semibold text-[#0A2E5C]">
+                Insurance Requirements
               </div>
-            </a>
+              <div className="mt-2 text-sm leading-6 text-[#4B5563]">
+                Insurance limits, endorsements, expiration rules, carrier rules,
+                and bond settings.
+              </div>
+            </Link>
 
-            <a className="rounded border p-5 hover:bg-gray-50" href="/customer/settings/certs-per-scope">
-              <div className="text-lg font-semibold">Certs per scope requirements</div>
-              <div className="text-sm text-gray-600 mt-1">
-                Team certificate requirements per scope (min count in team).
+            <Link
+              href="/customer/settings/certs-per-scope"
+              className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm transition hover:bg-[#F8FAFC]"
+            >
+              <div className="text-lg font-semibold text-[#0A2E5C]">
+                Certs per Scope Requirements
               </div>
-            </a>
+              <div className="mt-2 text-sm leading-6 text-[#4B5563]">
+                Minimum certificate requirements in team for each work scope.
+              </div>
+            </Link>
           </section>
         </>
       )}

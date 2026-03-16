@@ -1,151 +1,136 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getMyProfile } from "../../lib/profile";
-import { supabase } from "../../lib/supabaseClient";
+import Link from "next/link";
+
+function QuickCard({
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+}: {
+  title: string;
+  description: string;
+  primaryAction?: { label: string; href: string };
+  secondaryAction?: { label: string; href: string };
+}) {
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-[#0A2E5C]">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-[#4B5563]">{description}</p>
+
+      {(primaryAction || secondaryAction) && (
+        <div className="mt-4 grid gap-2">
+          {primaryAction ? (
+            <Link
+              href={primaryAction.href}
+              className="block rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-center text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+            >
+              {primaryAction.label}
+            </Link>
+          ) : null}
+
+          {secondaryAction ? (
+            <Link
+              href={secondaryAction.href}
+              className="block rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-center text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              {secondaryAction.label}
+            </Link>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm text-[#4B5563]">{hint}</div>
+    </div>
+  );
+}
 
 export default function CustomerPage() {
-  const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      setChecking(true);
-      setErr(null);
-
-      try {
-        const { data } = await supabase.auth.getSession();
-
-        if (!active) return;
-
-        if (!data.session?.user) {
-          router.replace("/login");
-          return;
-        }
-
-        const profile = await getMyProfile();
-
-        if (!active) return;
-
-        if (!profile || profile.role !== "customer") {
-          router.replace("/dashboard");
-          return;
-        }
-      } catch (e: any) {
-        if (!active) return;
-        setErr(e.message ?? "Access check error");
-      } finally {
-        if (active) setChecking(false);
-      }
-    }
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, [router]);
-
-  if (checking) {
-    return (
-      <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
-        <div className="mx-auto max-w-5xl rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-          <p className="text-sm text-[#4B5563]">Loading customer cabinet...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (err) {
-    return (
-      <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
-        <div className="mx-auto max-w-5xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
-          {err}
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-[#111827]">
-              Customer cabinet
-            </h1>
-            <a className="text-sm underline" href="/dashboard">
-              Back
-            </a>
-          </div>
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+          Customer Dashboard
+        </h1>
 
-          <p className="mt-3 text-sm text-[#4B5563]">
-            Create jobs, configure requirements and manage contractor approvals.
-          </p>
-        </section>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+          Create jobs, review bids, manage contractors, control compliance, and
+          keep project workflows organized from one customer workspace.
+        </p>
+      </section>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#111827]">Jobs</h2>
-            <p className="mt-2 text-sm text-[#4B5563]">
-              Create new projects and manage bids.
-            </p>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Jobs"
+          value="Manage"
+          hint="Open, active, and archived work"
+        />
+        <StatCard
+          label="Bids"
+          value="Review"
+          hint="Track submitted contractor offers"
+        />
+        <StatCard
+          label="Contractors"
+          value="Approve"
+          hint="Manage vendor access and COI visibility"
+        />
+        <StatCard
+          label="Compliance"
+          value="Control"
+          hint="Insurance and certification requirements"
+        />
+      </section>
 
-            <div className="mt-4 grid gap-2">
-              <a
-                className="block rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-center text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
-                href="/customer/jobs/new"
-              >
-                Create job
-              </a>
-              <a
-                className="block rounded-xl border border-[#D9E2EC] px-4 py-2.5 text-center text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                href="/customer/jobs/active"
-              >
-                Active jobs
-              </a>
-              <a
-                className="block rounded-xl border border-[#D9E2EC] px-4 py-2.5 text-center text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                href="/customer/jobs/archive"
-              >
-                Archived jobs
-              </a>
-            </div>
-          </div>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <QuickCard
+          title="Jobs"
+          description="Create new jobs, view active jobs, and keep older work in archive."
+          primaryAction={{ label: "Open jobs", href: "/customer/jobs" }}
+          secondaryAction={{ label: "Create job", href: "/customer/jobs/new" }}
+        />
 
-          <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#111827]">Contractors</h2>
-            <p className="mt-2 text-sm text-[#4B5563]">
-              Manage vendors and view COI.
-            </p>
+        <QuickCard
+          title="Contractors"
+          description="Browse marketplace contractors, approved vendors, and available compliance information."
+          primaryAction={{
+            label: "Open contractors",
+            href: "/customer/contractors",
+          }}
+          secondaryAction={{
+            label: "Approved contractors",
+            href: "/customer/contractors/approved",
+          }}
+        />
 
-            <div className="mt-4 grid gap-2">
-              <a
-                className="block rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-center text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
-                href="/customer/contractors/approved"
-              >
-                Approved contractors
-              </a>
-              <a
-                className="block rounded-xl border border-[#D9E2EC] px-4 py-2.5 text-center text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                href="/customer/contractors/all"
-              >
-                All contractors on platform
-              </a>
-            </div>
-
-            <div className="pt-4">
-              <a className="text-sm underline" href="/customer/settings">
-                Settings (requirements)
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
+        <QuickCard
+          title="Settings"
+          description="Manage insurance requirements and certificate-per-scope settings."
+          primaryAction={{ label: "Open settings", href: "/customer/settings" }}
+          secondaryAction={{
+            label: "Insurance settings",
+            href: "/customer/settings/insurance",
+          }}
+        />
+      </section>
     </main>
   );
 }

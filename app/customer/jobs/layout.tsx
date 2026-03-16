@@ -3,48 +3,64 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function TabLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
-  const active = pathname === href;
+  const active = isActive(pathname, href);
 
   return (
     <Link
       href={href}
-      className={
-        "text-sm px-3 py-2 rounded border " +
-        (active ? "bg-black text-white" : "bg-white hover:bg-gray-50")
-      }
+      className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+        active
+          ? "bg-[#1F6FB5] text-white"
+          : "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+      }`}
     >
       {label}
     </Link>
   );
 }
 
-export default function JobsLayout({ children }: { children: React.ReactNode }) {
+export default function JobsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Jobs</h1>
-          <div className="text-sm text-gray-600">
-            Create jobs, manage active jobs, and move completed/inactive jobs to archive.
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+              Jobs
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Create jobs, manage active jobs, and move completed or inactive jobs
+              to archive.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+              href="/customer/jobs/new"
+            >
+              + New Job
+            </Link>
           </div>
         </div>
+      </section>
 
-        <div className="flex items-center gap-2">
-          <Link className="rounded border px-3 py-2 text-sm hover:bg-gray-50" href="/customer">
-            Back
-          </Link>
-          <Link className="rounded bg-black px-4 py-2 text-white text-sm" href="/customer/jobs/new">
-            + New Job
-          </Link>
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <TabLink href="/customer/jobs/active" label="Active" />
+          <TabLink href="/customer/jobs/archive" label="Archive" />
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <TabLink href="/customer/jobs/active" label="Active" />
-        <TabLink href="/customer/jobs/archive" label="Archive" />
-      </div>
+      </section>
 
       {children}
     </main>

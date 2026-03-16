@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getMyProfile } from "../../../../lib/profile";
 import { supabase } from "../../../../lib/supabaseClient";
@@ -49,12 +50,12 @@ export default function CustomerInsuranceSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   const [org, setOrg] = useState<CustomerOrg | null>(null);
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceType[]>([]);
   const [insReq, setInsReq] = useState<CustomerInsuranceRequirement[]>([]);
 
-  // config + endorsements
   const [cfg, setCfg] = useState<CustomerInsuranceConfigRow | null>(null);
   const [endorsementTypes, setEndorsementTypes] = useState<EndorsementTypeRow[]>([]);
   const [selectedEndorsements, setSelectedEndorsements] = useState<string[]>([]);
@@ -68,14 +69,25 @@ export default function CustomerInsuranceSettingsPage() {
   async function load() {
     setLoading(true);
     setErr(null);
+    setSaveMsg(null);
 
     try {
       const profile = await getMyProfile();
-      if (!profile) return router.replace("/login");
-      if (profile.role !== "customer") return router.replace("/dashboard");
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+
+      if (profile.role !== "customer") {
+        router.replace("/dashboard");
+        return;
+      }
 
       const o = await getMyCustomerOrg();
-      if (!o) return router.replace("/customer/settings");
+      if (!o) {
+        router.replace("/customer/settings");
+        return;
+      }
       setOrg(o);
 
       const it = await listInsuranceTypes();
@@ -84,16 +96,16 @@ export default function CustomerInsuranceSettingsPage() {
       const ir = await listCustomerInsuranceReq(o.id);
       setInsReq(ir);
 
-      // config
       const { data: cfgRow, error: cfgErr } = await supabase
         .from("customer_insurance_config")
         .select("*")
         .eq("customer_id", o.id)
         .maybeSingle();
+
       if (cfgErr) throw cfgErr;
 
-      const cfgObj = (cfgRow ??
-        ({
+      const cfgObj: CustomerInsuranceConfigRow =
+        (cfgRow as CustomerInsuranceConfigRow | null) ?? {
           id: "",
           customer_id: o.id,
           min_days_before_expiration: 0,
@@ -107,37 +119,45 @@ export default function CustomerInsuranceSettingsPage() {
           performance_bond: false,
           payment_bond: false,
           bond_amount_percent: null,
-        } as any)) as CustomerInsuranceConfigRow;
+        };
 
       setCfg(cfgObj);
 
-      // endorsement types
       const { data: et, error: etErr } = await supabase
         .from("endorsement_types")
         .select("code,name")
         .order("name", { ascending: true });
-      if (etErr) throw etErr;
-      setEndorsementTypes((et || []) as any);
 
-      // selected endorsements (by config)
+      if (etErr) throw etErr;
+      setEndorsementTypes((et || []) as EndorsementTypeRow[]);
+
       if (cfgRow?.id) {
         const { data: reqEnd, error: reqEndErr } = await supabase
           .from("customer_required_endorsements")
           .select("endorsement_code,notice_days")
           .eq("config_id", cfgRow.id);
+
         if (reqEndErr) throw reqEndErr;
 
-        const codes = (reqEnd || []).map((x: any) => x.endorsement_code);
-        setSelectedEndorsements(codes);
+        const typedReqEnd = (reqEnd || []) as {
+          endorsement_code: string;
+          notice_days: number | null;
+        }[];
 
-        const nd = (reqEnd || [])[0]?.notice_days;
-        if (typeof nd === "number") setNoticeDays(nd);
+        setSelectedEndorsements(typedReqEnd.map((x) => x.endorsement_code));
+
+        const nd = typedReqEnd[0]?.notice_days;
+        if (typeof nd === "number") {
+          setNoticeDays(nd);
+        } else {
+          setNoticeDays(30);
+        }
       } else {
         setSelectedEndorsements([]);
         setNoticeDays(30);
       }
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
       setLoading(false);
     }
@@ -148,14 +168,20 @@ export default function CustomerInsuranceSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function saveInsReq(insuranceTypeId: string, patch: Partial<CustomerInsuranceRequirement>) {
+  async function saveInsReq(
+    insuranceTypeId: string,
+    patch: Partial<CustomerInsuranceRequirement>
+  ) {
     if (!org) return;
+
     setErr(null);
+    setSaveMsg(null);
+
     try {
       await upsertCustomerInsuranceReq(org.id, insuranceTypeId, patch);
       await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Save insurance requirement error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Save insurance requirement error");
     }
   }
 
@@ -168,13 +194,14 @@ export default function CustomerInsuranceSettingsPage() {
 
   async function saveConfigAndEndorsements() {
     if (!org || !cfg) return;
+
     setSavingCfg(true);
     setErr(null);
+    setSaveMsg(null);
 
     try {
       let savedCfgId = cfg.id || null;
 
-      // 1) upsert config
       if (!cfg.id) {
         const { data: ins, error: insErr } = await supabase
           .from("customer_insurance_config")
@@ -196,8 +223,10 @@ export default function CustomerInsuranceSettingsPage() {
           .single();
 
         if (insErr) throw insErr;
-        savedCfgId = (ins as any).id as string;
-        setCfg(ins as any);
+
+        const saved = ins as CustomerInsuranceConfigRow;
+        savedCfgId = saved.id;
+        setCfg(saved);
       } else {
         const { error: upErr } = await supabase
           .from("customer_insurance_config")
@@ -219,296 +248,433 @@ export default function CustomerInsuranceSettingsPage() {
         if (upErr) throw upErr;
       }
 
-      // 2) endorsements (delete + insert)
       if (!savedCfgId) throw new Error("Config id missing after save");
 
       const { error: delErr } = await supabase
         .from("customer_required_endorsements")
         .delete()
         .eq("config_id", savedCfgId);
+
       if (delErr) throw delErr;
 
       if (selectedEndorsements.length > 0) {
-        const payload: CustomerRequiredEndorsementRow[] = selectedEndorsements.map((code) => ({
-          config_id: savedCfgId!,
-          endorsement_code: code,
-          notice_days: noticeDays ?? null,
-        }));
+        const payload: CustomerRequiredEndorsementRow[] = selectedEndorsements.map(
+          (code) => ({
+            config_id: savedCfgId!,
+            endorsement_code: code,
+            notice_days: noticeDays ?? null,
+          })
+        );
 
         const { error: insEndErr } = await supabase
           .from("customer_required_endorsements")
           .insert(payload);
+
         if (insEndErr) throw insEndErr;
       }
 
-      alert("Saved insurance config");
+      setSaveMsg("Insurance configuration saved.");
       await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Save config error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Save config error");
     } finally {
       setSavingCfg(false);
     }
   }
 
+  if (loading) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">Loading insurance settings...</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+              Insurance Requirements
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Configure vendor pre-qualification insurance requirements and
+              enterprise insurance validation rules for contractors working with
+              your organization.
+            </p>
+          </div>
+
+          <Link
+            href="/customer/settings"
+            className="inline-flex items-center justify-center rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+          >
+            Back to Settings
+          </Link>
+        </div>
+      </section>
+
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
+
+      {saveMsg ? (
+        <section className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 shadow-sm">
+          {saveMsg}
+        </section>
+      ) : null}
+
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold">Insurance requirements</h1>
-          <div className="text-sm text-gray-600">Customer settings</div>
+          <h2 className="text-xl font-semibold text-[#0A2E5C]">
+            Company Insurance Requirements
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+            Contractors can see these requirements before working with your
+            company. Admin review and approval can rely on these limits and
+            endorsements.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <a className="underline text-sm" href="/customer/settings">
-            Back to settings
-          </a>
-          <a className="underline text-sm" href="/customer">
-            Customer
-          </a>
-        </div>
-      </div>
 
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
-
-      {/* Insurance requirements */}
-      <section className="rounded border p-4 space-y-3">
-        <h2 className="font-semibold">Company insurance requirements (vendor pre-qualification)</h2>
-        <p className="text-sm text-gray-600">
-          Contractors can see these requirements. Admin will approve/reject vendor applications.
-        </p>
-
-        <div className="space-y-3">
+        <div className="space-y-4">
           {insuranceTypes.map((it) => {
             const row = getInsReqRow(it.id);
+
             return (
-              <div key={it.id} className="rounded border p-3">
-                <div className="flex items-center justify-between">
-                  <b>{it.name}</b>
-                  <label className="text-sm flex items-center gap-2">
+              <section
+                key={it.id}
+                className="rounded-2xl border border-[#D9E2EC] bg-[#FBFDFF] p-5"
+              >
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <h3 className="text-lg font-semibold text-[#111827]">{it.name}</h3>
+
+                  <label className="flex items-center gap-2 text-sm font-medium text-[#111827]">
                     <input
                       type="checkbox"
                       checked={row?.is_required ?? true}
-                      onChange={(e) => saveInsReq(it.id, { is_required: e.target.checked })}
+                      onChange={(e) =>
+                        saveInsReq(it.id, { is_required: e.target.checked })
+                      }
                     />
                     Required
                   </label>
                 </div>
 
-                <div className="mt-2 grid gap-2 md:grid-cols-2">
-                  <input
-                    className="rounded border p-2"
-                    placeholder="Min each occurrence (e.g. 1000000)"
-                    defaultValue={row?.min_limit_each_occurrence ?? ""}
-                    onBlur={(e) =>
-                      saveInsReq(it.id, { min_limit_each_occurrence: moneyToNumber(e.target.value) as any })
-                    }
-                  />
-                  <input
-                    className="rounded border p-2"
-                    placeholder="Min aggregate (e.g. 2000000)"
-                    defaultValue={row?.min_limit_aggregate ?? ""}
-                    onBlur={(e) =>
-                      saveInsReq(it.id, { min_limit_aggregate: moneyToNumber(e.target.value) as any })
-                    }
-                  />
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#111827]">
+                      Min each occurrence
+                    </label>
+                    <input
+                      className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                      placeholder="e.g. 1000000"
+                      defaultValue={row?.min_limit_each_occurrence ?? ""}
+                      onBlur={(e) =>
+                        saveInsReq(it.id, {
+                          min_limit_each_occurrence: moneyToNumber(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-[#111827]">
+                      Min aggregate
+                    </label>
+                    <input
+                      className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                      placeholder="e.g. 2000000"
+                      defaultValue={row?.min_limit_aggregate ?? ""}
+                      onBlur={(e) =>
+                        saveInsReq(it.id, {
+                          min_limit_aggregate: moneyToNumber(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
                 </div>
 
-                <div className="mt-2 grid gap-2 md:grid-cols-2">
-                  <label className="text-sm flex items-center gap-2">
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="flex items-center gap-2 text-sm text-[#111827]">
                     <input
                       type="checkbox"
                       checked={row?.require_additional_insured ?? false}
-                      onChange={(e) => saveInsReq(it.id, { require_additional_insured: e.target.checked })}
+                      onChange={(e) =>
+                        saveInsReq(it.id, {
+                          require_additional_insured: e.target.checked,
+                        })
+                      }
                     />
                     Additional Insured
                   </label>
 
-                  <label className="text-sm flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-[#111827]">
                     <input
                       type="checkbox"
                       checked={row?.require_blanket_additional_insured ?? false}
                       onChange={(e) =>
-                        saveInsReq(it.id, { require_blanket_additional_insured: e.target.checked })
+                        saveInsReq(it.id, {
+                          require_blanket_additional_insured: e.target.checked,
+                        })
                       }
                     />
                     Blanket Additional Insured
                   </label>
 
-                  <label className="text-sm flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-[#111827]">
                     <input
                       type="checkbox"
                       checked={row?.require_primary_noncontributory ?? false}
                       onChange={(e) =>
-                        saveInsReq(it.id, { require_primary_noncontributory: e.target.checked })
+                        saveInsReq(it.id, {
+                          require_primary_noncontributory: e.target.checked,
+                        })
                       }
                     />
-                    Primary &amp; Non-contributory
+                    Primary & Non-contributory
                   </label>
 
-                  <label className="text-sm flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-[#111827]">
                     <input
                       type="checkbox"
                       checked={row?.require_waiver_subrogation ?? false}
-                      onChange={(e) => saveInsReq(it.id, { require_waiver_subrogation: e.target.checked })}
+                      onChange={(e) =>
+                        saveInsReq(it.id, {
+                          require_waiver_subrogation: e.target.checked,
+                        })
+                      }
                     />
-                    Waiver of subrogation
+                    Waiver of Subrogation
                   </label>
                 </div>
 
-                <textarea
-                  className="mt-2 w-full rounded border p-2"
-                  placeholder="Notes / exceptions"
-                  defaultValue={row?.notes ?? ""}
-                  onBlur={(e) => saveInsReq(it.id, { notes: e.target.value || null })}
-                />
-              </div>
+                <div className="mt-4">
+                  <label className="mb-1 block text-sm font-medium text-[#111827]">
+                    Notes / Exceptions
+                  </label>
+                  <textarea
+                    className="min-h-[100px] w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                    placeholder="Notes / exceptions"
+                    defaultValue={row?.notes ?? ""}
+                    onBlur={(e) =>
+                      saveInsReq(it.id, { notes: e.target.value || null })
+                    }
+                  />
+                </div>
+              </section>
             );
           })}
         </div>
       </section>
 
-      {/* Insurance config */}
-      <section className="rounded border p-4 space-y-4">
-        <h2 className="font-semibold">Insurance validation rules (enterprise)</h2>
-        <p className="text-sm text-gray-600">
-          These rules control warnings / blocks and insurer requirements for vendors working with you.
-        </p>
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold text-[#0A2E5C]">
+            Insurance Validation Rules
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+            These rules control warnings, hard blocks, insurer quality, state
+            limitations, bond rules, and required endorsements.
+          </p>
+        </div>
 
         {!cfg ? (
-          <div className="text-sm text-gray-600">Loading config...</div>
+          <div className="text-sm text-[#4B5563]">Loading config...</div>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <div className="text-xs text-gray-600">Minimum days before expiration</div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Minimum days before expiration
+                </label>
                 <input
-                  className="w-full rounded border p-2"
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                   value={cfg.min_days_before_expiration ?? 0}
                   onChange={(e) =>
-                    setCfg({ ...cfg, min_days_before_expiration: Number(e.target.value || "0") })
+                    setCfg({
+                      ...cfg,
+                      min_days_before_expiration: Number(e.target.value || "0"),
+                    })
                   }
                 />
               </div>
 
               <div>
-                <div className="text-xs text-gray-600">Warning days before expiration</div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Warning days before expiration
+                </label>
                 <input
-                  className="w-full rounded border p-2"
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                   value={cfg.warning_days_before_expiration ?? 30}
                   onChange={(e) =>
-                    setCfg({ ...cfg, warning_days_before_expiration: Number(e.target.value || "0") })
+                    setCfg({
+                      ...cfg,
+                      warning_days_before_expiration: Number(
+                        e.target.value || "0"
+                      ),
+                    })
                   }
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm mt-6">
+              <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium text-[#111827]">
                 <input
                   type="checkbox"
                   checked={!!cfg.hard_block_if_expired}
-                  onChange={(e) => setCfg({ ...cfg, hard_block_if_expired: e.target.checked })}
+                  onChange={(e) =>
+                    setCfg({ ...cfg, hard_block_if_expired: e.target.checked })
+                  }
                 />
                 Hard block if expired
               </label>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <div className="text-xs text-gray-600">Minimum AM Best rating</div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Minimum AM Best rating
+                </label>
                 <input
-                  className="w-full rounded border p-2"
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                   placeholder="e.g. A-"
                   value={cfg.min_am_best_rating ?? ""}
-                  onChange={(e) => setCfg({ ...cfg, min_am_best_rating: e.target.value || null })}
+                  onChange={(e) =>
+                    setCfg({
+                      ...cfg,
+                      min_am_best_rating: e.target.value || null,
+                    })
+                  }
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm mt-6">
+              <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium text-[#111827]">
                 <input
                   type="checkbox"
                   checked={!!cfg.must_be_admitted_carrier}
-                  onChange={(e) => setCfg({ ...cfg, must_be_admitted_carrier: e.target.checked })}
+                  onChange={(e) =>
+                    setCfg({
+                      ...cfg,
+                      must_be_admitted_carrier: e.target.checked,
+                    })
+                  }
                 />
                 Must be admitted carrier
               </label>
 
               <div>
-                <div className="text-xs text-gray-600">State restrictions</div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  State restrictions
+                </label>
                 <input
-                  className="w-full rounded border p-2"
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                   placeholder="e.g. GA, FL"
                   value={cfg.state_restrictions ?? ""}
-                  onChange={(e) => setCfg({ ...cfg, state_restrictions: e.target.value || null })}
-                />
-              </div>
-            </div>
-
-            <div className="rounded border p-3 space-y-3">
-              <div className="font-semibold">Bond requirements</div>
-
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={!!cfg.bond_required}
-                  onChange={(e) => setCfg({ ...cfg, bond_required: e.target.checked })}
-                />
-                Bond required
-              </label>
-
-              <div className="grid gap-2 md:grid-cols-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!cfg.bid_bond}
-                    onChange={(e) => setCfg({ ...cfg, bid_bond: e.target.checked })}
-                  />
-                  Bid bond
-                </label>
-
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!cfg.performance_bond}
-                    onChange={(e) => setCfg({ ...cfg, performance_bond: e.target.checked })}
-                  />
-                  Performance bond
-                </label>
-
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={!!cfg.payment_bond}
-                    onChange={(e) => setCfg({ ...cfg, payment_bond: e.target.checked })}
-                  />
-                  Payment bond
-                </label>
-              </div>
-
-              <div className="max-w-sm">
-                <div className="text-xs text-gray-600">Bond amount %</div>
-                <input
-                  className="w-full rounded border p-2"
-                  placeholder="e.g. 10"
-                  value={cfg.bond_amount_percent ?? ""}
                   onChange={(e) =>
                     setCfg({
                       ...cfg,
-                      bond_amount_percent: e.target.value.trim() === "" ? null : Number(e.target.value),
+                      state_restrictions: e.target.value || null,
                     })
                   }
                 />
               </div>
             </div>
 
-            <div className="rounded border p-3 space-y-3">
-              <div className="font-semibold">Required endorsements</div>
+            <section className="rounded-2xl border border-[#E5EDF5] bg-[#FBFDFF] p-5 space-y-4">
+              <h3 className="text-lg font-semibold text-[#0A2E5C]">
+                Bond Requirements
+              </h3>
 
-              <div className="grid gap-2 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-[#111827]">
+                <input
+                  type="checkbox"
+                  checked={!!cfg.bond_required}
+                  onChange={(e) =>
+                    setCfg({ ...cfg, bond_required: e.target.checked })
+                  }
+                />
+                Bond required
+              </label>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="flex items-center gap-2 text-sm text-[#111827]">
+                  <input
+                    type="checkbox"
+                    checked={!!cfg.bid_bond}
+                    onChange={(e) =>
+                      setCfg({ ...cfg, bid_bond: e.target.checked })
+                    }
+                  />
+                  Bid bond
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-[#111827]">
+                  <input
+                    type="checkbox"
+                    checked={!!cfg.performance_bond}
+                    onChange={(e) =>
+                      setCfg({
+                        ...cfg,
+                        performance_bond: e.target.checked,
+                      })
+                    }
+                  />
+                  Performance bond
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-[#111827]">
+                  <input
+                    type="checkbox"
+                    checked={!!cfg.payment_bond}
+                    onChange={(e) =>
+                      setCfg({ ...cfg, payment_bond: e.target.checked })
+                    }
+                  />
+                  Payment bond
+                </label>
+              </div>
+
+              <div className="max-w-sm">
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Bond amount %
+                </label>
+                <input
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                  placeholder="e.g. 10"
+                  value={cfg.bond_amount_percent ?? ""}
+                  onChange={(e) =>
+                    setCfg({
+                      ...cfg,
+                      bond_amount_percent:
+                        e.target.value.trim() === ""
+                          ? null
+                          : Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#E5EDF5] bg-[#FBFDFF] p-5 space-y-4">
+              <h3 className="text-lg font-semibold text-[#0A2E5C]">
+                Required Endorsements
+              </h3>
+
+              <div className="grid gap-3 md:grid-cols-2">
                 {endorsementTypes.map((e) => (
-                  <label key={e.code} className="flex items-center gap-2 text-sm">
+                  <label
+                    key={e.code}
+                    className="flex items-center gap-2 text-sm text-[#111827]"
+                  >
                     <input
                       type="checkbox"
                       checked={selectedEndorsements.includes(e.code)}
-                      onChange={(ev) => toggleEndorsement(e.code, ev.target.checked)}
+                      onChange={(ev) =>
+                        toggleEndorsement(e.code, ev.target.checked)
+                      }
                     />
                     {e.name}
                   </label>
@@ -516,22 +682,28 @@ export default function CustomerInsuranceSettingsPage() {
               </div>
 
               <div className="max-w-sm">
-                <div className="text-xs text-gray-600">Notice of Cancellation (days)</div>
+                <label className="mb-1 block text-sm font-medium text-[#111827]">
+                  Notice of Cancellation (days)
+                </label>
                 <input
-                  className="w-full rounded border p-2"
+                  className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                   value={noticeDays}
                   onChange={(e) => setNoticeDays(Number(e.target.value || "0"))}
                 />
               </div>
-            </div>
+            </section>
 
             <div className="flex justify-end">
               <button
-                className="rounded bg-black px-4 py-2 text-white"
+                className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white transition ${
+                  savingCfg
+                    ? "bg-[#9CA3AF]"
+                    : "bg-[#1F6FB5] hover:bg-[#0A2E5C]"
+                }`}
                 onClick={saveConfigAndEndorsements}
                 disabled={savingCfg}
               >
-                {savingCfg ? "Saving..." : "Save insurance config"}
+                {savingCfg ? "Saving..." : "Save Insurance Config"}
               </button>
             </div>
           </>

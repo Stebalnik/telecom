@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getMyProfile } from "../../../../lib/profile";
 import {
@@ -15,6 +16,17 @@ import {
 } from "../../../../lib/customers";
 import { listCertTypes, CertType } from "../../../../lib/documents";
 
+function scopeLabel(s: Scope) {
+  return s.description && s.description.trim() ? s.description : s.name;
+}
+
+type PendingRequirement = {
+  scopeId: string;
+  scopeLabel: string;
+  certTypeId: string;
+  certName: string;
+};
+
 export default function CustomerCertsPerScopeSettingsPage() {
   const router = useRouter();
 
@@ -25,6 +37,11 @@ export default function CustomerCertsPerScopeSettingsPage() {
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [certTypes, setCertTypes] = useState<CertType[]>([]);
   const [scopeReq, setScopeReq] = useState<CustomerScopeRequirement[]>([]);
+
+  const [pendingRequirement, setPendingRequirement] =
+    useState<PendingRequirement | null>(null);
+  const [pendingMinCount, setPendingMinCount] = useState("1");
+  const [modalSaving, setModalSaving] = useState(false);
 
   const certNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -67,8 +84,8 @@ export default function CustomerCertsPerScopeSettingsPage() {
       setScopes(sc);
       setCertTypes(ct);
       setScopeReq(req);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
       setLoading(false);
     }
@@ -98,8 +115,9 @@ export default function CustomerCertsPerScopeSettingsPage() {
       });
 
       await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Upsert scope requirement error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Upsert scope requirement error");
+      throw e;
     }
   }
 
@@ -111,106 +129,164 @@ export default function CustomerCertsPerScopeSettingsPage() {
     try {
       await deleteCustomerScopeReq(org.id, scopeId, certTypeId);
       await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Delete scope requirement error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Delete scope requirement error");
     }
   }
 
+  function openRequirementModal(scopeId: string, scopeLabelValue: string, certTypeId: string) {
+    const certName = certNameById[certTypeId] || "Certificate";
+
+    setPendingRequirement({
+      scopeId,
+      scopeLabel: scopeLabelValue,
+      certTypeId,
+      certName,
+    });
+    setPendingMinCount("1");
+  }
+
+  function closeRequirementModal() {
+    if (modalSaving) return;
+    setPendingRequirement(null);
+    setPendingMinCount("1");
+  }
+
+  async function saveRequirementFromModal() {
+    if (!pendingRequirement) return;
+
+    const parsed = Number(pendingMinCount);
+
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setErr("Minimum count must be a whole number greater than 0.");
+      return;
+    }
+
+    setModalSaving(true);
+    setErr(null);
+
+    try {
+      await addOrUpdateScopeReq(
+        pendingRequirement.scopeId,
+        pendingRequirement.certTypeId,
+        parsed
+      );
+      closeRequirementModal();
+    } catch {
+      // err already set in addOrUpdateScopeReq
+    } finally {
+      setModalSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">Loading scope requirements...</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            Certs per scope requirements
-          </h1>
-          <div className="text-sm text-gray-600">Customer settings</div>
-        </div>
+    <>
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+                Certs per Scope Requirements
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                Configure minimum team certificate requirements for each scope.
+                Example: Tower scope may require TTT-1 with a minimum number of
+                certified techs, while civil scopes may require a different set.
+              </p>
+            </div>
 
-        <div className="flex items-center gap-3">
-          <a className="underline text-sm" href="/customer/settings">
-            Back to settings
-          </a>
-          <a className="underline text-sm" href="/customer">
-            Customer
-          </a>
-        </div>
-      </div>
+            <Link
+              href="/customer/settings"
+              className="inline-flex items-center justify-center rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              Back to Settings
+            </Link>
+          </div>
+        </section>
 
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
+        {err ? (
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+            {err}
+          </section>
+        ) : null}
 
-      <section className="rounded border p-4 space-y-3">
-        <h2 className="font-semibold">Team requirements per scope</h2>
-        <p className="text-sm text-gray-600">
-          Example: scope=tower requires TTT-1 min 2 techs. Civil may not require
-          TTT-1.
-        </p>
-
-        <div className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {scopes.map((s) => {
             const items = scopeReq.filter((r) => r.scope_id === s.id);
+            const label = scopeLabel(s);
 
             return (
-              <div key={s.id} className="rounded border p-3">
-                <b>{s.description || s.name}</b>
+              <section
+                key={s.id}
+                className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm"
+              >
+                <div>
+                  <h2 className="text-lg font-semibold text-[#0A2E5C]">
+                    {label}
+                  </h2>
 
-                {s.description &&
+                  {s.description &&
                   s.name &&
-                  s.description !== s.name && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      code: {s.name}
-                    </div>
-                  )}
+                  s.description !== s.name ? (
+                    <div className="mt-1 text-xs text-[#6B7280]">Code: {s.name}</div>
+                  ) : null}
+                </div>
 
-                <div className="mt-2 space-y-2">
-                  {items.map((r) => (
-                    <div
-                      key={r.cert_type_id}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <div className="text-sm">
-                        {certNameById[r.cert_type_id] || r.cert_type_id} — min{" "}
-                        <b>{r.min_count_in_team}</b>
-                      </div>
-
-                      <button
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => removeScopeReq(s.id, r.cert_type_id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-
-                  {items.length === 0 && (
-                    <div className="text-sm text-gray-600">
+                <div className="mt-4 space-y-3">
+                  {items.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#D9E2EC] bg-[#FBFDFF] p-4 text-sm text-[#4B5563]">
                       No requirements yet.
                     </div>
+                  ) : (
+                    items.map((r) => (
+                      <div
+                        key={r.cert_type_id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4"
+                      >
+                        <div className="min-w-0 text-sm text-[#111827]">
+                          {certNameById[r.cert_type_id] || r.cert_type_id}
+                          <div className="mt-1 text-xs text-[#6B7280]">
+                            Minimum in team:{" "}
+                            <span className="font-semibold text-[#111827]">
+                              {r.min_count_in_team}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                          onClick={() => removeScopeReq(s.id, r.cert_type_id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
                   )}
                 </div>
 
-                <div className="mt-3 space-y-2 rounded border p-2">
-                  <div className="text-sm font-semibold">
-                    Add / update requirement
+                <div className="mt-5 rounded-2xl border border-[#E5EDF5] bg-[#FBFDFF] p-4">
+                  <div className="text-sm font-semibold text-[#0A2E5C]">
+                    Add / Update Requirement
                   </div>
 
                   <select
-                    className="w-full rounded border p-2"
+                    className="mt-3 w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
                     defaultValue=""
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const certId = e.target.value;
                       if (!certId) return;
 
-                      const min = Number(
-                        prompt(
-                          "Minimum count in team for this certificate?",
-                          "1"
-                        ) || "1"
-                      );
-
-                      if (!min || min < 1) return;
-
-                      await addOrUpdateScopeReq(s.id, certId, min);
+                      openRequirementModal(s.id, label, certId);
                       e.currentTarget.value = "";
                     }}
                   >
@@ -222,15 +298,77 @@ export default function CustomerCertsPerScopeSettingsPage() {
                     ))}
                   </select>
 
-                  <div className="text-xs text-gray-600">
-                    After selecting a cert, you will be asked for min count.
-                  </div>
+                  <p className="mt-2 text-xs text-[#6B7280]">
+                    Select a certificate and then set the minimum required count
+                    in team.
+                  </p>
                 </div>
-              </div>
+              </section>
             );
           })}
+        </section>
+      </main>
+
+      {pendingRequirement ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-[#0A2E5C]">
+              Set Minimum Count
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+              Scope:{" "}
+              <span className="font-medium text-[#111827]">
+                {pendingRequirement.scopeLabel}
+              </span>
+              <br />
+              Certificate:{" "}
+              <span className="font-medium text-[#111827]">
+                {pendingRequirement.certName}
+              </span>
+            </p>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                Minimum required in team
+              </label>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={pendingMinCount}
+                onChange={(e) => setPendingMinCount(e.target.value)}
+                className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+                autoFocus
+              />
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                onClick={closeRequirementModal}
+                disabled={modalSaving}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className={`rounded-xl px-4 py-2.5 text-sm font-medium text-white transition ${
+                  modalSaving
+                    ? "bg-[#9CA3AF]"
+                    : "bg-[#1F6FB5] hover:bg-[#0A2E5C]"
+                }`}
+                onClick={saveRequirementFromModal}
+                disabled={modalSaving}
+              >
+                {modalSaving ? "Saving..." : "Save Requirement"}
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
-    </main>
+      ) : null}
+    </>
   );
 }

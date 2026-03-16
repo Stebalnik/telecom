@@ -28,8 +28,27 @@ async function setJobScopes(jobId: string, scopeIds: string[]) {
 }
 
 function scopeLabel(s: Scope) {
-  // показываем description если есть, иначе name
-  return (s.description && s.description.trim()) ? s.description : s.name;
+  return s.description && s.description.trim() ? s.description : s.name;
+}
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+      <h3 className="text-lg font-semibold text-[#0A2E5C]">{title}</h3>
+      {description ? (
+        <p className="mt-1 text-sm leading-6 text-[#4B5563]">{description}</p>
+      ) : null}
+      <div className="mt-4">{children}</div>
+    </section>
+  );
 }
 
 export default function CustomerJobsNewPage() {
@@ -45,15 +64,13 @@ export default function CustomerJobsNewPage() {
   const [certTypes, setCertTypes] = useState<CertType[]>([]);
   const [custScopeReq, setCustScopeReq] = useState<CustomerScopeRequirement[]>([]);
 
-  // form
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
-  const [deadline, setDeadline] = useState(""); // YYYY-MM-DD
-  const [budget, setBudget] = useState<string>(""); // USD amount as string
+  const [deadline, setDeadline] = useState("");
+  const [budget, setBudget] = useState("");
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
 
-  // files to upload on create
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const certNameById = useMemo(() => {
@@ -72,7 +89,6 @@ export default function CustomerJobsNewPage() {
     return selectedScopeIds.map((id) => scopeLabelById[id]).filter(Boolean);
   }, [selectedScopeIds, scopeLabelById]);
 
-  // Union requirements based on selected scopes (max-min logic)
   const unionRequirements = useMemo(() => {
     if (!customerId) return [];
     const relevant = custScopeReq.filter((r) => selectedScopeIds.includes(r.scope_id));
@@ -83,7 +99,11 @@ export default function CustomerJobsNewPage() {
       const key = r.cert_type_id;
       const current = map.get(key);
       if (!current) {
-        map.set(key, { cert_type_id: key, min: r.min_count_in_team, scopes: new Set([r.scope_id]) });
+        map.set(key, {
+          cert_type_id: key,
+          min: r.min_count_in_team,
+          scopes: new Set([r.scope_id]),
+        });
       } else {
         current.min = Math.max(current.min, r.min_count_in_team);
         current.scopes.add(r.scope_id);
@@ -116,6 +136,7 @@ export default function CustomerJobsNewPage() {
 
     try {
       setCustomerId(org.id);
+
       const [sc, ct, csr] = await Promise.all([
         listScopes(),
         listCertTypes(),
@@ -181,18 +202,16 @@ export default function CustomerJobsNewPage() {
       if (userErr) throw userErr;
       if (!userData.session?.user) throw new Error("Not logged in");
 
-      // 1) create job
       const { data: job, error } = await supabase
         .from("jobs")
         .insert({
-          customer_user_id: userData.session?.user.id,
+          customer_user_id: userData.session.user.id,
           customer_id: customerId,
           title: title.trim(),
           description: description.trim() || null,
           location: location.trim() || null,
           status: "open",
           deadline_date: deadline,
-          // store budget into budget_min/budget_max (single price)
           budget_min: budgetNum,
           budget_max: budgetNum,
         })
@@ -201,10 +220,8 @@ export default function CustomerJobsNewPage() {
 
       if (error) throw error;
 
-      // 2) set scopes
       await setJobScopes(job.id, selectedScopeIds);
 
-      // 3) upload files (optional)
       if (selectedFiles.length > 0) {
         for (const f of selectedFiles) {
           await uploadJobFile(job.id, f);
@@ -218,140 +235,195 @@ export default function CustomerJobsNewPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">Loading job creation form...</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      {loading && <p>Loading...</p>}
-      {err && <p className="text-sm text-red-600">{err}</p>}
+    <main className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold text-[#0A2E5C]">Create New Job</h2>
+        <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+          Add project details, select scopes, review required certificates, and
+          attach files for contractors.
+        </p>
+      </section>
 
-      <section className="rounded border p-4 space-y-4">
-        <h2 className="text-lg font-semibold">Create new job</h2>
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
 
-        <div className="grid gap-2 md:grid-cols-2">
-          <input
-            className="rounded border p-2"
-            placeholder="Job title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={saving}
-          />
+      <SectionCard title="Job Details">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Job title
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+              placeholder="Job title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
+            />
+          </div>
 
-          <input
-            className="rounded border p-2"
-            placeholder="Location (optional)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Location
+            </label>
+            <input
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+              placeholder="Location (optional)"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm font-medium text-[#111827]">
+            Description
+          </label>
+          <textarea
+            className="min-h-[120px] w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             disabled={saving}
           />
         </div>
 
-        <textarea
-          className="w-full rounded border p-2"
-          placeholder="Description (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          disabled={saving}
-        />
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Deadline (required)</div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Deadline
+            </label>
             <input
-              className="rounded border p-2 w-full"
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               disabled={saving}
             />
-            <div className="text-xs text-gray-600">
-              Contractors must pick a timeframe that does not exceed this deadline.
-            </div>
+            <p className="mt-1 text-xs text-[#6B7280]">
+              Contractors should propose timelines that fit within this deadline.
+            </p>
           </div>
 
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Budget (required)</div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[#111827]">
+              Budget
+            </label>
             <input
-              className="rounded border p-2 w-full"
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
               placeholder="e.g. 3500"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
               disabled={saving}
             />
-            <div className="text-xs text-gray-600">
-              Stored as a single price (budget_min = budget_max).
-            </div>
+            <p className="mt-1 text-xs text-[#6B7280]">
+              Stored as one amount in both budget_min and budget_max.
+            </p>
           </div>
         </div>
+      </SectionCard>
 
-        <div className="rounded border p-3 space-y-2">
-          <div className="font-semibold">Scopes (select all that apply)</div>
+      <SectionCard
+        title="Scopes"
+        description="Select all work scopes that apply to this project."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {scopes.map((s) => {
+            const checked = selectedScopeIds.includes(s.id);
 
-          <div className="grid gap-2 md:grid-cols-2">
-            {scopes.map((s) => (
-              <label key={s.id} className="flex items-center gap-2 text-sm">
+            return (
+              <label
+                key={s.id}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                  checked
+                    ? "border-[#1F6FB5] bg-[#EAF3FF]"
+                    : "border-[#D9E2EC] bg-white hover:bg-[#F8FAFC]"
+                }`}
+              >
                 <input
                   type="checkbox"
-                  checked={selectedScopeIds.includes(s.id)}
+                  checked={checked}
                   onChange={() => toggleScope(s.id)}
                   disabled={saving}
+                  className="mt-1"
                 />
-                <span>{scopeLabel(s)}</span>
+                <span className="text-sm text-[#111827]">{scopeLabel(s)}</span>
               </label>
-            ))}
-          </div>
-
-          <div className="text-xs text-gray-600">
-            Selected: {selectedScopes.length ? selectedScopes.join(" • ") : "none"}
-          </div>
+            );
+          })}
         </div>
 
-        <div className="rounded border p-3 space-y-2">
-          <div className="font-semibold">Requirements for this job (union)</div>
-          <div className="text-sm text-gray-600">
-            Combined certification requirements based on selected scopes.
+        <p className="mt-3 text-xs text-[#6B7280]">
+          Selected: {selectedScopes.length ? selectedScopes.join(" • ") : "none"}
+        </p>
+      </SectionCard>
+
+      <SectionCard
+        title="Requirements for This Job"
+        description="Combined certification requirements based on the scopes you selected."
+      >
+        {selectedScopeIds.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#D9E2EC] bg-[#FBFDFF] p-4 text-sm text-[#4B5563]">
+            Select scopes to see requirements.
           </div>
-
-          {selectedScopeIds.length === 0 && (
-            <div className="text-sm text-gray-600">Select scopes to see requirements.</div>
-          )}
-
-          {selectedScopeIds.length > 0 && unionRequirements.length === 0 && (
-            <div className="text-sm text-gray-600">
-              No certificate requirements configured for these scopes. (Configure in Settings)
-            </div>
-          )}
-
-          {unionRequirements.length > 0 && (
-            <div className="space-y-2">
-              {unionRequirements.map((r) => (
-                <div key={r.cert_type_id} className="flex items-center justify-between gap-4 rounded border p-2">
-                  <div className="text-sm">
-                    <b>{r.cert_name}</b>
-                    <div className="text-xs text-gray-600">From scopes: {r.scopes.join(", ")}</div>
+        ) : unionRequirements.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#D9E2EC] bg-[#FBFDFF] p-4 text-sm text-[#4B5563]">
+            No certificate requirements configured for these scopes yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {unionRequirements.map((r) => (
+              <div
+                key={r.cert_type_id}
+                className="flex flex-col gap-3 rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-[#111827]">
+                    {r.cert_name}
                   </div>
-                  <div className="text-sm">
-                    min in team: <b>{r.min}</b>
+                  <div className="mt-1 text-xs text-[#6B7280]">
+                    From scopes: {r.scopes.join(", ")}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          <div className="text-xs text-gray-600">
-            Tip: Configure requirements in{" "}
-            <a className="underline" href="/customer/settings">
-              Settings
-            </a>
-            .
+                <div className="text-sm text-[#111827]">
+                  Min in team: <span className="font-semibold">{r.min}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
 
-        <div className="rounded border p-3 space-y-2">
-          <div className="font-semibold">Project files (optional)</div>
-          <div className="text-sm text-gray-600">
-            Upload documents/specs/photos for contractors. Files will be attached to this job.
-          </div>
+        <p className="mt-3 text-xs text-[#6B7280]">
+          Configure requirements in{" "}
+          <a className="underline" href="/customer/settings">
+            Settings
+          </a>
+          .
+        </p>
+      </SectionCard>
 
-          <label className="inline-block rounded bg-black px-4 py-2 text-white cursor-pointer">
+      <SectionCard
+        title="Project Files"
+        description="Upload documents, specs, and photos for contractors."
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="cursor-pointer rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]">
             Choose files
             <input
               type="file"
@@ -361,45 +433,64 @@ export default function CustomerJobsNewPage() {
               disabled={saving}
             />
           </label>
-
-          {selectedFiles.length === 0 ? (
-            <div className="text-sm text-gray-600">No files selected.</div>
-          ) : (
-            <div className="space-y-2">
-              {selectedFiles.map((f, idx) => (
-                <div key={idx} className="flex items-center justify-between gap-3 rounded border p-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{f.name}</div>
-                    <div className="text-xs text-gray-600">
-                      {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type || "unknown type"}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
-                    onClick={() => removePickedFile(idx)}
-                    disabled={saving}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="text-xs text-gray-600">
-            Files are stored in Storage bucket <b>job-files</b> under <code>jobs/&lt;jobId&gt;/...</code>
-          </div>
         </div>
 
-        <button
-          className={"rounded px-4 py-2 text-white " + (saving ? "bg-gray-400" : "bg-black")}
-          onClick={createJob}
-          disabled={saving}
-        >
-          {saving ? "Creating..." : "Create job"}
-        </button>
+        {selectedFiles.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-[#D9E2EC] bg-[#FBFDFF] p-4 text-sm text-[#4B5563]">
+            No files selected.
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {selectedFiles.map((f, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col gap-3 rounded-xl border border-[#D9E2EC] bg-white p-4 md:flex-row md:items-center md:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[#111827]">
+                    {f.name}
+                  </div>
+                  <div className="mt-1 text-xs text-[#6B7280]">
+                    {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type || "unknown type"}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                  onClick={() => removePickedFile(idx)}
+                  disabled={saving}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-[#6B7280]">
+          Files are stored in bucket <span className="font-medium">job-files</span>{" "}
+          under <code>jobs/&lt;jobId&gt;/...</code>
+        </p>
+      </SectionCard>
+
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-[#4B5563]">
+            Ready to publish this job for contractors.
+          </div>
+
+          <button
+            className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white transition ${
+              saving ? "bg-[#9CA3AF]" : "bg-[#1F6FB5] hover:bg-[#0A2E5C]"
+            }`}
+            onClick={createJob}
+            disabled={saving}
+          >
+            {saving ? "Creating..." : "Create Job"}
+          </button>
+        </div>
       </section>
-    </div>
+    </main>
   );
 }

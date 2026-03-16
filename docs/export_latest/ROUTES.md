@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Sun Mar 15 16:50:04 CDT 2026
+Generated: Sun Mar 15 22:47:50 CDT 2026
 
 ## App router files
 ```
@@ -30,6 +30,10 @@ app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
+app/customer/agreements/page.tsx
+app/customer/bids/[jobId]/page.tsx
+app/customer/bids/page.tsx
+app/customer/compliance/page.tsx
 app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
 app/customer/contractors/layout.tsx
@@ -39,7 +43,9 @@ app/customer/jobs/archive/page.tsx
 app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
+app/customer/layout.tsx
 app/customer/page.tsx
+app/customer/requests/page.tsx
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
