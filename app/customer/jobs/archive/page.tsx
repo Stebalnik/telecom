@@ -20,6 +20,7 @@ type JobRow = {
   created_at: string;
   customer_id: string | null;
   deadline_date: string | null;
+  visibility_mode: "public" | "qualified_only" | "approved_only";
 };
 
 function InfoPill({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,12 @@ function InfoPill({ children }: { children: React.ReactNode }) {
   );
 }
 
+function visibilityLabel(mode: JobRow["visibility_mode"]) {
+  if (mode === "approved_only") return "Approved contractors only";
+  if (mode === "qualified_only") return "Qualified contractors only";
+  return "All contractors";
+}
+
 export default function CustomerJobsArchivePage() {
   const router = useRouter();
 
@@ -37,7 +44,9 @@ export default function CustomerJobsArchivePage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>({});
+  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>(
+    {}
+  );
 
   async function load() {
     setLoading(true);
@@ -51,7 +60,10 @@ export default function CustomerJobsArchivePage() {
     if (!org) return router.replace("/customer/settings");
 
     try {
-      const jobsArr = (await listCustomerJobsByStatus(org.id, "closed")) as JobRow[];
+      const jobsArr = (await listCustomerJobsByStatus(
+        org.id,
+        "closed"
+      )) as JobRow[];
       setJobs(jobsArr);
 
       const allFiles = await listJobFilesForJobs(jobsArr.map((x) => x.id));
@@ -89,7 +101,9 @@ export default function CustomerJobsArchivePage() {
     <main className="space-y-6">
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
         <div>
-          <h2 className="text-2xl font-semibold text-[#0A2E5C]">Archived Jobs</h2>
+          <h2 className="text-2xl font-semibold text-[#0A2E5C]">
+            Archived Jobs
+          </h2>
           <p className="mt-2 text-sm leading-6 text-[#4B5563]">
             Review closed jobs, download existing project files, and restore jobs
             back to active when needed.
@@ -127,11 +141,16 @@ export default function CustomerJobsArchivePage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-xl font-semibold text-[#111827]">{j.title}</h3>
+                    <h3 className="text-xl font-semibold text-[#111827]">
+                      {j.title}
+                    </h3>
                     <InfoPill>Status: {j.status}</InfoPill>
                     {j.deadline_date ? (
                       <InfoPill>Deadline: {j.deadline_date}</InfoPill>
                     ) : null}
+                    <InfoPill>
+                      Visibility: {visibilityLabel(j.visibility_mode)}
+                    </InfoPill>
                   </div>
 
                   {j.location ? (
@@ -139,7 +158,9 @@ export default function CustomerJobsArchivePage() {
                   ) : null}
 
                   {j.description ? (
-                    <p className="mt-3 text-sm leading-6 text-[#374151]">{j.description}</p>
+                    <p className="mt-3 text-sm leading-6 text-[#374151]">
+                      {j.description}
+                    </p>
                   ) : null}
                 </div>
 
@@ -160,8 +181,8 @@ export default function CustomerJobsArchivePage() {
                       Project Files
                     </h4>
                     <p className="mt-1 text-sm text-[#4B5563]">
-                      Read-only for archived jobs. Existing files are still available
-                      for download.
+                      Read-only for archived jobs. Existing files are still
+                      available for download.
                     </p>
                   </div>
                 </div>

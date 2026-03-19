@@ -14,8 +14,13 @@ import {
 import { listCertTypes, CertType } from "../../../../lib/documents";
 import { uploadJobFile } from "../../../../lib/jobFiles";
 
+type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
+
 async function setJobScopes(jobId: string, scopeIds: string[]) {
-  const { error: delErr } = await supabase.from("job_scopes").delete().eq("job_id", jobId);
+  const { error: delErr } = await supabase
+    .from("job_scopes")
+    .delete()
+    .eq("job_id", jobId);
   if (delErr) throw delErr;
 
   if (!scopeIds.length) return;
@@ -62,7 +67,9 @@ export default function CustomerJobsNewPage() {
 
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [certTypes, setCertTypes] = useState<CertType[]>([]);
-  const [custScopeReq, setCustScopeReq] = useState<CustomerScopeRequirement[]>([]);
+  const [custScopeReq, setCustScopeReq] = useState<CustomerScopeRequirement[]>(
+    []
+  );
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -70,6 +77,8 @@ export default function CustomerJobsNewPage() {
   const [deadline, setDeadline] = useState("");
   const [budget, setBudget] = useState("");
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
+  const [visibilityMode, setVisibilityMode] =
+    useState<JobVisibilityMode>("public");
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -91,9 +100,14 @@ export default function CustomerJobsNewPage() {
 
   const unionRequirements = useMemo(() => {
     if (!customerId) return [];
-    const relevant = custScopeReq.filter((r) => selectedScopeIds.includes(r.scope_id));
+    const relevant = custScopeReq.filter((r) =>
+      selectedScopeIds.includes(r.scope_id)
+    );
 
-    const map = new Map<string, { cert_type_id: string; min: number; scopes: Set<string> }>();
+    const map = new Map<
+      string,
+      { cert_type_id: string; min: number; scopes: Set<string> }
+    >();
 
     for (const r of relevant) {
       const key = r.cert_type_id;
@@ -190,13 +204,16 @@ export default function CustomerJobsNewPage() {
     setSaving(true);
 
     try {
-      if (!customerId) throw new Error("Customer org not found. Go to /customer/settings.");
+      if (!customerId)
+        throw new Error("Customer org not found. Go to /customer/settings.");
       if (!title.trim()) throw new Error("Title is required.");
       if (!deadline) throw new Error("Deadline is required.");
-      if (selectedScopeIds.length === 0) throw new Error("Select at least one scope.");
+      if (selectedScopeIds.length === 0)
+        throw new Error("Select at least one scope.");
 
       const budgetNum = parseBudgetToNumber(budget);
-      if (budgetNum === null) throw new Error("Budget is required (enter a positive number).");
+      if (budgetNum === null)
+        throw new Error("Budget is required (enter a positive number).");
 
       const { data: userData, error: userErr } = await supabase.auth.getSession();
       if (userErr) throw userErr;
@@ -214,6 +231,7 @@ export default function CustomerJobsNewPage() {
           deadline_date: deadline,
           budget_min: budgetNum,
           budget_max: budgetNum,
+          visibility_mode: visibilityMode,
         })
         .select("id")
         .single();
@@ -231,6 +249,7 @@ export default function CustomerJobsNewPage() {
       router.push("/customer/jobs/active");
     } catch (e: any) {
       setErr(e.message ?? "Create job error");
+    } finally {
       setSaving(false);
     }
   }
@@ -248,7 +267,9 @@ export default function CustomerJobsNewPage() {
   return (
     <main className="space-y-6">
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold text-[#0A2E5C]">Create New Job</h2>
+        <h2 className="text-2xl font-semibold text-[#0A2E5C]">
+          Create New Job
+        </h2>
         <p className="mt-2 text-sm leading-6 text-[#4B5563]">
           Add project details, select scopes, review required certificates, and
           attach files for contractors.
@@ -335,6 +356,90 @@ export default function CustomerJobsNewPage() {
               Stored as one amount in both budget_min and budget_max.
             </p>
           </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Contractor Visibility"
+        description="Choose who can see this job in the contractor marketplace."
+      >
+        <div className="space-y-3">
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+              visibilityMode === "public"
+                ? "border-[#1F6FB5] bg-[#EAF3FF]"
+                : "border-[#D9E2EC] bg-white hover:bg-[#F8FAFC]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="visibilityMode"
+              checked={visibilityMode === "public"}
+              onChange={() => setVisibilityMode("public")}
+              disabled={saving}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[#111827]">
+                Show to all contractors
+              </span>
+              <span className="mt-1 block text-xs text-[#6B7280]">
+                Any contractor can see the job and open the details page.
+              </span>
+            </span>
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+              visibilityMode === "qualified_only"
+                ? "border-[#1F6FB5] bg-[#EAF3FF]"
+                : "border-[#D9E2EC] bg-white hover:bg-[#F8FAFC]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="visibilityMode"
+              checked={visibilityMode === "qualified_only"}
+              onChange={() => setVisibilityMode("qualified_only")}
+              disabled={saving}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[#111827]">
+                Show only qualified contractors
+              </span>
+              <span className="mt-1 block text-xs text-[#6B7280]">
+                MVP behavior for now: visible only to approved contractors for
+                this customer.
+              </span>
+            </span>
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+              visibilityMode === "approved_only"
+                ? "border-[#1F6FB5] bg-[#EAF3FF]"
+                : "border-[#D9E2EC] bg-white hover:bg-[#F8FAFC]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="visibilityMode"
+              checked={visibilityMode === "approved_only"}
+              onChange={() => setVisibilityMode("approved_only")}
+              disabled={saving}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-[#111827]">
+                Show only approved contractors
+              </span>
+              <span className="mt-1 block text-xs text-[#6B7280]">
+                Only contractors already approved in your vendor list can see
+                this job.
+              </span>
+            </span>
+          </label>
         </div>
       </SectionCard>
 
@@ -451,7 +556,8 @@ export default function CustomerJobsNewPage() {
                     {f.name}
                   </div>
                   <div className="mt-1 text-xs text-[#6B7280]">
-                    {(f.size / 1024 / 1024).toFixed(2)} MB • {f.type || "unknown type"}
+                    {(f.size / 1024 / 1024).toFixed(2)} MB •{" "}
+                    {f.type || "unknown type"}
                   </div>
                 </div>
 

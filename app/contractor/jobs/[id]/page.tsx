@@ -13,6 +13,8 @@ import {
 } from "../../../../lib/jobFiles";
 import { businessDaysBetweenInclusive } from "../../../../lib/dateUtils";
 
+type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
+
 type JobRow = {
   id: string;
   title: string;
@@ -21,6 +23,7 @@ type JobRow = {
   status: string;
   deadline_date: string | null;
   customer_id: string | null;
+  visibility_mode: JobVisibilityMode;
 };
 
 type CompanyOption = {
@@ -35,9 +38,61 @@ type TeamOption = {
   name?: string | null;
 };
 
+async function getApprovedCustomerIdsForMyCompany(): Promise<Set<string>> {
+  const { data: authData, error: authErr } = await supabase.auth.getSession();
+  if (authErr) throw authErr;
+  if (!authData.session?.user) throw new Error("Not logged in");
+
+  const { data: company, error: companyErr } = await supabase
+    .from("contractor_companies")
+    .select("id")
+    .eq("owner_user_id", authData.session.user.id)
+    .maybeSingle();
+
+  if (companyErr) throw companyErr;
+  if (!company?.id) return new Set();
+
+  const { data, error } = await supabase
+    .from("customer_contractors")
+    .select("customer_id,status")
+    .eq("contractor_company_id", company.id)
+    .eq("status", "approved");
+
+  if (error) throw error;
+
+  return new Set(
+    (data || [])
+      .map((x: { customer_id: string | null }) => x.customer_id)
+      .filter((x): x is string => Boolean(x))
+  );
+}
+
+function canSeeJob(job: JobRow, approvedCustomerIds: Set<string>): boolean {
+  if (job.visibility_mode === "public") return true;
+  if (!job.customer_id) return false;
+
+  if (job.visibility_mode === "approved_only") {
+    return approvedCustomerIds.has(job.customer_id);
+  }
+
+  if (job.visibility_mode === "qualified_only") {
+    // MVP behavior:
+    // for now qualified_only follows approved contractor access
+    return approvedCustomerIds.has(job.customer_id);
+  }
+
+  return false;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString();
+}
+
+function visibilityLabel(mode: JobVisibilityMode) {
+  if (mode === "approved_only") return "Approved contractors only";
+  if (mode === "qualified_only") return "Qualified contractors only";
+  return "All contractors";
 }
 
 function StatusBadge({ status }: { status?: string | null }) {
@@ -57,6 +112,14 @@ function StatusBadge({ status }: { status?: string | null }) {
       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${cls}`}
     >
       {status || "Unknown"}
+    </span>
+  );
+}
+
+function InfoPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-[#F4F8FC] px-3 py-1 text-xs font-medium text-[#4B5563]">
+      {children}
     </span>
   );
 }
@@ -127,12 +190,23 @@ export default function ContractorJobBidPage() {
 
       const { data: j, error } = await supabase
         .from("jobs")
-        .select("id,title,description,location,status,deadline_date,customer_id")
+        .select(
+          "id,title,description,location,status,deadline_date,customer_id,visibility_mode"
+        )
         .eq("id", jobId)
         .single();
 
       if (error) throw error;
-      setJob(j as JobRow);
+
+      const loadedJob = j as JobRow;
+      const approvedCustomerIds = await getApprovedCustomerIdsForMyCompany();
+
+      if (!canSeeJob(loadedJob, approvedCustomerIds)) {
+        router.replace("/contractor/jobs");
+        return;
+      }
+
+      setJob(loadedJob);
 
       const f = await listJobFiles(jobId);
       setFiles(f);
@@ -223,6 +297,7 @@ export default function ContractorJobBidPage() {
       router.push("/contractor/jobs");
     } catch (e: any) {
       setErr(e.message ?? "Bid error");
+    } finally {
       setSubmitting(false);
     }
   }
@@ -268,6 +343,9 @@ export default function ContractorJobBidPage() {
                   {job.title}
                 </h2>
                 <StatusBadge status={job.status} />
+                <InfoPill>
+                  Visibility: {visibilityLabel(job.visibility_mode)}
+                </InfoPill>
               </div>
 
               <div className="mt-2 text-sm text-[#4B5563]">
@@ -298,7 +376,8 @@ export default function ContractorJobBidPage() {
       >
         {files.length === 0 ? (
           <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-            No files available, or you are not eligible to view files for this job.
+            No files available, or you are not eligible to view files for this
+            job.
           </div>
         ) : (
           <div className="space-y-3">
@@ -439,8 +518,9 @@ export default function ContractorJobBidPage() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-xs text-[#4B5563]">
-          Rules: the planned end date must be on or before the deadline, and work days
-          must fit into business days between the selected start and end dates.
+          Rules: the planned end date must be on or before the deadline, and
+          work days must fit into business days between the selected start and
+          end dates.
         </div>
       </SectionCard>
     </main>

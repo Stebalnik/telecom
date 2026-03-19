@@ -11,6 +11,8 @@ import {
   JobFileRow,
 } from "../../../lib/jobFiles";
 
+type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
+
 type JobRow = {
   id: string;
   title: string;
@@ -20,11 +22,64 @@ type JobRow = {
   created_at: string;
   deadline_date: string | null;
   customer_id: string | null;
+  visibility_mode: JobVisibilityMode;
 };
+
+async function getApprovedCustomerIdsForMyCompany(): Promise<Set<string>> {
+  const { data: authData, error: authErr } = await supabase.auth.getSession();
+  if (authErr) throw authErr;
+  if (!authData.session?.user) throw new Error("Not logged in");
+
+  const { data: company, error: companyErr } = await supabase
+    .from("contractor_companies")
+    .select("id")
+    .eq("owner_user_id", authData.session.user.id)
+    .maybeSingle();
+
+  if (companyErr) throw companyErr;
+  if (!company?.id) return new Set();
+
+  const { data, error } = await supabase
+    .from("customer_contractors")
+    .select("customer_id,status")
+    .eq("contractor_company_id", company.id)
+    .eq("status", "approved");
+
+  if (error) throw error;
+
+  return new Set(
+    (data || [])
+      .map((x: { customer_id: string | null }) => x.customer_id)
+      .filter((x): x is string => Boolean(x))
+  );
+}
+
+function canSeeJob(job: JobRow, approvedCustomerIds: Set<string>): boolean {
+  if (job.visibility_mode === "public") return true;
+  if (!job.customer_id) return false;
+
+  if (job.visibility_mode === "approved_only") {
+    return approvedCustomerIds.has(job.customer_id);
+  }
+
+  if (job.visibility_mode === "qualified_only") {
+    // MVP behavior for now:
+    // qualified_only behaves the same as approved_only
+    return approvedCustomerIds.has(job.customer_id);
+  }
+
+  return false;
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString();
+}
+
+function visibilityLabel(mode: JobVisibilityMode) {
+  if (mode === "approved_only") return "Approved contractors only";
+  if (mode === "qualified_only") return "Qualified contractors only";
+  return "All contractors";
 }
 
 function StatusBadge({ status }: { status?: string | null }) {
@@ -44,6 +99,14 @@ function StatusBadge({ status }: { status?: string | null }) {
       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${cls}`}
     >
       {status || "Unknown"}
+    </span>
+  );
+}
+
+function InfoPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-[#F4F8FC] px-3 py-1 text-xs font-medium text-[#4B5563]">
+      {children}
     </span>
   );
 }
@@ -76,7 +139,9 @@ export default function ContractorJobsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>({});
+  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>(
+    {}
+  );
 
   async function load() {
     setLoading(true);
@@ -96,7 +161,7 @@ export default function ContractorJobsPage() {
       const { data, error } = await supabase
         .from("jobs")
         .select(
-          "id,title,description,location,status,created_at,deadline_date,customer_id"
+          "id,title,description,location,status,created_at,deadline_date,customer_id,visibility_mode"
         )
         .eq("status", "open")
         .order("created_at", { ascending: false });
@@ -104,9 +169,12 @@ export default function ContractorJobsPage() {
       if (error) throw error;
 
       const arr = (data || []) as JobRow[];
-      setJobs(arr);
+      const approvedCustomerIds = await getApprovedCustomerIdsForMyCompany();
+      const visibleJobs = arr.filter((job) => canSeeJob(job, approvedCustomerIds));
 
-      const allFiles = await listJobFilesForJobs(arr.map((x) => x.id));
+      setJobs(visibleJobs);
+
+      const allFiles = await listJobFilesForJobs(visibleJobs.map((x) => x.id));
       const map: Record<string, JobFileRow[]> = {};
 
       for (const f of allFiles) {
@@ -136,7 +204,8 @@ export default function ContractorJobsPage() {
               Available Jobs
             </h1>
             <p className="mt-2 text-sm text-[#4B5563]">
-              Browse open jobs, review project files, and open a job to submit a bid.
+              Browse open jobs, review project files, and open a job to submit a
+              bid.
             </p>
           </div>
 
@@ -163,7 +232,9 @@ export default function ContractorJobsPage() {
 
       {!loading && jobs.length === 0 ? (
         <SectionCard title="Jobs">
-          <p className="text-sm text-[#4B5563]">No open jobs yet.</p>
+          <p className="text-sm text-[#4B5563]">
+            No open jobs available for your company.
+          </p>
         </SectionCard>
       ) : null}
 
@@ -184,11 +255,17 @@ export default function ContractorJobsPage() {
                         {j.title}
                       </h2>
                       <StatusBadge status={j.status} />
+                      <InfoPill>
+                        Visibility: {visibilityLabel(j.visibility_mode)}
+                      </InfoPill>
                     </div>
 
                     <div className="mt-2 text-sm text-[#4B5563]">
                       {j.location ? `${j.location} • ` : ""}
-                      Deadline: <span className="font-medium text-[#111827]">{formatDate(j.deadline_date)}</span>
+                      Deadline:{" "}
+                      <span className="font-medium text-[#111827]">
+                        {formatDate(j.deadline_date)}
+                      </span>
                     </div>
 
                     {j.description ? (
@@ -219,7 +296,8 @@ export default function ContractorJobsPage() {
 
                   {files.length === 0 ? (
                     <div className="mt-2 text-sm text-[#4B5563]">
-                      No files available, or you are not eligible to view files for this job.
+                      No files available, or you are not eligible to view files
+                      for this job.
                     </div>
                   ) : (
                     <div className="mt-3 space-y-3">

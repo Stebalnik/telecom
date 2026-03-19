@@ -22,6 +22,7 @@ type JobRow = {
   created_at: string;
   customer_id: string | null;
   deadline_date: string | null;
+  visibility_mode: "public" | "qualified_only" | "approved_only";
 };
 
 function InfoPill({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,12 @@ function InfoPill({ children }: { children: React.ReactNode }) {
   );
 }
 
+function visibilityLabel(mode: JobRow["visibility_mode"]) {
+  if (mode === "approved_only") return "Approved contractors only";
+  if (mode === "qualified_only") return "Qualified contractors only";
+  return "All contractors";
+}
+
 export default function CustomerJobsActivePage() {
   const router = useRouter();
 
@@ -40,7 +47,9 @@ export default function CustomerJobsActivePage() {
 
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>({});
+  const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>(
+    {}
+  );
 
   async function load() {
     setLoading(true);
@@ -121,15 +130,19 @@ export default function CustomerJobsActivePage() {
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-[#0A2E5C]">Active Jobs</h2>
+            <h2 className="text-2xl font-semibold text-[#0A2E5C]">
+              Active Jobs
+            </h2>
             <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-              Manage open jobs, upload project files, and move completed work to archive.
+              Manage open jobs, upload project files, and move completed work to
+              archive.
             </p>
           </div>
 
           {customerId ? (
             <div className="text-xs text-[#4B5563]">
-              Customer Org ID: <span className="font-medium text-[#111827]">{customerId}</span>
+              Customer Org ID:{" "}
+              <span className="font-medium text-[#111827]">{customerId}</span>
             </div>
           ) : null}
         </div>
@@ -165,11 +178,16 @@ export default function CustomerJobsActivePage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-xl font-semibold text-[#111827]">{j.title}</h3>
+                    <h3 className="text-xl font-semibold text-[#111827]">
+                      {j.title}
+                    </h3>
                     <InfoPill>Status: {j.status}</InfoPill>
                     {j.deadline_date ? (
                       <InfoPill>Deadline: {j.deadline_date}</InfoPill>
                     ) : null}
+                    <InfoPill>
+                      Visibility: {visibilityLabel(j.visibility_mode)}
+                    </InfoPill>
                   </div>
 
                   {j.location ? (
@@ -177,7 +195,9 @@ export default function CustomerJobsActivePage() {
                   ) : null}
 
                   {j.description ? (
-                    <p className="mt-3 text-sm leading-6 text-[#374151]">{j.description}</p>
+                    <p className="mt-3 text-sm leading-6 text-[#374151]">
+                      {j.description}
+                    </p>
                   ) : null}
                 </div>
 
@@ -203,7 +223,9 @@ export default function CustomerJobsActivePage() {
                     </p>
                   </div>
 
-                  <div className="text-xs text-[#4B5563]">Path: jobs/{j.id}/...</div>
+                  <div className="text-xs text-[#4B5563]">
+                    Path: jobs/{j.id}/...
+                  </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
