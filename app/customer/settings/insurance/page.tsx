@@ -178,7 +178,33 @@ export default function CustomerInsuranceSettingsPage() {
     setSaveMsg(null);
 
     try {
-      await upsertCustomerInsuranceReq(org.id, insuranceTypeId, patch);
+      const current = getInsReqRow(insuranceTypeId);
+
+await upsertCustomerInsuranceReq({
+  id: current?.id,
+  customer_id: org.id,
+  insurance_type_id: insuranceTypeId,
+  is_required: patch.is_required ?? current?.is_required ?? true,
+  min_limit_each_occurrence:
+    patch.min_limit_each_occurrence ?? current?.min_limit_each_occurrence ?? null,
+  min_limit_aggregate:
+    patch.min_limit_aggregate ?? current?.min_limit_aggregate ?? null,
+  require_additional_insured:
+    patch.require_additional_insured ?? current?.require_additional_insured ?? false,
+  require_blanket_additional_insured:
+    patch.require_blanket_additional_insured ??
+    current?.require_blanket_additional_insured ??
+    false,
+  require_primary_noncontributory:
+    patch.require_primary_noncontributory ??
+    current?.require_primary_noncontributory ??
+    false,
+  require_waiver_subrogation:
+    patch.require_waiver_subrogation ??
+    current?.require_waiver_subrogation ??
+    false,
+  notes: patch.notes ?? current?.notes ?? null,
+});
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save insurance requirement error");

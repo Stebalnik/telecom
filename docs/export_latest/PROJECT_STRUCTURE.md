@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Sun Mar 15 22:47:50 CDT 2026
+Generated: Tue Mar 31 23:24:07 EDT 2026
 
 ## 1. Root directories
 ```
@@ -19,10 +19,12 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
 ./app/contractor
+./app/contractor/bids
 ./app/contractor/certifications
 ./app/contractor/coi
 ./app/contractor/company
 ./app/contractor/company/change-request
+./app/contractor/company/change-request 2
 ./app/contractor/customers
 ./app/contractor/insurance
 ./app/contractor/jobs
@@ -34,8 +36,11 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./app/contractor/settings/company
 ./app/contractor/teams
 ./app/contractor/teams/change-request
+./app/contractor/teams/change-request 2
 ./app/contractor/teams/new
+./app/contractor/teams/new 2
 ./app/contractor/teams/requests
+./app/contractor/teams/requests 2
 ./app/customer
 ./app/customer/agreements
 ./app/customer/bids
@@ -75,6 +80,7 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./.env.local
 ./.gitignore
 ./app/.DS_Store
+./app/(app)/.DS_Store
 ./app/(app)/layout.tsx
 ./app/admin/.DS_Store
 ./app/admin/company-change-requests/.DS_Store
@@ -92,12 +98,14 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
 ./app/contractor/.DS_Store
+./app/contractor/bids/page.tsx
 ./app/contractor/certifications/page.tsx
 ./app/contractor/coi/page.tsx
 ./app/contractor/company/change-request/page.tsx
 ./app/contractor/company/page.tsx
 ./app/contractor/customers/page.tsx
 ./app/contractor/insurance/page.tsx
+./app/contractor/jobs/.DS_Store
 ./app/contractor/jobs/[id]/page.tsx
 ./app/contractor/jobs/page.tsx
 ./app/contractor/layout.tsx
@@ -166,6 +174,7 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./lib/coiDownload.ts
 ./lib/contractor.ts
 ./lib/contractorMarketplace.ts
+./lib/customerDashboard.ts
 ./lib/customers.ts
 ./lib/dateUtils.ts
 ./lib/documents.ts
@@ -197,6 +206,7 @@ Generated: Sun Mar 15 22:47:50 CDT 2026
 ./public/window.svg
 ./README.md
 ./scripts/export_project_context.sh
+./scripts/ship_release.sh
 ./scripts/ship.sh
 ./scripts/update_project_docs.sh
 ./supabase_schema.sql
@@ -222,6 +232,7 @@ app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
 app/contractor/company/change-request/page.tsx
@@ -289,6 +300,7 @@ lib/coi.ts
 lib/coiDownload.ts
 lib/contractor.ts
 lib/contractorMarketplace.ts
+lib/customerDashboard.ts
 lib/customers.ts
 lib/dateUtils.ts
 lib/documents.ts

@@ -54,7 +54,10 @@ export default function CustomerSettingsHomePage() {
     try {
       if (!orgName.trim()) throw new Error("Customer name is required.");
 
-      await createMyCustomerOrg(orgName.trim());
+      await createMyCustomerOrg({
+  name: orgName.trim(),
+  description: orgDesc.trim() || "",
+});
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Create org error");
