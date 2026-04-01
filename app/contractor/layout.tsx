@@ -5,22 +5,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const navItems = [
-  { href: "/contractor", label: "Overview" },
-  { href: "/contractor/company", label: "Company" },
-  { href: "/contractor/insurance", label: "Insurance" },
-  { href: "/contractor/coi", label: "COI" },
-  { href: "/contractor/teams", label: "Teams" },
-  { href: "/contractor/certifications", label: "Certifications" },
-  { href: "/contractor/requests", label: "Change Requests" },
-  { href: "/contractor/customers", label: "Customers" },
+type NavItem = {
+  href: string;
+  label: string;
+  match?: string[];
+};
+
+const navItems: NavItem[] = [
+  { href: "/contractor", label: "Dashboard" },
   { href: "/contractor/jobs", label: "Jobs" },
+  { href: "/contractor/bids", label: "Bids" },
+  { href: "/contractor/customers", label: "Customers" },
+  {
+    href: "/contractor/company",
+    label: "My Data",
+    match: [
+      "/contractor/company",
+      "/contractor/insurance",
+      "/contractor/coi",
+      "/contractor/teams",
+      "/contractor/certifications",
+    ],
+  },
+  { href: "/contractor/requests", label: "Active Requests" },
   { href: "/contractor/settings/company", label: "Settings" },
 ];
 
-function isActive(pathname: string, href: string) {
+function pathMatches(pathname: string, href: string) {
   if (href === "/contractor") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isActive(pathname: string, item: NavItem) {
+  if (item.match && item.match.length > 0) {
+    return item.match.some((prefix) => pathMatches(pathname, prefix));
+  }
+  return pathMatches(pathname, item.href);
 }
 
 export default function ContractorLayout({
@@ -55,11 +75,11 @@ export default function ContractorLayout({
 
             <nav className="flex flex-col gap-1 p-3">
               {navItems.map((item) => {
-                const active = isActive(pathname, item.href);
+                const active = isActive(pathname, item);
 
                 return (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     href={item.href}
                     className={[
                       "rounded-xl px-3 py-2.5 text-sm font-medium transition",

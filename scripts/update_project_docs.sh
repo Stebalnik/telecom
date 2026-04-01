@@ -238,6 +238,7 @@ done
       css) lang="css" ;;
       md) lang="md" ;;
       sh) lang="bash" ;;
+      sql) lang="sql" ;;
       *) lang="" ;;
     esac
 
@@ -253,6 +254,11 @@ done
 # SUPABASE_SCHEMA.sql
 # -----------------------------
 dump_supabase_schema() {
+  if [ "${SKIP_SUPABASE_DUMP:-0}" = "1" ]; then
+    echo "Skipping Supabase schema export: SKIP_SUPABASE_DUMP=1"
+    return 0
+  fi
+
   echo "Generating Supabase schema dump..."
 
   if ! command -v docker >/dev/null 2>&1; then
@@ -270,10 +276,25 @@ dump_supabase_schema() {
     return 0
   fi
 
+  local timeout_cmd=""
+  if command -v gtimeout >/dev/null 2>&1; then
+    timeout_cmd="gtimeout 60"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout_cmd="timeout 60"
+  fi
+
   if [ -n "${SUPABASE_DB_URL:-}" ]; then
-    npx supabase db dump --db-url "$SUPABASE_DB_URL" -f "$SUPABASE_SCHEMA_FILE"
+    if [ -n "$timeout_cmd" ]; then
+      eval "$timeout_cmd npx supabase db dump --db-url \"$SUPABASE_DB_URL\" -f \"$SUPABASE_SCHEMA_FILE\""
+    else
+      npx supabase db dump --db-url "$SUPABASE_DB_URL" -f "$SUPABASE_SCHEMA_FILE"
+    fi
   else
-    npx supabase db dump --linked -f "$SUPABASE_SCHEMA_FILE"
+    if [ -n "$timeout_cmd" ]; then
+      eval "$timeout_cmd npx supabase db dump --linked -f \"$SUPABASE_SCHEMA_FILE\""
+    else
+      npx supabase db dump --linked -f "$SUPABASE_SCHEMA_FILE"
+    fi
   fi
 
   echo "Supabase schema exported to $SUPABASE_SCHEMA_FILE"
@@ -282,7 +303,7 @@ dump_supabase_schema() {
 if dump_supabase_schema; then
   :
 else
-  echo "Supabase schema export failed." >&2
+  echo "Supabase schema export failed or timed out." >&2
 fi
 
 # -----------------------------
@@ -291,13 +312,13 @@ fi
 rm -rf "$LATEST_DIR"
 mkdir -p "$LATEST_DIR"
 
-cp "$PROJECT_CONTEXT_FILE" "$LATEST_DIR/PROJECT_CONTEXT.md"
-cp "$PROJECT_STRUCTURE_FILE" "$LATEST_DIR/PROJECT_STRUCTURE.md"
-cp "$ROUTES_FILE" "$LATEST_DIR/ROUTES.md"
-cp "$CODE_SNAPSHOT_FILE" "$LATEST_DIR/CODE_SNAPSHOT.md"
+cp -f "$PROJECT_CONTEXT_FILE" "$LATEST_DIR/PROJECT_CONTEXT.md"
+cp -f "$PROJECT_STRUCTURE_FILE" "$LATEST_DIR/PROJECT_STRUCTURE.md"
+cp -f "$ROUTES_FILE" "$LATEST_DIR/ROUTES.md"
+cp -f "$CODE_SNAPSHOT_FILE" "$LATEST_DIR/CODE_SNAPSHOT.md"
 
 if [ -f "$SUPABASE_SCHEMA_FILE" ]; then
-  cp "$SUPABASE_SCHEMA_FILE" "$LATEST_DIR/SUPABASE_SCHEMA.sql"
+  cp -f "$SUPABASE_SCHEMA_FILE" "$LATEST_DIR/SUPABASE_SCHEMA.sql"
 fi
 
 echo "# Latest export" > "$LATEST_DIR/README.md"
