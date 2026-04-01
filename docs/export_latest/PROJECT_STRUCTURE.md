@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Tue Mar 31 23:28:46 EDT 2026
+Generated: Wed Apr  1 10:37:19 EDT 2026
 
 ## 1. Root directories
 ```
@@ -19,6 +19,7 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
 ./app/contractor
+./app/contractor-agreement
 ./app/contractor/bids
 ./app/contractor/certifications
 ./app/contractor/coi
@@ -42,6 +43,7 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/contractor/teams/requests
 ./app/contractor/teams/requests 2
 ./app/customer
+./app/customer-agreement
 ./app/customer/agreements
 ./app/customer/bids
 ./app/customer/bids/[jobId]
@@ -61,8 +63,10 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/forgot-password
 ./app/login
 ./app/logout
+./app/privacy
 ./app/reset-password
 ./app/signup
+./app/terms
 ./components
 ./docs
 ./lib
@@ -97,6 +101,7 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/api/coi/.DS_Store
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
+./app/contractor-agreement/page.tsx
 ./app/contractor/.DS_Store
 ./app/contractor/bids/page.tsx
 ./app/contractor/certifications/page.tsx
@@ -119,6 +124,7 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/contractor/teams/new/page.tsx
 ./app/contractor/teams/page.tsx
 ./app/contractor/teams/requests/page.tsx
+./app/customer-agreement/page.tsx
 ./app/customer/.DS_Store
 ./app/customer/agreements/page.tsx
 ./app/customer/bids/.DS_Store
@@ -152,9 +158,12 @@ Generated: Tue Mar 31 23:28:46 EDT 2026
 ./app/login/page.tsx
 ./app/logout/page.tsx
 ./app/page.tsx
+./app/privacy/page.tsx
 ./app/reset-password/page.tsx
 ./app/signup/page.tsx
+./app/terms/page.tsx
 ./components/AppChrome.tsx
+./components/LegalPage.tsx
 ./components/LogoutButton.tsx
 ./docs/.DS_Store
 ./docs/AI_CONTEXT.md
@@ -232,6 +241,7 @@ app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor-agreement/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
@@ -250,6 +260,7 @@ app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
+app/customer-agreement/page.tsx
 app/customer/agreements/page.tsx
 app/customer/bids/[jobId]/page.tsx
 app/customer/bids/page.tsx
@@ -275,8 +286,10 @@ app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
 app/page.tsx
+app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
+app/terms/page.tsx
 ```
 
 ## 4. API route files
@@ -315,6 +328,7 @@ lib/supabaseClient.ts
 ## 6. Component files
 ```
 components/AppChrome.tsx
+components/LegalPage.tsx
 components/LogoutButton.tsx
 ```
 

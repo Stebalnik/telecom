@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Tue Mar 31 23:28:46 EDT 2026
+Generated: Wed Apr  1 10:37:19 EDT 2026
 
-Export folder: docs/export_files/2026-03-31_23-28-46
+Export folder: docs/export_files/2026-04-01_10-37-19
 
 ## 1. Directory tree
 ```
@@ -20,6 +20,7 @@ app/api/coi
 app/api/coi/signed-upload
 app/api/coi/signed-url
 app/contractor
+app/contractor-agreement
 app/contractor/bids
 app/contractor/certifications
 app/contractor/coi
@@ -43,6 +44,7 @@ app/contractor/teams/new 2
 app/contractor/teams/requests
 app/contractor/teams/requests 2
 app/customer
+app/customer-agreement
 app/customer/agreements
 app/customer/bids
 app/customer/bids/[jobId]
@@ -62,8 +64,10 @@ app/dashboard
 app/forgot-password
 app/login
 app/logout
+app/privacy
 app/reset-password
 app/signup
+app/terms
 components
 lib
 lib/supabase
@@ -92,6 +96,7 @@ app/api/auth/forgot-password/route.ts
 app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor-agreement/page.tsx
 app/contractor/.DS_Store
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
@@ -114,6 +119,7 @@ app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
+app/customer-agreement/page.tsx
 app/customer/.DS_Store
 app/customer/agreements/page.tsx
 app/customer/bids/.DS_Store
@@ -147,9 +153,12 @@ app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
 app/page.tsx
+app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
+app/terms/page.tsx
 components/AppChrome.tsx
+components/LegalPage.tsx
 components/LogoutButton.tsx
 lib/.DS_Store
 lib/adminDocs.ts
@@ -197,6 +206,7 @@ app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/contractor-agreement/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
@@ -215,6 +225,7 @@ app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
+app/customer-agreement/page.tsx
 app/customer/agreements/page.tsx
 app/customer/bids/[jobId]/page.tsx
 app/customer/bids/page.tsx
@@ -240,8 +251,10 @@ app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
 app/page.tsx
+app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
+app/terms/page.tsx
 ```
 
 ## 4. Package.json
