@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Wed Apr  1 11:30:29 EDT 2026
+Generated: Thu Apr  2 09:09:40 EDT 2026
 
 ## 1. Root directories
 ```
@@ -227,6 +227,7 @@ Generated: Wed Apr  1 11:30:29 EDT 2026
 ./supabase/.temp/rest-version
 ./supabase/.temp/storage-migration
 ./supabase/.temp/storage-version
+./test.sql
 ./tsconfig.json
 ```
 

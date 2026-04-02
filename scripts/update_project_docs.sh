@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [ -f ".env.local" ]; then
+  set -a
+  source .env.local
+  set +a
+fi
+
 TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
 EXPORT_BASE="docs/export_files"
 EXPORT_DIR="$EXPORT_BASE/$TIMESTAMP"
@@ -261,40 +267,45 @@ dump_supabase_schema() {
 
   echo "Generating Supabase schema dump..."
 
+  if [ -z "${SUPABASE_DB_URL:-}" ]; then
+    echo "ERROR: SUPABASE_DB_URL is not set." >&2
+    return 1
+  fi
+
   if ! command -v docker >/dev/null 2>&1; then
-    echo "Skipping Supabase schema export: Docker is not available."
-    return 0
+    echo "ERROR: Docker is not available." >&2
+    return 1
   fi
 
   if ! docker info >/dev/null 2>&1; then
-    echo "Skipping Supabase schema export: Docker daemon is not running."
-    return 0
+    echo "ERROR: Docker daemon is not running." >&2
+    return 1
   fi
 
-  if ! npx supabase --help >/dev/null 2>&1; then
-    echo "Skipping Supabase schema export: Supabase CLI is not available."
-    return 0
-  fi
-
-  local timeout_cmd=""
+  local timeout_bin=""
   if command -v gtimeout >/dev/null 2>&1; then
-    timeout_cmd="gtimeout 60"
+    timeout_bin="gtimeout"
   elif command -v timeout >/dev/null 2>&1; then
-    timeout_cmd="timeout 60"
+    timeout_bin="timeout"
   fi
 
-  if [ -n "${SUPABASE_DB_URL:-}" ]; then
-    if [ -n "$timeout_cmd" ]; then
-      eval "$timeout_cmd npx supabase db dump --db-url \"$SUPABASE_DB_URL\" -f \"$SUPABASE_SCHEMA_FILE\""
-    else
-      npx supabase db dump --db-url "$SUPABASE_DB_URL" -f "$SUPABASE_SCHEMA_FILE"
-    fi
+  echo "Checking Supabase CLI..."
+  if [ -n "$timeout_bin" ]; then
+    "$timeout_bin" 20 npx --yes supabase --help >/dev/null 2>&1
   else
-    if [ -n "$timeout_cmd" ]; then
-      eval "$timeout_cmd npx supabase db dump --linked -f \"$SUPABASE_SCHEMA_FILE\""
-    else
-      npx supabase db dump --linked -f "$SUPABASE_SCHEMA_FILE"
-    fi
+    npx --yes supabase --help >/dev/null 2>&1
+  fi
+
+  echo "Running schema dump to: $SUPABASE_SCHEMA_FILE"
+
+  if [ -n "$timeout_bin" ]; then
+    "$timeout_bin" 180 npx --yes supabase db dump \
+      --db-url "$SUPABASE_DB_URL" \
+      -f "$SUPABASE_SCHEMA_FILE"
+  else
+    npx --yes supabase db dump \
+      --db-url "$SUPABASE_DB_URL" \
+      -f "$SUPABASE_SCHEMA_FILE"
   fi
 
   echo "Supabase schema exported to $SUPABASE_SCHEMA_FILE"
@@ -304,6 +315,7 @@ if dump_supabase_schema; then
   :
 else
   echo "Supabase schema export failed or timed out." >&2
+  exit 1
 fi
 
 # -----------------------------

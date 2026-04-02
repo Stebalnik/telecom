@@ -171,16 +171,21 @@ export async function ensureMyCustomerOrg() {
 type ApprovedContractorRowDb = {
   contractor_company_id: string;
   status: string;
+  created_at?: string;
   contractor_companies:
     | {
         id: string;
         legal_name: string;
         dba_name: string | null;
+        status: string | null;
+        block_reason: string | null;
       }
     | {
         id: string;
         legal_name: string;
         dba_name: string | null;
+        status: string | null;
+        block_reason: string | null;
       }[]
     | null;
 };
@@ -188,10 +193,13 @@ type ApprovedContractorRowDb = {
 export type ApprovedContractorRow = {
   contractor_company_id: string;
   status: string;
+  created_at?: string;
   contractor_companies: {
     id: string;
     legal_name: string;
     dba_name: string | null;
+    status: string | null;
+    block_reason: string | null;
   } | null;
 };
 
@@ -209,6 +217,7 @@ function normalizeApprovedContractors(
   return rows.map((row) => ({
     contractor_company_id: row.contractor_company_id,
     status: row.status,
+    created_at: row.created_at,
     contractor_companies: Array.isArray(row.contractor_companies)
       ? row.contractor_companies[0] ?? null
       : row.contractor_companies,
@@ -220,7 +229,9 @@ export async function getMyCustomerId(): Promise<string> {
   return org.id;
 }
 
-export async function listApprovedContractors(): Promise<ApprovedContractorRow[]> {
+export async function listApprovedCustomerContractorsDetailed(): Promise<
+  ApprovedContractorRow[]
+> {
   const customerId = await getMyCustomerId();
 
   const { data, error } = await supabase
@@ -229,21 +240,29 @@ export async function listApprovedContractors(): Promise<ApprovedContractorRow[]
       `
       contractor_company_id,
       status,
-      contractor_companies:contractor_company_id (
+      created_at,
+      contractor_companies:contractor_companies!customer_contractors_contractor_company_id_fkey (
         id,
         legal_name,
-        dba_name
+        dba_name,
+        status,
+        block_reason
       )
     `
     )
     .eq("customer_id", customerId)
-    .eq("status", "approved");
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
   return normalizeApprovedContractors(
     (data || []) as ApprovedContractorRowDb[]
   );
+}
+
+export async function listApprovedContractors(): Promise<ApprovedContractorRow[]> {
+  return listApprovedCustomerContractorsDetailed();
 }
 
 export async function listLatestApprovedCoiByCompanies(
@@ -351,21 +370,95 @@ export async function listCustomerContractorsByStatus(
       `
       contractor_company_id,
       status,
-      contractor_companies:contractor_company_id (
+      created_at,
+      contractor_companies:contractor_companies!customer_contractors_contractor_company_id_fkey (
         id,
         legal_name,
-        dba_name
+        dba_name,
+        status,
+        block_reason
       )
     `
     )
     .eq("customer_id", customerId)
-    .eq("status", status);
+    .eq("status", status)
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
   return normalizeApprovedContractors(
     (data || []) as ApprovedContractorRowDb[]
   );
+}
+
+export type ContractorBadgeState = {
+  portalVerified: boolean;
+  onboardedWithYou: boolean;
+  meetsYourRequirements: boolean;
+};
+
+export type ContractorBadgeMap = Record<string, ContractorBadgeState>;
+
+export function buildCustomerContractorBadgeMap(params: {
+  marketplaceCompanyIds: string[];
+  approvedCompanyIds: string[];
+  contractorInsuranceByCompanyId: Record<string, string[]>;
+  requiredInsuranceNames: string[];
+}): ContractorBadgeMap {
+  const {
+    marketplaceCompanyIds,
+    approvedCompanyIds,
+    contractorInsuranceByCompanyId,
+    requiredInsuranceNames,
+  } = params;
+
+  const approvedSet = new Set(approvedCompanyIds);
+  const result: ContractorBadgeMap = {};
+
+  for (const companyId of marketplaceCompanyIds) {
+    const insuranceSet = new Set(
+      contractorInsuranceByCompanyId[companyId] || []
+    );
+
+    const meetsYourRequirements =
+      requiredInsuranceNames.length === 0
+        ? true
+        : requiredInsuranceNames.every((name) => insuranceSet.has(name));
+
+    result[companyId] = {
+      portalVerified: true,
+      onboardedWithYou: approvedSet.has(companyId),
+      meetsYourRequirements,
+    };
+  }
+
+  return result;
+}
+
+export async function listMyCustomerRequiredInsuranceNames(): Promise<string[]> {
+  const customerId = await getMyCustomerId();
+
+  const [requirements, insuranceTypes] = await Promise.all([
+    listCustomerInsuranceReq(customerId),
+    listInsuranceTypes(),
+  ]);
+
+  const insuranceNameById = new Map(
+    insuranceTypes.map((item) => [item.id, item.name] as const)
+  );
+
+  return requirements
+    .filter((row) => row.is_required)
+    .map((row) => insuranceNameById.get(row.insurance_type_id))
+    .filter((name): name is string => !!name);
+}
+
+export async function listMyApprovedContractorCompanyIds(): Promise<string[]> {
+  const rows = await listApprovedCustomerContractorsDetailed();
+
+  return rows
+    .map((row) => row.contractor_companies?.id || row.contractor_company_id)
+    .filter(Boolean);
 }
 
 export type InsuranceType = {

@@ -296,14 +296,44 @@ export type CustomerMini = {
 
 export type MyCustomerApplicationRow = {
   customer_id: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | string;
   created_at: string;
-  customers: {
-    id: string;
-    name: string;
-    description: string | null;
-  }[];
+  customers:
+    | {
+        id: string;
+        name: string;
+        description: string | null;
+      }
+    | {
+        id: string;
+        name: string;
+        description: string | null;
+      }[]
+    | null;
 };
+
+export type CustomerRequirementSummary = {
+  customer_id: string;
+  insurance: string[];
+  scopes: string[];
+};
+
+export function normalizeCustomerRelation(
+  customer:
+    | {
+        id: string;
+        name: string;
+        description: string | null;
+      }
+    | {
+        id: string;
+        name: string;
+        description: string | null;
+      }[]
+    | null
+) {
+  return Array.isArray(customer) ? customer[0] ?? null : customer;
+}
 
 export async function searchCustomers(q: string): Promise<CustomerMini[]> {
   const query = q.trim();
@@ -349,7 +379,7 @@ export async function listMyCustomerApplications(): Promise<MyCustomerApplicatio
       customer_id,
       status,
       created_at,
-      customers:customer_id (
+      customers:customers!customer_contractors_customer_id_fkey (
         id,
         name,
         description
@@ -361,6 +391,85 @@ export async function listMyCustomerApplications(): Promise<MyCustomerApplicatio
 
   if (error) throw error;
   return (data || []) as MyCustomerApplicationRow[];
+}
+
+export async function listCustomerRequirementSummaries(
+  customerIds: string[]
+): Promise<Record<string, CustomerRequirementSummary>> {
+  const uniqueCustomerIds = Array.from(new Set(customerIds.filter(Boolean)));
+  const result: Record<string, CustomerRequirementSummary> = {};
+
+  if (uniqueCustomerIds.length === 0) return result;
+
+  const [
+    insuranceReqRows,
+    scopeReqRows,
+    insuranceTypesRows,
+    scopesRows,
+  ] = await Promise.all([
+    supabase
+      .from("customer_insurance_requirements")
+      .select("customer_id, insurance_type_id, is_required")
+      .in("customer_id", uniqueCustomerIds)
+      .eq("is_required", true),
+
+    supabase
+      .from("customer_scope_requirements")
+      .select("customer_id, scope_id")
+      .in("customer_id", uniqueCustomerIds),
+
+    supabase.from("insurance_types").select("id, name"),
+
+    supabase.from("scopes").select("id, name"),
+  ]);
+
+  if (insuranceReqRows.error) throw insuranceReqRows.error;
+  if (scopeReqRows.error) throw scopeReqRows.error;
+  if (insuranceTypesRows.error) throw insuranceTypesRows.error;
+  if (scopesRows.error) throw scopesRows.error;
+
+  const insuranceNameById = new Map(
+    (insuranceTypesRows.data || []).map((row: any) => [row.id, row.name] as const)
+  );
+
+  const scopeNameById = new Map(
+    (scopesRows.data || []).map((row: any) => [row.id, row.name] as const)
+  );
+
+  for (const customerId of uniqueCustomerIds) {
+    result[customerId] = {
+      customer_id: customerId,
+      insurance: [],
+      scopes: [],
+    };
+  }
+
+  for (const row of insuranceReqRows.data || []) {
+    const customerId = (row as any).customer_id as string;
+    const insuranceTypeId = (row as any).insurance_type_id as string;
+    const name = insuranceNameById.get(insuranceTypeId);
+    if (!name) continue;
+    result[customerId]?.insurance.push(name);
+  }
+
+  for (const row of scopeReqRows.data || []) {
+    const customerId = (row as any).customer_id as string;
+    const scopeId = (row as any).scope_id as string;
+    const name = scopeNameById.get(scopeId);
+    if (!name) continue;
+    result[customerId]?.scopes.push(name);
+  }
+
+  for (const customerId of uniqueCustomerIds) {
+    result[customerId].insurance = Array.from(
+      new Set(result[customerId].insurance)
+    );
+    result[customerId].scopes = Array.from(
+      new Set(result[customerId].scopes)
+    );
+  }
+
+  return result;
 }
 
 /* =========================

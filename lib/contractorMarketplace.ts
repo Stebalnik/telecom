@@ -6,6 +6,7 @@ export type MarketplaceContractor = {
   legal_name: string;
   dba_name: string | null;
   headline: string | null;
+  home_market: string | null;
   markets: string[];
   available_teams_count: number;
   insurance_types: string[];
@@ -16,6 +17,7 @@ export type MarketplaceContractor = {
 export type ContractorPublicProfile = {
   company_id: string;
   headline: string | null;
+  home_market: string | null;
   markets: string[];
   is_listed: boolean;
   updated_at: string;
@@ -48,11 +50,20 @@ export async function getMyContractorPublicProfile(): Promise<ContractorPublicPr
 
 export async function upsertMyContractorPublicProfile(params: {
   headline?: string | null;
+  home_market?: string | null;
   markets: string[];
   is_listed: boolean;
 }) {
   const company = await getMyCompany();
   if (!company) throw new Error("Company not found");
+
+  const normalizedMarkets = Array.from(
+    new Set(
+      (params.markets || [])
+        .map((x) => x.trim())
+        .filter(Boolean)
+    )
+  );
 
   const { error } = await supabase
     .from("contractor_public_profiles")
@@ -60,7 +71,8 @@ export async function upsertMyContractorPublicProfile(params: {
       {
         company_id: company.id,
         headline: params.headline?.trim() || null,
-        markets: params.markets,
+        home_market: params.home_market?.trim() || null,
+        markets: normalizedMarkets,
         is_listed: params.is_listed,
         updated_at: new Date().toISOString(),
       },

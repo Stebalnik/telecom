@@ -8,28 +8,33 @@ import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
 import {
   applyToCustomer,
+  listCustomerRequirementSummaries,
   listMyCustomerApplications,
+  normalizeCustomerRelation,
   searchCustomers,
   type CustomerMini,
   type MyCustomerApplicationRow,
+  type CustomerRequirementSummary,
 } from "../../../lib/contractor";
 
 function StatusBadge({
   status,
 }: {
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | string;
 }) {
+  const normalized = (status || "").toLowerCase();
+
   const styles =
-    status === "approved"
+    normalized === "approved"
       ? "border-green-200 bg-green-50 text-green-700"
-      : status === "rejected"
+      : normalized === "rejected"
       ? "border-red-200 bg-red-50 text-red-700"
       : "border-amber-200 bg-amber-50 text-amber-700";
 
   const label =
-    status === "approved"
+    normalized === "approved"
       ? "Approved"
-      : status === "rejected"
+      : normalized === "rejected"
       ? "Rejected"
       : "Pending";
 
@@ -57,6 +62,14 @@ function EmptyState({
   );
 }
 
+function RequirementPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-[#D9E2EC] bg-[#F8FAFC] px-3 py-1 text-xs font-medium text-[#111827]">
+      {children}
+    </span>
+  );
+}
+
 export default function ContractorCustomersPage() {
   const router = useRouter();
 
@@ -68,11 +81,22 @@ export default function ContractorCustomersPage() {
   const [results, setResults] = useState<CustomerMini[]>([]);
 
   const [apps, setApps] = useState<MyCustomerApplicationRow[]>([]);
-  const [applyingCustomerId, setApplyingCustomerId] = useState<string | null>(null);
+  const [requirementsByCustomerId, setRequirementsByCustomerId] = useState<
+    Record<string, CustomerRequirementSummary>
+  >({});
+
+  const [applyingCustomerId, setApplyingCustomerId] = useState<string | null>(
+    null
+  );
 
   async function refreshApplications() {
     const rows = await listMyCustomerApplications();
     setApps(rows);
+
+    const summaries = await listCustomerRequirementSummaries(
+      rows.map((row) => row.customer_id)
+    );
+    setRequirementsByCustomerId(summaries);
   }
 
   useEffect(() => {
@@ -101,7 +125,16 @@ export default function ContractorCustomersPage() {
         await refreshApplications();
       } catch (e: unknown) {
         if (!active) return;
-        setErr(e instanceof Error ? e.message : "Failed to load page.");
+
+        const message =
+          e instanceof Error
+            ? e.message
+            : typeof e === "string"
+            ? e
+            : JSON.stringify(e);
+
+        console.error("[DEBUG_CONTRACTOR_CUSTOMERS_LOAD]", e);
+        setErr(message || "Failed to load page.");
       } finally {
         if (active) setLoading(false);
       }
@@ -129,7 +162,15 @@ export default function ContractorCustomersPage() {
       const found = await searchCustomers(trimmed);
       setResults(found);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Search failed.");
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+          ? e
+          : JSON.stringify(e);
+
+      console.error("[DEBUG_CONTRACTOR_CUSTOMERS_SEARCH]", e);
+      setErr(message || "Search failed.");
     } finally {
       setSearching(false);
     }
@@ -143,7 +184,15 @@ export default function ContractorCustomersPage() {
       await applyToCustomer(customerId);
       await refreshApplications();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Application failed.");
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+          ? e
+          : JSON.stringify(e);
+
+      console.error("[DEBUG_CONTRACTOR_CUSTOMERS_APPLY]", e);
+      setErr(message || "Application failed.");
     } finally {
       setApplyingCustomerId(null);
     }
@@ -300,7 +349,8 @@ export default function ContractorCustomersPage() {
                 {results.map((customer) => {
                   const status = statusFor(customer.id);
                   const isBusy = applyingCustomerId === customer.id;
-                  const isDisabled = status === "approved" || status === "pending" || isBusy;
+                  const isDisabled =
+                    status === "approved" || status === "pending" || isBusy;
 
                   return (
                     <div
@@ -378,7 +428,8 @@ export default function ContractorCustomersPage() {
             ) : (
               <div className="grid gap-4">
                 {apps.map((app) => {
-                  const customer = app.customers?.[0] ?? null;
+                  const customer = normalizeCustomerRelation(app.customers);
+                  const req = requirementsByCustomerId[app.customer_id];
 
                   return (
                     <div
@@ -396,6 +447,20 @@ export default function ContractorCustomersPage() {
                               {customer.description}
                             </div>
                           ) : null}
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {req?.insurance?.length ? (
+                              <RequirementPill>
+                                Insurance: {req.insurance.join(", ")}
+                              </RequirementPill>
+                            ) : null}
+
+                            {req?.scopes?.length ? (
+                              <RequirementPill>
+                                Scopes: {req.scopes.join(", ")}
+                              </RequirementPill>
+                            ) : null}
+                          </div>
 
                           <div className="mt-3 text-xs text-[#6B7280] break-all">
                             Customer ID: {app.customer_id}
