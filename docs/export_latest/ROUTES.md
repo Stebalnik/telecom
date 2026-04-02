@@ -1,12 +1,13 @@
 # ROUTES
 
-Generated: Thu Apr  2 09:09:40 EDT 2026
+Generated: Thu Apr  2 16:03:49 EDT 2026
 
 ## App router files
 ```
 app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
+app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx

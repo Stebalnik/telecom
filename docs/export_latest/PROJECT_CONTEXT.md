@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Thu Apr  2 09:09:40 EDT 2026
+Generated: Thu Apr  2 16:03:49 EDT 2026
 
-Export folder: docs/export_files/2026-04-02_09-09-40
+Export folder: docs/export_files/2026-04-02_16-03-49
 
 ## 1. Directory tree
 ```
@@ -11,6 +11,7 @@ app/(app)
 app/admin
 app/admin/company-change-requests
 app/admin/company-change-requests/[id]
+app/admin/contractor-approvals
 app/admin/team-change-requests
 app/admin/team-change-requests/[id]
 app/api
@@ -85,6 +86,7 @@ app/admin/.DS_Store
 app/admin/company-change-requests/.DS_Store
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
+app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/.DS_Store
 app/admin/team-change-requests/[id]/page.tsx
@@ -200,6 +202,7 @@ supabase/.temp/storage-version
 app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
+app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
@@ -268,7 +271,8 @@ app/terms/page.tsx
     "build": "next build",
     "start": "next start",
     "docs:update": "bash ./scripts/update_project_docs.sh",
-    "ship": "bash ./scripts/ship.sh"
+    "ship": "bash ./scripts/ship.sh",
+    "release:auto": "bash ./scripts/release_auto.sh"
   },
   "dependencies": {
     "@supabase/realtime-js": "^2.97.0",

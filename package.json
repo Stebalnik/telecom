@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "docs:update": "bash ./scripts/update_project_docs.sh",
-    "ship": "bash ./scripts/ship.sh"
+    "ship": "bash ./scripts/ship.sh",
+    "release:auto": "bash ./scripts/release_auto.sh"
   },
   "dependencies": {
     "@supabase/realtime-js": "^2.97.0",

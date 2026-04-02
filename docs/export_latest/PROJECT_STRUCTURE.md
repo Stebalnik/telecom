@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Thu Apr  2 09:09:40 EDT 2026
+Generated: Thu Apr  2 16:03:49 EDT 2026
 
 ## 1. Root directories
 ```
@@ -10,6 +10,7 @@ Generated: Thu Apr  2 09:09:40 EDT 2026
 ./app/admin
 ./app/admin/company-change-requests
 ./app/admin/company-change-requests/[id]
+./app/admin/contractor-approvals
 ./app/admin/team-change-requests
 ./app/admin/team-change-requests/[id]
 ./app/api
@@ -90,6 +91,7 @@ Generated: Thu Apr  2 09:09:40 EDT 2026
 ./app/admin/company-change-requests/.DS_Store
 ./app/admin/company-change-requests/[id]/page.tsx
 ./app/admin/company-change-requests/page.tsx
+./app/admin/contractor-approvals/page.tsx
 ./app/admin/page.tsx
 ./app/admin/team-change-requests/.DS_Store
 ./app/admin/team-change-requests/[id]/page.tsx
@@ -215,6 +217,7 @@ Generated: Thu Apr  2 09:09:40 EDT 2026
 ./public/window.svg
 ./README.md
 ./scripts/export_project_context.sh
+./scripts/release_auto.sh
 ./scripts/ship_release.sh
 ./scripts/ship.sh
 ./scripts/update_project_docs.sh
@@ -227,7 +230,6 @@ Generated: Thu Apr  2 09:09:40 EDT 2026
 ./supabase/.temp/rest-version
 ./supabase/.temp/storage-migration
 ./supabase/.temp/storage-version
-./test.sql
 ./tsconfig.json
 ```
 
@@ -236,6 +238,7 @@ Generated: Thu Apr  2 09:09:40 EDT 2026
 app/(app)/layout.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
+app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx

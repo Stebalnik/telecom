@@ -63,16 +63,34 @@ export default function CustomerAllContractorsPage() {
     setErr(null);
 
     try {
+      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] load:start", {
+        searchValue,
+      });
+
       const { data } = await supabase.auth.getSession();
 
+      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] session", {
+        userId: data.session?.user?.id ?? null,
+        email: data.session?.user?.email ?? null,
+      });
+
       if (!data.session?.user) {
+        console.warn(
+          "[DEBUG][CustomerAllContractorsPage][marketplace] no session, redirect /login"
+        );
         router.replace("/login");
         return;
       }
 
       const profile = await getMyProfile();
 
+      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] profile", profile);
+
       if (!profile || profile.role !== "customer") {
+        console.warn(
+          "[DEBUG][CustomerAllContractorsPage][marketplace] role is not customer, redirect /dashboard",
+          profile?.role
+        );
         router.replace("/dashboard");
         return;
       }
@@ -83,6 +101,16 @@ export default function CustomerAllContractorsPage() {
           listMyApprovedContractorCompanyIds(),
           listMyCustomerRequiredInsuranceNames(),
         ]);
+
+      console.log(
+        "[DEBUG][CustomerAllContractorsPage][marketplace] data loaded",
+        {
+          marketplaceCount: marketplaceRows.length,
+          marketplaceRows,
+          approvedCompanyIds,
+          requiredInsuranceNames,
+        }
+      );
 
       const contractorInsuranceByCompanyId: Record<string, string[]> = {};
       for (const row of marketplaceRows) {
@@ -96,12 +124,16 @@ export default function CustomerAllContractorsPage() {
         requiredInsuranceNames,
       });
 
+      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] badge map", nextBadgeMap);
+
       setItems(marketplaceRows);
       setBadgeMap(nextBadgeMap);
       setAllowed(true);
     } catch (e: any) {
+      console.error("[DEBUG][CustomerAllContractorsPage][marketplace] load:error", e);
       setErr(e.message ?? "Load error");
     } finally {
+      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] load:done");
       setLoading(false);
     }
   }
@@ -112,6 +144,18 @@ export default function CustomerAllContractorsPage() {
   }, []);
 
   const visibleItems = useMemo(() => items, [items]);
+
+  useEffect(() => {
+    console.log("[DEBUG][CustomerAllContractorsPage][marketplace] state snapshot", {
+      loading,
+      allowed,
+      err,
+      search,
+      visibleItemsCount: visibleItems.length,
+      visibleItems,
+      badgeMap,
+    });
+  }, [loading, allowed, err, search, visibleItems, badgeMap]);
 
   if (loading || !allowed) {
     return (
@@ -179,6 +223,11 @@ export default function CustomerAllContractorsPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by company name, DBA, or headline"
                 className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    load(search);
+                  }
+                }}
               />
             </div>
 

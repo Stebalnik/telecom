@@ -294,6 +294,12 @@ export default function AdminPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               <Link
+              href="/admin/contractor-approvals"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                Contractor approvals
+                </Link>
+              <Link
                 href="/admin/company-change-requests"
                 className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
               >
