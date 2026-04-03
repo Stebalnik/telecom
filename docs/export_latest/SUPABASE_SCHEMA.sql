@@ -297,6 +297,63 @@ $$;
 ALTER FUNCTION "public"."company_is_eligible"("p_company_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."create_customer_agreement_from_template"("p_template_id" "uuid", "p_contractor_company_id" "uuid" DEFAULT NULL::"uuid", "p_job_id" "uuid" DEFAULT NULL::"uuid", "p_title" "text" DEFAULT NULL::"text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_tpl public.customer_agreement_templates%rowtype;
+  v_id uuid;
+begin
+  select *
+  into v_tpl
+  from public.customer_agreement_templates
+  where id = p_template_id;
+
+  if not found then
+    raise exception 'Template not found';
+  end if;
+
+  if not public.current_user_owns_customer(v_tpl.customer_id) and not public.is_admin() then
+    raise exception 'Not allowed';
+  end if;
+
+  insert into public.customer_agreements (
+    customer_id,
+    contractor_company_id,
+    job_id,
+    template_id,
+    agreement_type,
+    title,
+    file_name,
+    file_path,
+    status,
+    source,
+    created_by
+  )
+  values (
+    v_tpl.customer_id,
+    p_contractor_company_id,
+    p_job_id,
+    v_tpl.id,
+    v_tpl.template_type,
+    coalesce(nullif(trim(p_title), ''), v_tpl.title),
+    v_tpl.file_name,
+    v_tpl.file_path,
+    'draft',
+    'template',
+    auth.uid()
+  )
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."create_customer_agreement_from_template"("p_template_id" "uuid", "p_contractor_company_id" "uuid", "p_job_id" "uuid", "p_title" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -363,6 +420,135 @@ $$;
 
 
 ALTER FUNCTION "public"."current_user_owns_customer"("p_customer_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."customer_id_from_agreement_storage_path"("p_name" "text") RETURNS "uuid"
+    LANGUAGE "sql" STABLE
+    AS $$
+  select nullif(split_part(p_name, '/', 2), '')::uuid;
+$$;
+
+
+ALTER FUNCTION "public"."customer_id_from_agreement_storage_path"("p_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."customer_review_contractor_request"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_decision" "text", "p_note" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_customer public.customers%rowtype;
+  v_now timestamptz := now();
+begin
+  if p_decision not in ('approved', 'rejected') then
+    raise exception 'Invalid decision';
+  end if;
+
+  select *
+  into v_customer
+  from public.customers
+  where id = p_customer_id
+    and owner_user_id = auth.uid();
+
+  if not found then
+    raise exception 'Customer not found or not owned by current user';
+  end if;
+
+  update public.customer_contractors
+  set
+    status = p_decision,
+    customer_note = p_note,
+    reviewed_at = v_now,
+    reviewed_by = auth.uid(),
+    approved_at = case when p_decision = 'approved' then v_now else approved_at end,
+    rejected_at = case when p_decision = 'rejected' then v_now else rejected_at end
+  where customer_id = p_customer_id
+    and contractor_company_id = p_contractor_company_id;
+
+  insert into public.customer_contractor_application_events (
+    customer_id,
+    contractor_company_id,
+    event_type,
+    actor_user_id,
+    note
+  )
+  values (
+    p_customer_id,
+    p_contractor_company_id,
+    p_decision,
+    auth.uid(),
+    p_note
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'status', p_decision
+  );
+end;
+$$;
+
+
+ALTER FUNCTION "public"."customer_review_contractor_request"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_decision" "text", "p_note" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."customer_start_or_get_request_thread"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_first_message" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_thread_id uuid;
+begin
+  if trim(coalesce(p_first_message, '')) = '' then
+    raise exception 'Message is required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.customers c
+    where c.id = p_customer_id
+      and c.owner_user_id = auth.uid()
+  ) then
+    raise exception 'Customer not found or not owned by current user';
+  end if;
+
+  insert into public.customer_contractor_request_threads (
+    customer_id,
+    contractor_company_id,
+    created_by_customer_user_id
+  )
+  values (
+    p_customer_id,
+    p_contractor_company_id,
+    auth.uid()
+  )
+  on conflict (customer_id, contractor_company_id)
+  do update set
+    last_message_at = now()
+  returning id into v_thread_id;
+
+  insert into public.customer_contractor_request_messages (
+    thread_id,
+    sender_user_id,
+    sender_role,
+    body
+  )
+  values (
+    v_thread_id,
+    auth.uid(),
+    'customer',
+    p_first_message
+  );
+
+  update public.customer_contractor_request_threads
+  set last_message_at = now()
+  where id = v_thread_id;
+
+  return v_thread_id;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."customer_start_or_get_request_thread"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_first_message" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."eligible_teams_for_job"("p_company_id" "uuid", "p_job_id" "uuid") RETURNS TABLE("team_id" "uuid", "team_name" "text")
@@ -464,6 +650,114 @@ $$;
 
 
 ALTER FUNCTION "public"."job_id_from_storage_path"("p_name" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") RETURNS TABLE("customer_id" "uuid", "contractor_company_id" "uuid", "status" "text", "approval_requested_at" timestamp with time zone, "cooldown_until" timestamp with time zone, "request_count" integer, "contractor_legal_name" "text", "contractor_dba_name" "text", "contractor_status" "text", "contractor_onboarding_status" "text", "headline" "text", "home_market" "text", "available_teams_count" integer, "insurance_types" "text"[], "approved_cert_count" integer, "approved_team_members_count" integer, "thread_id" "uuid", "has_thread" boolean, "last_message_at" timestamp with time zone)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  with base as (
+    select
+      cc.customer_id,
+      cc.contractor_company_id,
+      cc.status,
+      cc.approval_requested_at,
+      cc.cooldown_until,
+      cc.request_count
+    from public.customer_contractors cc
+    where cc.customer_id = p_customer_id
+      and cc.status = 'pending'
+  ),
+  profile_data as (
+    select
+      c.id as company_id,
+      c.legal_name,
+      c.dba_name,
+      c.status as contractor_status,
+      c.onboarding_status as contractor_onboarding_status,
+      p.headline,
+      p.home_market
+    from public.contractor_companies c
+    left join public.contractor_public_profiles p
+      on p.company_id = c.id
+  ),
+  teams_data as (
+    select
+      t.company_id,
+      count(*)::int as available_teams_count
+    from public.teams t
+    where t.status = 'active'
+    group by t.company_id
+  ),
+  insurance_data as (
+    select
+      d.company_id,
+      array_agg(distinct it.name order by it.name) as insurance_types
+    from public.documents d
+    join public.insurance_types it on it.id = d.insurance_type_id
+    where d.doc_kind = 'insurance'
+      and d.verification_status = 'approved'
+      and d.expires_at >= current_date
+    group by d.company_id
+  ),
+  cert_data as (
+    select
+      t.company_id,
+      count(distinct d.id)::int as approved_cert_count,
+      count(distinct m.id)::int as approved_team_members_count
+    from public.teams t
+    join public.team_members m on m.team_id = t.id
+    left join public.documents d
+      on d.team_member_id = m.id
+     and d.doc_kind = 'cert'
+     and d.verification_status = 'approved'
+     and d.expires_at >= current_date
+    where t.status = 'active'
+    group by t.company_id
+  ),
+  thread_data as (
+    select
+      th.customer_id,
+      th.contractor_company_id,
+      th.id as thread_id,
+      true as has_thread,
+      th.last_message_at
+    from public.customer_contractor_request_threads th
+    where th.customer_id = p_customer_id
+  )
+  select
+    b.customer_id,
+    b.contractor_company_id,
+    b.status,
+    b.approval_requested_at,
+    b.cooldown_until,
+    b.request_count,
+    pd.legal_name as contractor_legal_name,
+    pd.dba_name as contractor_dba_name,
+    pd.contractor_status,
+    pd.contractor_onboarding_status,
+    pd.headline,
+    pd.home_market,
+    coalesce(td2.available_teams_count, 0) as available_teams_count,
+    coalesce(id2.insurance_types, '{}'::text[]) as insurance_types,
+    coalesce(cd.approved_cert_count, 0) as approved_cert_count,
+    coalesce(cd.approved_team_members_count, 0) as approved_team_members_count,
+    th.thread_id,
+    coalesce(th.has_thread, false) as has_thread,
+    th.last_message_at
+  from base b
+  join profile_data pd on pd.company_id = b.contractor_company_id
+  left join teams_data td2 on td2.company_id = b.contractor_company_id
+  left join insurance_data id2 on id2.company_id = b.contractor_company_id
+  left join cert_data cd on cd.company_id = b.contractor_company_id
+  left join thread_data th
+    on th.customer_id = b.customer_id
+   and th.contractor_company_id = b.contractor_company_id
+  order by b.approval_requested_at asc nulls last;
+$$;
+
+
+ALTER FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."list_marketplace_contractors"("p_search" "text" DEFAULT NULL::"text") RETURNS TABLE("company_id" "uuid", "legal_name" "text", "dba_name" "text", "headline" "text", "home_market" "text", "markets" "text"[], "available_teams_count" integer, "insurance_types" "text"[], "average_rating" numeric, "reviews_count" integer)
@@ -623,6 +917,166 @@ $$;
 
 
 ALTER FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid", "p_contractor_company_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_company public.contractor_companies%rowtype;
+  v_row public.customer_contractors%rowtype;
+  v_now timestamptz := now();
+  v_cooldown interval := interval '180 days';
+  v_next timestamptz;
+begin
+  select *
+  into v_company
+  from public.contractor_companies
+  where id = p_contractor_company_id
+    and owner_user_id = auth.uid();
+
+  if not found then
+    raise exception 'Company not found or not owned by current user';
+  end if;
+
+  if not exists (
+    select 1
+    from public.customers c
+    where c.id = p_customer_id
+  ) then
+    raise exception 'Customer not found';
+  end if;
+
+  select *
+  into v_row
+  from public.customer_contractors
+  where customer_id = p_customer_id
+    and contractor_company_id = p_contractor_company_id;
+
+  if found and v_row.status = 'approved' then
+    return jsonb_build_object(
+      'ok', true,
+      'status', 'approved',
+      'message', 'Already approved'
+    );
+  end if;
+
+  if found and v_row.cooldown_until is not null and v_row.cooldown_until > v_now then
+    insert into public.customer_contractor_application_events (
+      customer_id,
+      contractor_company_id,
+      event_type,
+      actor_user_id,
+      note,
+      meta
+    )
+    values (
+      p_customer_id,
+      p_contractor_company_id,
+      'cooldown_blocked',
+      auth.uid(),
+      'Approval request blocked by cooldown',
+      jsonb_build_object('cooldown_until', v_row.cooldown_until)
+    );
+
+    return jsonb_build_object(
+      'ok', false,
+      'status', coalesce(v_row.status, 'pending'),
+      'cooldown_until', v_row.cooldown_until,
+      'message', 'Cooldown active'
+    );
+  end if;
+
+  v_next := v_now + v_cooldown;
+
+  insert into public.customer_contractors (
+    customer_id,
+    contractor_company_id,
+    status,
+    approval_requested_at,
+    last_applied_at,
+    cooldown_until,
+    request_count
+  )
+  values (
+    p_customer_id,
+    p_contractor_company_id,
+    'pending',
+    v_now,
+    v_now,
+    v_next,
+    1
+  )
+  on conflict (customer_id, contractor_company_id)
+  do update set
+    status = 'pending',
+    approval_requested_at = v_now,
+    last_applied_at = v_now,
+    cooldown_until = v_next,
+    request_count = public.customer_contractors.request_count + 1;
+
+  insert into public.customer_contractor_application_events (
+    customer_id,
+    contractor_company_id,
+    event_type,
+    actor_user_id,
+    note
+  )
+  values (
+    p_customer_id,
+    p_contractor_company_id,
+    'requested',
+    auth.uid(),
+    'Contractor requested customer approval'
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'status', 'pending',
+    'cooldown_until', v_next,
+    'message', 'Approval request sent'
+  );
+end;
+$$;
+
+
+ALTER FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid", "p_contractor_company_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_tpl public.customer_agreement_templates%rowtype;
+begin
+  select *
+  into v_tpl
+  from public.customer_agreement_templates
+  where id = p_template_id;
+
+  if not found then
+    raise exception 'Template not found';
+  end if;
+
+  if not public.current_user_owns_customer(v_tpl.customer_id) and not public.is_admin() then
+    raise exception 'Not allowed';
+  end if;
+
+  update public.customer_agreement_templates
+  set is_default = false
+  where customer_id = v_tpl.customer_id
+    and template_type = v_tpl.template_type;
+
+  update public.customer_agreement_templates
+  set is_default = true
+  where id = p_template_id;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
@@ -1056,12 +1510,113 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_public_profiles" (
 ALTER TABLE "public"."contractor_public_profiles" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."customer_agreement_templates" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "customer_id" "uuid" NOT NULL,
+    "template_type" "text" NOT NULL,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "file_name" "text",
+    "file_path" "text" NOT NULL,
+    "applies_to" "text" DEFAULT 'both'::"text" NOT NULL,
+    "is_default" boolean DEFAULT false NOT NULL,
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    "created_by" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "customer_agreement_templates_applies_to_check" CHECK (("applies_to" = ANY (ARRAY['onboarding'::"text", 'per_job'::"text", 'both'::"text"]))),
+    CONSTRAINT "customer_agreement_templates_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'archived'::"text"]))),
+    CONSTRAINT "customer_agreement_templates_template_type_check" CHECK (("template_type" = ANY (ARRAY['msa'::"text", 'service_agreement'::"text", 'one_time_project_agreement'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_agreement_templates" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_agreements" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "customer_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid",
+    "job_id" "uuid",
+    "template_id" "uuid",
+    "agreement_type" "text" NOT NULL,
+    "title" "text" NOT NULL,
+    "file_name" "text",
+    "file_path" "text" NOT NULL,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "source" "text" DEFAULT 'template'::"text" NOT NULL,
+    "sent_at" timestamp with time zone,
+    "signed_at" timestamp with time zone,
+    "created_by" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "customer_agreements_agreement_type_check" CHECK (("agreement_type" = ANY (ARRAY['msa'::"text", 'service_agreement'::"text", 'one_time_project_agreement'::"text"]))),
+    CONSTRAINT "customer_agreements_source_check" CHECK (("source" = ANY (ARRAY['template'::"text", 'manual_upload'::"text"]))),
+    CONSTRAINT "customer_agreements_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'sent'::"text", 'awaiting_signature'::"text", 'signed'::"text", 'rejected'::"text", 'archived'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_agreements" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_contractor_application_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "customer_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "event_type" "text" NOT NULL,
+    "actor_user_id" "uuid",
+    "note" "text",
+    "meta" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "customer_contractor_application_events_event_type_check" CHECK (("event_type" = ANY (ARRAY['requested'::"text", 'approved'::"text", 'rejected'::"text", 'cooldown_blocked'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_contractor_application_events" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_contractor_request_messages" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "thread_id" "uuid" NOT NULL,
+    "sender_user_id" "uuid" NOT NULL,
+    "sender_role" "text" NOT NULL,
+    "body" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "customer_contractor_request_messages_sender_role_check" CHECK (("sender_role" = ANY (ARRAY['customer'::"text", 'contractor'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_contractor_request_messages" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_contractor_request_threads" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "customer_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "customer_contractor_status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "created_by_customer_user_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "last_message_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."customer_contractor_request_threads" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."customer_contractors" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "customer_id" "uuid" NOT NULL,
     "contractor_company_id" "uuid" NOT NULL,
     "status" "text" DEFAULT 'approved'::"text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "approval_requested_at" timestamp with time zone,
+    "last_applied_at" timestamp with time zone,
+    "cooldown_until" timestamp with time zone,
+    "approved_at" timestamp with time zone,
+    "rejected_at" timestamp with time zone,
+    "request_count" integer DEFAULT 0 NOT NULL,
+    "customer_note" "text",
+    "contractor_note" "text",
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "uuid",
     CONSTRAINT "customer_contractors_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))
 );
 
@@ -1288,6 +1843,8 @@ CREATE TABLE IF NOT EXISTS "public"."jobs" (
     "archived_at" timestamp with time zone,
     "archive_reason" "text",
     "visibility_mode" "text" DEFAULT 'public'::"text" NOT NULL,
+    "requires_one_time_contract" boolean DEFAULT false NOT NULL,
+    "agreement_template_id" "uuid",
     CONSTRAINT "jobs_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'closed'::"text"]))),
     CONSTRAINT "jobs_visibility_mode_check" CHECK (("visibility_mode" = ANY (ARRAY['public'::"text", 'qualified_only'::"text", 'approved_only'::"text"])))
 );
@@ -1580,6 +2137,36 @@ ALTER TABLE ONLY "public"."contractor_insurance_policies"
 
 ALTER TABLE ONLY "public"."contractor_public_profiles"
     ADD CONSTRAINT "contractor_public_profiles_pkey" PRIMARY KEY ("company_id");
+
+
+
+ALTER TABLE ONLY "public"."customer_agreement_templates"
+    ADD CONSTRAINT "customer_agreement_templates_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_application_events"
+    ADD CONSTRAINT "customer_contractor_application_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_messages"
+    ADD CONSTRAINT "customer_contractor_request_messages_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_threads"
+    ADD CONSTRAINT "customer_contractor_request_t_customer_id_contractor_compan_key" UNIQUE ("customer_id", "contractor_company_id");
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_threads"
+    ADD CONSTRAINT "customer_contractor_request_threads_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1879,6 +2466,50 @@ CREATE INDEX "idx_contractor_companies_owner" ON "public"."contractor_companies"
 
 
 
+CREATE INDEX "idx_customer_agreement_templates_customer" ON "public"."customer_agreement_templates" USING "btree" ("customer_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_customer_agreement_templates_customer_type" ON "public"."customer_agreement_templates" USING "btree" ("customer_id", "template_type");
+
+
+
+CREATE INDEX "idx_customer_agreements_contractor" ON "public"."customer_agreements" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "idx_customer_agreements_customer" ON "public"."customer_agreements" USING "btree" ("customer_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_customer_agreements_job" ON "public"."customer_agreements" USING "btree" ("job_id");
+
+
+
+CREATE INDEX "idx_customer_contractor_application_events_lookup" ON "public"."customer_contractor_application_events" USING "btree" ("customer_id", "contractor_company_id", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_customer_contractor_request_messages_thread" ON "public"."customer_contractor_request_messages" USING "btree" ("thread_id", "created_at");
+
+
+
+CREATE INDEX "idx_customer_contractor_request_threads_contractor" ON "public"."customer_contractor_request_threads" USING "btree" ("contractor_company_id", "last_message_at" DESC);
+
+
+
+CREATE INDEX "idx_customer_contractor_request_threads_customer" ON "public"."customer_contractor_request_threads" USING "btree" ("customer_id", "last_message_at" DESC);
+
+
+
+CREATE INDEX "idx_customer_contractors_contractor_company_status" ON "public"."customer_contractors" USING "btree" ("contractor_company_id", "status");
+
+
+
+CREATE INDEX "idx_customer_contractors_customer_status" ON "public"."customer_contractors" USING "btree" ("customer_id", "status");
+
+
+
 CREATE INDEX "idx_customers_owner" ON "public"."customers" USING "btree" ("owner_user_id");
 
 
@@ -1960,6 +2591,14 @@ CREATE INDEX "insurance_types_name_idx" ON "public"."insurance_types" USING "btr
 
 
 CREATE UNIQUE INDEX "uq_bid_job_company" ON "public"."bids" USING "btree" ("job_id", "company_id");
+
+
+
+CREATE UNIQUE INDEX "uq_customer_agreement_templates_default_per_type" ON "public"."customer_agreement_templates" USING "btree" ("customer_id", "template_type") WHERE (("is_default" = true) AND ("status" = 'active'::"text"));
+
+
+
+CREATE UNIQUE INDEX "uq_customer_contractors_customer_company" ON "public"."customer_contractors" USING "btree" ("customer_id", "contractor_company_id");
 
 
 
@@ -2137,6 +2776,76 @@ ALTER TABLE ONLY "public"."contractor_public_profiles"
 
 
 
+ALTER TABLE ONLY "public"."customer_agreement_templates"
+    ADD CONSTRAINT "customer_agreement_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreement_templates"
+    ADD CONSTRAINT "customer_agreement_templates_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."customer_agreements"
+    ADD CONSTRAINT "customer_agreements_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "public"."customer_agreement_templates"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_application_events"
+    ADD CONSTRAINT "customer_contractor_application_even_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_application_events"
+    ADD CONSTRAINT "customer_contractor_application_events_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_messages"
+    ADD CONSTRAINT "customer_contractor_request_messages_sender_user_id_fkey" FOREIGN KEY ("sender_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_messages"
+    ADD CONSTRAINT "customer_contractor_request_messages_thread_id_fkey" FOREIGN KEY ("thread_id") REFERENCES "public"."customer_contractor_request_threads"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_threads"
+    ADD CONSTRAINT "customer_contractor_request_th_created_by_customer_user_id_fkey" FOREIGN KEY ("created_by_customer_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_threads"
+    ADD CONSTRAINT "customer_contractor_request_threads_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractor_request_threads"
+    ADD CONSTRAINT "customer_contractor_request_threads_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."customer_contractors"
     ADD CONSTRAINT "customer_contractors_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
 
@@ -2144,6 +2853,11 @@ ALTER TABLE ONLY "public"."customer_contractors"
 
 ALTER TABLE ONLY "public"."customer_contractors"
     ADD CONSTRAINT "customer_contractors_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_contractors"
+    ADD CONSTRAINT "customer_contractors_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -2284,6 +2998,11 @@ ALTER TABLE ONLY "public"."job_scopes"
 
 ALTER TABLE ONLY "public"."job_scopes"
     ADD CONSTRAINT "job_scopes_scope_id_fkey" FOREIGN KEY ("scope_id") REFERENCES "public"."scopes"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."jobs"
+    ADD CONSTRAINT "jobs_agreement_template_id_fkey" FOREIGN KEY ("agreement_template_id") REFERENCES "public"."customer_agreement_templates"("id") ON DELETE SET NULL;
 
 
 
@@ -2698,6 +3417,10 @@ CREATE POLICY "companies_update_own" ON "public"."contractor_companies" FOR UPDA
 
 
 
+CREATE POLICY "contractor can view customers" ON "public"."customers" FOR SELECT USING (true);
+
+
+
 ALTER TABLE "public"."contractor_coi" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2829,6 +3552,65 @@ CREATE POLICY "cust_scope_req_write_owner" ON "public"."customer_scope_requireme
 
 
 
+ALTER TABLE "public"."customer_agreement_templates" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_agreement_templates_delete_customer" ON "public"."customer_agreement_templates" FOR DELETE USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_agreement_templates_insert_customer" ON "public"."customer_agreement_templates" FOR INSERT WITH CHECK ("public"."current_user_owns_customer"("customer_id"));
+
+
+
+CREATE POLICY "customer_agreement_templates_select_customer" ON "public"."customer_agreement_templates" FOR SELECT USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_agreement_templates_update_customer" ON "public"."customer_agreement_templates" FOR UPDATE USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"())) WITH CHECK (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+ALTER TABLE "public"."customer_agreements" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_agreements_delete_customer" ON "public"."customer_agreements" FOR DELETE USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_agreements_insert_customer" ON "public"."customer_agreements" FOR INSERT WITH CHECK ("public"."current_user_owns_customer"("customer_id"));
+
+
+
+CREATE POLICY "customer_agreements_select_customer" ON "public"."customer_agreements" FOR SELECT USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"() OR (("contractor_company_id" IS NOT NULL) AND "public"."current_user_owns_contractor_company"("contractor_company_id"))));
+
+
+
+CREATE POLICY "customer_agreements_update_customer" ON "public"."customer_agreements" FOR UPDATE USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"())) WITH CHECK (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+ALTER TABLE "public"."customer_contractor_application_events" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_contractor_application_events_select_contractor" ON "public"."customer_contractor_application_events" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "cc"
+  WHERE (("cc"."id" = "customer_contractor_application_events"."contractor_company_id") AND ("cc"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_contractor_application_events_select_customer" ON "public"."customer_contractor_application_events" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM "public"."customers" "c"
+  WHERE (("c"."id" = "customer_contractor_application_events"."customer_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+ALTER TABLE "public"."customer_contractor_request_messages" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."customer_contractor_request_threads" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."customer_contractors" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2841,6 +3623,46 @@ CREATE POLICY "customer_contractors_select_for_customers" ON "public"."customer_
 
 
 ALTER TABLE "public"."customer_insurance_requirements" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_request_messages_insert_contractor_reply" ON "public"."customer_contractor_request_messages" FOR INSERT WITH CHECK ((("sender_role" = 'contractor'::"text") AND ("sender_user_id" = "auth"."uid"()) AND (EXISTS ( SELECT 1
+   FROM ("public"."customer_contractor_request_threads" "t"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "t"."contractor_company_id")))
+  WHERE (("t"."id" = "customer_contractor_request_messages"."thread_id") AND ("cc"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "customer_request_messages_insert_customer" ON "public"."customer_contractor_request_messages" FOR INSERT WITH CHECK ((("sender_role" = 'customer'::"text") AND ("sender_user_id" = "auth"."uid"()) AND (EXISTS ( SELECT 1
+   FROM ("public"."customer_contractor_request_threads" "t"
+     JOIN "public"."customers" "c" ON (("c"."id" = "t"."customer_id")))
+  WHERE (("t"."id" = "customer_contractor_request_messages"."thread_id") AND ("c"."owner_user_id" = "auth"."uid"()))))));
+
+
+
+CREATE POLICY "customer_request_messages_select_contractor" ON "public"."customer_contractor_request_messages" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM ("public"."customer_contractor_request_threads" "t"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "t"."contractor_company_id")))
+  WHERE (("t"."id" = "customer_contractor_request_messages"."thread_id") AND ("cc"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_request_messages_select_customer" ON "public"."customer_contractor_request_messages" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM ("public"."customer_contractor_request_threads" "t"
+     JOIN "public"."customers" "c" ON (("c"."id" = "t"."customer_id")))
+  WHERE (("t"."id" = "customer_contractor_request_messages"."thread_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_request_threads_select_contractor" ON "public"."customer_contractor_request_threads" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "cc"
+  WHERE (("cc"."id" = "customer_contractor_request_threads"."contractor_company_id") AND ("cc"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_request_threads_select_customer" ON "public"."customer_contractor_request_threads" FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM "public"."customers" "c"
+  WHERE (("c"."id" = "customer_contractor_request_threads"."customer_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
 
 
 ALTER TABLE "public"."customer_scope_requirements" ENABLE ROW LEVEL SECURITY;
@@ -3415,6 +4237,12 @@ GRANT ALL ON FUNCTION "public"."company_is_eligible"("p_company_id" "uuid") TO "
 
 
 
+GRANT ALL ON FUNCTION "public"."create_customer_agreement_from_template"("p_template_id" "uuid", "p_contractor_company_id" "uuid", "p_job_id" "uuid", "p_title" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."create_customer_agreement_from_template"("p_template_id" "uuid", "p_contractor_company_id" "uuid", "p_job_id" "uuid", "p_title" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."create_customer_agreement_from_template"("p_template_id" "uuid", "p_contractor_company_id" "uuid", "p_job_id" "uuid", "p_title" "text") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "service_role";
@@ -3436,6 +4264,24 @@ GRANT ALL ON FUNCTION "public"."current_user_owns_contractor_company"("p_company
 GRANT ALL ON FUNCTION "public"."current_user_owns_customer"("p_customer_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_user_owns_customer"("p_customer_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_owns_customer"("p_customer_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."customer_id_from_agreement_storage_path"("p_name" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."customer_id_from_agreement_storage_path"("p_name" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."customer_id_from_agreement_storage_path"("p_name" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."customer_review_contractor_request"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_decision" "text", "p_note" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."customer_review_contractor_request"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_decision" "text", "p_note" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."customer_review_contractor_request"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_decision" "text", "p_note" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."customer_start_or_get_request_thread"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_first_message" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."customer_start_or_get_request_thread"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_first_message" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."customer_start_or_get_request_thread"("p_customer_id" "uuid", "p_contractor_company_id" "uuid", "p_first_message" "text") TO "service_role";
 
 
 
@@ -3469,6 +4315,12 @@ GRANT ALL ON FUNCTION "public"."job_id_from_storage_path"("p_name" "text") TO "s
 
 
 
+GRANT ALL ON FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "service_role";
@@ -3485,6 +4337,18 @@ REVOKE ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") F
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."recalc_company_status"("p_company_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid", "p_contractor_company_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid", "p_contractor_company_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid", "p_contractor_company_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "service_role";
 
 
 
@@ -3626,6 +4490,36 @@ GRANT ALL ON TABLE "public"."contractor_insurance_policies" TO "service_role";
 GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "anon";
 GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "anon";
+GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_agreements" TO "anon";
+GRANT ALL ON TABLE "public"."customer_agreements" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_agreements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_contractor_application_events" TO "anon";
+GRANT ALL ON TABLE "public"."customer_contractor_application_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_contractor_application_events" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_contractor_request_messages" TO "anon";
+GRANT ALL ON TABLE "public"."customer_contractor_request_messages" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_contractor_request_messages" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_contractor_request_threads" TO "anon";
+GRANT ALL ON TABLE "public"."customer_contractor_request_threads" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_contractor_request_threads" TO "service_role";
 
 
 

@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Thu Apr  2 16:03:49 EDT 2026
+Generated: Thu Apr  2 23:07:51 EDT 2026
 
 ## 1. Root directories
 ```
@@ -19,6 +19,8 @@ Generated: Thu Apr  2 16:03:49 EDT 2026
 ./app/api/coi
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
+./app/api/customer-approvals
+./app/api/customer-approvals/request
 ./app/contractor
 ./app/contractor-agreement
 ./app/contractor/bids
@@ -103,6 +105,8 @@ Generated: Thu Apr  2 16:03:49 EDT 2026
 ./app/api/coi/.DS_Store
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
+./app/api/customer-approvals/.DS_Store
+./app/api/customer-approvals/request/route.ts
 ./app/contractor-agreement/page.tsx
 ./app/contractor/.DS_Store
 ./app/contractor/bids/page.tsx
@@ -179,6 +183,7 @@ Generated: Thu Apr  2 16:03:49 EDT 2026
 ./eslint.config.mjs
 ./lib/.DS_Store
 ./lib/adminDocs.ts
+./lib/agreements.ts
 ./lib/auth.ts
 ./lib/bids.ts
 ./lib/coi.ts
@@ -245,6 +250,7 @@ app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/api/customer-approvals/request/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
@@ -305,12 +311,15 @@ app/api/auth/forgot-password/route.ts
 app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/api/customer-approvals/.DS_Store
+app/api/customer-approvals/request/route.ts
 ```
 
 ## 5. Library files
 ```
 lib/.DS_Store
 lib/adminDocs.ts
+lib/agreements.ts
 lib/auth.ts
 lib/bids.ts
 lib/coi.ts

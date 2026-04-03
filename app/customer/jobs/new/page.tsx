@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
 import {
+  listCustomerAgreementTemplates,
+  agreementTypeLabel,
+  type CustomerAgreementTemplate,
+} from "../../../../lib/agreements";
+import {
   getMyCustomerOrg,
   listScopes,
   listCustomerScopeReq,
@@ -58,6 +63,12 @@ function SectionCard({
 
 export default function CustomerJobsNewPage() {
   const router = useRouter();
+
+  const [requiresOneTimeContract, setRequiresOneTimeContract] = useState(false);
+  const [agreementTemplates, setAgreementTemplates] = useState<
+    CustomerAgreementTemplate[]
+  >([]);
+  const [agreementTemplateId, setAgreementTemplateId] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -138,28 +149,47 @@ export default function CustomerJobsNewPage() {
     setLoading(true);
     setErr(null);
 
-    const profile = await getMyProfile();
-    if (!profile) return router.replace("/login");
-    if (profile.role !== "customer") return router.replace("/dashboard");
-
-    const org = await getMyCustomerOrg();
-    if (!org) {
-      router.replace("/customer/settings");
-      return;
-    }
-
     try {
+      const profile = await getMyProfile();
+      if (!profile) {
+        router.replace("/login");
+        return;
+      }
+      if (profile.role !== "customer") {
+        router.replace("/dashboard");
+        return;
+      }
+
+      const org = await getMyCustomerOrg();
+      if (!org) {
+        router.replace("/customer/settings");
+        return;
+      }
+
       setCustomerId(org.id);
 
-      const [sc, ct, csr] = await Promise.all([
+      const [sc, ct, csr, templates] = await Promise.all([
         listScopes(),
         listCertTypes(),
         listCustomerScopeReq(org.id),
+        listCustomerAgreementTemplates(org.id),
       ]);
 
       setScopes(sc);
       setCertTypes(ct);
       setCustScopeReq(csr);
+
+      const oneTimeTemplates = templates.filter(
+        (tpl) =>
+          tpl.status === "active" &&
+          tpl.template_type === "one_time_project_agreement" &&
+          (tpl.applies_to === "per_job" || tpl.applies_to === "both")
+      );
+
+      setAgreementTemplates(oneTimeTemplates);
+
+      const defaultTemplate = oneTimeTemplates.find((tpl) => tpl.is_default);
+      setAgreementTemplateId(defaultTemplate?.id || "");
     } catch (e: any) {
       setErr(e.message ?? "Load error");
     } finally {
@@ -168,7 +198,7 @@ export default function CustomerJobsNewPage() {
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -204,16 +234,23 @@ export default function CustomerJobsNewPage() {
     setSaving(true);
 
     try {
-      if (!customerId)
+      if (!customerId) {
         throw new Error("Customer org not found. Go to /customer/settings.");
+      }
       if (!title.trim()) throw new Error("Title is required.");
       if (!deadline) throw new Error("Deadline is required.");
-      if (selectedScopeIds.length === 0)
+      if (selectedScopeIds.length === 0) {
         throw new Error("Select at least one scope.");
+      }
 
       const budgetNum = parseBudgetToNumber(budget);
-      if (budgetNum === null)
+      if (budgetNum === null) {
         throw new Error("Budget is required (enter a positive number).");
+      }
+
+      if (requiresOneTimeContract && !agreementTemplateId) {
+        throw new Error("Select a one-time agreement template.");
+      }
 
       const { data: userData, error: userErr } = await supabase.auth.getSession();
       if (userErr) throw userErr;
@@ -232,6 +269,10 @@ export default function CustomerJobsNewPage() {
           budget_min: budgetNum,
           budget_max: budgetNum,
           visibility_mode: visibilityMode,
+          requires_one_time_contract: requiresOneTimeContract,
+          agreement_template_id: requiresOneTimeContract
+            ? agreementTemplateId
+            : null,
         })
         .select("id")
         .single();
@@ -271,8 +312,8 @@ export default function CustomerJobsNewPage() {
           Create New Job
         </h2>
         <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-          Add project details, select scopes, review required certificates, and
-          attach files for contractors.
+          Add project details, select scopes, review required certificates,
+          choose agreement rules, and attach files for contractors.
         </p>
       </section>
 
@@ -440,6 +481,67 @@ export default function CustomerJobsNewPage() {
               </span>
             </span>
           </label>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Agreement for This Job"
+        description="Mark this job as requiring a one-time contract and choose the template that should be used for this project."
+      >
+        <div className="space-y-4">
+          <label className="flex items-start gap-3 rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-4">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={requiresOneTimeContract}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setRequiresOneTimeContract(checked);
+                if (!checked) {
+                  setAgreementTemplateId("");
+                } else {
+                  const defaultTemplate = agreementTemplates.find(
+                    (tpl) => tpl.is_default
+                  );
+                  setAgreementTemplateId(defaultTemplate?.id || "");
+                }
+              }}
+              disabled={saving}
+            />
+            <span className="text-sm leading-6 text-[#111827]">
+              This job requires a one-time contract.
+            </span>
+          </label>
+
+          {requiresOneTimeContract ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#111827]">
+                One-time agreement template
+              </label>
+              <select
+                className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
+                value={agreementTemplateId}
+                onChange={(e) => setAgreementTemplateId(e.target.value)}
+                disabled={saving}
+              >
+                <option value="">Select template...</option>
+                {agreementTemplates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.title}
+                    {tpl.is_default ? " • Default" : ""} •{" "}
+                    {agreementTypeLabel(tpl.template_type)}
+                  </option>
+                ))}
+              </select>
+
+              {agreementTemplates.length === 0 ? (
+                <div className="mt-2 text-xs text-[#B45309]">
+                  No active one-time agreement templates found. Upload one in
+                  Customer → Agreements first.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </SectionCard>
 

@@ -596,3 +596,169 @@ export async function updateTeamChangeRequestStatus(params: {
 
   if (error) throw error;
 }
+
+export type CustomerApprovalStatus = "none" | "pending" | "approved" | "rejected";
+
+export type CustomerApprovalRow = {
+  customer_id: string;
+  contractor_company_id: string;
+  status: "pending" | "approved" | "rejected";
+  cooldown_until: string | null;
+  approval_requested_at: string | null;
+  last_applied_at: string | null;
+};
+
+export async function listMyCustomerApprovalRows(): Promise<CustomerApprovalRow[]> {
+  const uid = await getMyUserId();
+
+  const { data: company, error: companyErr } = await supabase
+    .from("contractor_companies")
+    .select("id")
+    .eq("owner_user_id", uid)
+    .maybeSingle();
+
+  if (companyErr) throw companyErr;
+  if (!company?.id) return [];
+
+  const { data, error } = await supabase
+    .from("customer_contractors")
+    .select(
+      "customer_id, contractor_company_id, status, cooldown_until, approval_requested_at, last_applied_at"
+    )
+    .eq("contractor_company_id", company.id);
+
+  if (error) throw error;
+  return (data || []) as CustomerApprovalRow[];
+}
+
+export function approvalRowByCustomerId(
+  rows: CustomerApprovalRow[]
+): Record<string, CustomerApprovalRow> {
+  const map: Record<string, CustomerApprovalRow> = {};
+  for (const row of rows) {
+    map[row.customer_id] = row;
+  }
+  return map;
+}
+
+export async function requestCustomerApproval(
+  customerId: string,
+  contractorCompanyId: string
+): Promise<{
+  ok: boolean;
+  status?: string;
+  cooldown_until?: string | null;
+  message?: string;
+  error?: string;
+}> {
+  const res = await fetch("/api/customer-approvals/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      customerId,
+      contractorCompanyId,
+    }),
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new Error(json?.error || "Failed to request approval");
+  }
+
+  return json;
+}
+
+export type CustomerPendingContractorRequestRow = {
+  customer_id: string;
+  contractor_company_id: string;
+  status: "pending" | "approved" | "rejected" | string;
+  approval_requested_at: string | null;
+  cooldown_until: string | null;
+  request_count: number;
+  contractor_legal_name: string | null;
+  contractor_dba_name: string | null;
+  contractor_status: string | null;
+  contractor_onboarding_status: string | null;
+  headline: string | null;
+  home_market: string | null;
+  available_teams_count: number;
+  insurance_types: string[];
+  approved_cert_count: number;
+  approved_team_members_count: number;
+  thread_id: string | null;
+  has_thread: boolean;
+  last_message_at: string | null;
+};
+
+export async function listCustomerPendingContractorRequests(
+  customerId: string
+): Promise<CustomerPendingContractorRequestRow[]> {
+  const { data, error } = await supabase.rpc(
+    "list_customer_pending_contractor_requests",
+    { p_customer_id: customerId }
+  );
+
+  if (error) throw error;
+  return (data || []) as CustomerPendingContractorRequestRow[];
+}
+
+export async function customerReviewContractorRequest(args: {
+  customerId: string;
+  contractorCompanyId: string;
+  decision: "approved" | "rejected";
+  note?: string;
+}) {
+  const { data, error } = await supabase.rpc(
+    "customer_review_contractor_request",
+    {
+      p_customer_id: args.customerId,
+      p_contractor_company_id: args.contractorCompanyId,
+      p_decision: args.decision,
+      p_note: args.note || null,
+    }
+  );
+
+  if (error) throw error;
+  return data as { ok: boolean; status: string };
+}
+
+export async function customerStartOrGetRequestThread(args: {
+  customerId: string;
+  contractorCompanyId: string;
+  firstMessage: string;
+}) {
+  const { data, error } = await supabase.rpc(
+    "customer_start_or_get_request_thread",
+    {
+      p_customer_id: args.customerId,
+      p_contractor_company_id: args.contractorCompanyId,
+      p_first_message: args.firstMessage,
+    }
+  );
+
+  if (error) throw error;
+  return data as string;
+}
+
+export type RequestThreadMessage = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_role: "customer" | "contractor";
+  body: string;
+  created_at: string;
+};
+
+export async function listRequestThreadMessages(
+  threadId: string
+): Promise<RequestThreadMessage[]> {
+  const { data, error } = await supabase
+    .from("customer_contractor_request_messages")
+    .select("id, thread_id, sender_user_id, sender_role, body, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as RequestThreadMessage[];
+}

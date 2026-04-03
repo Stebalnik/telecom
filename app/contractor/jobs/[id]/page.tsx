@@ -5,7 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
-import { listCompanyTeams, listMyCompanies } from "../../../../lib/contractor";
+import {
+  listCompanyTeams,
+  listMyCompanies,
+  listMyCustomerApprovalRows,
+  approvalRowByCustomerId,
+  requestCustomerApproval,
+  type CustomerApprovalRow,
+} from "../../../../lib/contractor";
 import {
   listJobFiles,
   openJobFileSigned,
@@ -24,6 +31,18 @@ type JobRow = {
   deadline_date: string | null;
   customer_id: string | null;
   visibility_mode: JobVisibilityMode;
+  customers:
+    | {
+        id: string;
+        name: string | null;
+        description: string | null;
+      }
+    | {
+        id: string;
+        name: string | null;
+        description: string | null;
+      }[]
+    | null;
 };
 
 type CompanyOption = {
@@ -38,55 +57,21 @@ type TeamOption = {
   name?: string | null;
 };
 
-async function getApprovedCustomerIdsForMyCompany(): Promise<Set<string>> {
-  const { data: authData, error: authErr } = await supabase.auth.getSession();
-  if (authErr) throw authErr;
-  if (!authData.session?.user) throw new Error("Not logged in");
-
-  const { data: company, error: companyErr } = await supabase
-    .from("contractor_companies")
-    .select("id")
-    .eq("owner_user_id", authData.session.user.id)
-    .maybeSingle();
-
-  if (companyErr) throw companyErr;
-  if (!company?.id) return new Set();
-
-  const { data, error } = await supabase
-    .from("customer_contractors")
-    .select("customer_id,status")
-    .eq("contractor_company_id", company.id)
-    .eq("status", "approved");
-
-  if (error) throw error;
-
-  return new Set(
-    (data || [])
-      .map((x: { customer_id: string | null }) => x.customer_id)
-      .filter((x): x is string => Boolean(x))
-  );
-}
-
-function canSeeJob(job: JobRow, approvedCustomerIds: Set<string>): boolean {
-  if (job.visibility_mode === "public") return true;
-  if (!job.customer_id) return false;
-
-  if (job.visibility_mode === "approved_only") {
-    return approvedCustomerIds.has(job.customer_id);
-  }
-
-  if (job.visibility_mode === "qualified_only") {
-    // MVP behavior:
-    // for now qualified_only follows approved contractor access
-    return approvedCustomerIds.has(job.customer_id);
-  }
-
-  return false;
+function normalizeCustomer(
+  value: JobRow["customers"]
+): { id: string; name: string | null; description: string | null } | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 function formatDate(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString();
 }
 
 function visibilityLabel(mode: JobVisibilityMode) {
@@ -112,6 +97,42 @@ function StatusBadge({ status }: { status?: string | null }) {
       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${cls}`}
     >
       {status || "Unknown"}
+    </span>
+  );
+}
+
+function ApprovalBadge({
+  row,
+}: {
+  row?: CustomerApprovalRow | null;
+}) {
+  if (!row) {
+    return (
+      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
+        Approval required
+      </span>
+    );
+  }
+
+  if (row.status === "approved") {
+    return (
+      <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+        Approved by customer
+      </span>
+    );
+  }
+
+  if (row.status === "rejected") {
+    return (
+      <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+        Rejected
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+      Pending customer approval
     </span>
   );
 }
@@ -153,6 +174,7 @@ export default function ContractorJobBidPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [requestingApproval, setRequestingApproval] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [job, setJob] = useState<JobRow | null>(null);
@@ -167,11 +189,21 @@ export default function ContractorJobBidPage() {
 
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
+  const [approvalMap, setApprovalMap] = useState<Record<string, CustomerApprovalRow>>({});
 
   const maxBusinessDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
     return businessDaysBetweenInclusive(startDate, endDate);
   }, [startDate, endDate]);
+
+  const customer = normalizeCustomer(job?.customers || null);
+  const approval = job?.customer_id ? approvalMap[job.customer_id] : null;
+  const isApproved = approval?.status === "approved";
+  const isPending = approval?.status === "pending";
+  const cooldownActive =
+    !!approval?.cooldown_until &&
+    new Date(approval.cooldown_until).getTime() > Date.now() &&
+    approval?.status !== "approved";
 
   async function load() {
     setLoading(true);
@@ -188,31 +220,42 @@ export default function ContractorJobBidPage() {
         return;
       }
 
-      const { data: j, error } = await supabase
-        .from("jobs")
-        .select(
-          "id,title,description,location,status,deadline_date,customer_id,visibility_mode"
-        )
-        .eq("id", jobId)
-        .single();
+      const [jobResult, comps, approvals] = await Promise.all([
+        supabase
+          .from("jobs")
+          .select(
+            `
+            id,
+            title,
+            description,
+            location,
+            status,
+            deadline_date,
+            customer_id,
+            visibility_mode,
+            customers (
+              id,
+              name,
+              description
+            )
+          `
+          )
+          .eq("id", jobId)
+          .single(),
+        listMyCompanies(),
+        listMyCustomerApprovalRows(),
+      ]);
 
-      if (error) throw error;
+      if (jobResult.error) throw jobResult.error;
 
-      const loadedJob = j as JobRow;
-      const approvedCustomerIds = await getApprovedCustomerIdsForMyCompany();
-
-      if (!canSeeJob(loadedJob, approvedCustomerIds)) {
-        router.replace("/contractor/jobs");
-        return;
-      }
-
+      const loadedJob = jobResult.data as JobRow;
       setJob(loadedJob);
+      setApprovalMap(approvalRowByCustomerId(approvals));
 
       const f = await listJobFiles(jobId);
       setFiles(f);
 
-      const comps = (await listMyCompanies()) as CompanyOption[];
-      setCompanies(comps);
+      setCompanies(comps as CompanyOption[]);
 
       if (comps?.[0]?.id) {
         setCompanyId(comps[0].id);
@@ -227,7 +270,7 @@ export default function ContractorJobBidPage() {
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
@@ -246,6 +289,7 @@ export default function ContractorJobBidPage() {
 
   function validateBid() {
     if (!job) throw new Error("Job not loaded");
+    if (!isApproved) throw new Error("Customer approval is required before bidding.");
     if (!companyId) throw new Error("Select company");
     if (!teamId) throw new Error("Select team");
     if (!price || Number(price) <= 0) throw new Error("Enter bid price");
@@ -271,6 +315,42 @@ export default function ContractorJobBidPage() {
       throw new Error(
         `Work days (${wd}) must fit into business days in the selected timeframe (${maxWd})`
       );
+    }
+  }
+
+  async function handleRequestApproval() {
+    if (!job?.customer_id) {
+      setErr("Customer not found for this job.");
+      return;
+    }
+    if (!companyId) {
+      setErr("Select company first.");
+      return;
+    }
+
+    setErr(null);
+    setRequestingApproval(true);
+
+    try {
+      const result = await requestCustomerApproval(job.customer_id, companyId);
+
+      if (!result.ok) {
+        if (result.cooldown_until) {
+          setErr(
+            `You can request approval from this customer again on ${formatDateTime(
+              result.cooldown_until
+            )}.`
+          );
+        } else {
+          setErr(result.message || "Approval request failed.");
+        }
+      }
+
+      await load();
+    } catch (e: any) {
+      setErr(e.message || "Approval request failed.");
+    } finally {
+      setRequestingApproval(false);
     }
   }
 
@@ -309,7 +389,8 @@ export default function ContractorJobBidPage() {
           <div>
             <h1 className="text-2xl font-semibold text-[#111827]">Job</h1>
             <p className="mt-2 text-sm text-[#4B5563]">
-              Review job details, download files, and submit your bid.
+              Review job details, see the customer, request approval if needed,
+              and submit your bid only after approval.
             </p>
           </div>
 
@@ -343,18 +424,33 @@ export default function ContractorJobBidPage() {
                   {job.title}
                 </h2>
                 <StatusBadge status={job.status} />
+                <ApprovalBadge row={approval} />
                 <InfoPill>
                   Visibility: {visibilityLabel(job.visibility_mode)}
                 </InfoPill>
               </div>
 
               <div className="mt-2 text-sm text-[#4B5563]">
+                Customer:{" "}
+                <span className="font-medium text-[#111827]">
+                  {customer?.name || "Unknown customer"}
+                </span>
+              </div>
+
+              <div className="mt-1 text-sm text-[#4B5563]">
                 Deadline:{" "}
                 <span className="font-medium text-[#111827]">
                   {formatDate(job.deadline_date)}
                 </span>
                 {job.location ? ` • ${job.location}` : ""}
               </div>
+
+              {cooldownActive ? (
+                <div className="mt-2 text-xs text-[#B45309]">
+                  Next approval request available on{" "}
+                  {formatDateTime(approval?.cooldown_until)}
+                </div>
+              ) : null}
 
               {job.description ? (
                 <p className="mt-3 text-sm leading-6 text-[#111827]">
@@ -366,6 +462,37 @@ export default function ContractorJobBidPage() {
                 Job ID: {job.id}
               </div>
             </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleRequestApproval}
+                disabled={
+                  !job.customer_id ||
+                  isApproved ||
+                  isPending ||
+                  cooldownActive ||
+                  requestingApproval
+                }
+                className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                  !job.customer_id ||
+                  isApproved ||
+                  isPending ||
+                  cooldownActive ||
+                  requestingApproval
+                    ? "cursor-not-allowed border border-[#D9E2EC] bg-[#F8FAFC] text-[#9CA3AF]"
+                    : "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+                }`}
+              >
+                {isApproved
+                  ? "Approved"
+                  : isPending
+                  ? "Request sent"
+                  : requestingApproval
+                  ? "Sending..."
+                  : "Request approval"}
+              </button>
+            </div>
           </div>
         </SectionCard>
       ) : null}
@@ -376,8 +503,7 @@ export default function ContractorJobBidPage() {
       >
         {files.length === 0 ? (
           <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-            No files available, or you are not eligible to view files for this
-            job.
+            No files available for this job.
           </div>
         ) : (
           <div className="space-y-3">
@@ -410,9 +536,21 @@ export default function ContractorJobBidPage() {
 
       <SectionCard
         title="Submit bid"
-        subtitle="Your planned dates and work days must fit within the allowed job timeframe."
+        subtitle="Bidding is enabled only after this customer approves your company."
       >
-        <div className="grid gap-4 md:grid-cols-2">
+        {!isApproved ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {isPending
+              ? "Your approval request has been sent. You can submit a bid after the customer approves your company."
+              : cooldownActive
+              ? `Approval request cooldown is active until ${formatDateTime(
+                  approval?.cooldown_until
+                )}.`
+              : "Customer approval is required before you can submit a bid for this job."}
+          </div>
+        ) : null}
+
+        <div className={`grid gap-4 md:grid-cols-2 ${!isApproved ? "opacity-60" : ""}`}>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
               Company
@@ -421,6 +559,7 @@ export default function ContractorJobBidPage() {
               className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
+              disabled={!isApproved}
             >
               <option value="">Select...</option>
               {companies.map((c) => (
@@ -439,6 +578,7 @@ export default function ContractorJobBidPage() {
               className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
+              disabled={!isApproved}
             >
               <option value="">Select...</option>
               {teams.map((t) => (
@@ -458,6 +598,7 @@ export default function ContractorJobBidPage() {
               placeholder="e.g. 25000"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              disabled={!isApproved}
             />
           </div>
 
@@ -470,6 +611,7 @@ export default function ContractorJobBidPage() {
               placeholder="e.g. 5"
               value={workDays}
               onChange={(e) => setWorkDays(e.target.value)}
+              disabled={!isApproved}
             />
             {startDate && endDate ? (
               <div className="mt-2 text-xs text-[#6B7280]">
@@ -490,6 +632,7 @@ export default function ContractorJobBidPage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              disabled={!isApproved}
             />
           </div>
 
@@ -502,6 +645,7 @@ export default function ContractorJobBidPage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              disabled={!isApproved}
             />
           </div>
         </div>
@@ -511,7 +655,7 @@ export default function ContractorJobBidPage() {
             type="button"
             className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={submitBid}
-            disabled={submitting}
+            disabled={submitting || !isApproved}
           >
             {submitting ? "Submitting..." : "Submit bid"}
           </button>

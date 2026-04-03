@@ -1,6 +1,26 @@
 import { supabase } from "./supabaseClient";
 import { getMyUserId } from "./auth";
 
+export type Customer = {
+  id: string;
+  owner_user_id: string;
+  name: string | null;
+  description: string | null;
+};
+
+export async function getMyCustomer(): Promise<Customer | null> {
+  const uid = await getMyUserId();
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, owner_user_id, name, description")
+    .eq("owner_user_id", uid)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data || null) as Customer | null;
+}
+
 export type CustomerOrg = {
   id: string;
   owner_user_id: string;
