@@ -15,7 +15,16 @@ const navItems: NavItem[] = [
   { href: "/contractor", label: "Dashboard" },
   { href: "/contractor/jobs", label: "Jobs" },
   { href: "/contractor/bids", label: "Bids" },
-  { href: "/contractor/customers", label: "Customers" },
+  {
+    href: "/contractor/customers",
+    label: "Customers",
+    match: ["/contractor/customers"],
+  },
+  {
+    href: "/contractor/resources",
+    label: "Resources",
+    match: ["/contractor/resources"],
+  },
   {
     href: "/contractor/company",
     label: "My Data",
@@ -28,6 +37,7 @@ const navItems: NavItem[] = [
     ],
   },
   { href: "/contractor/requests", label: "Active Requests" },
+  { href: "/contractor/agreements", label: "Agreements"},
   { href: "/contractor/settings/company", label: "Settings" },
 ];
 

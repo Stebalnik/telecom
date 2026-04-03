@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
   { label: "Jobs", href: "/customer/jobs" },
   { label: "Bids", href: "/customer/bids" },
   { label: "Contractors", href: "/customer/contractors" },
-  { label: "Compliance", href: "/customer/compliance" },
+  { label: "Contractor Resources", href: "/customer/resources" },
   { label: "Agreements", href: "/customer/agreements" },
   { label: "Requests", href: "/customer/requests" },
   { label: "Settings", href: "/customer/settings" },

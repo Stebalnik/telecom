@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Fri Apr  3 14:20:21 EDT 2026
+Generated: Fri Apr  3 18:25:39 EDT 2026
 
-Export folder: docs/export_files/2026-04-03_14-20-21
+Export folder: docs/export_files/2026-04-03_18-25-39
 
 ## 1. Directory tree
 ```
@@ -22,10 +22,14 @@ app/api/checkout/create
 app/api/coi
 app/api/coi/signed-upload
 app/api/coi/signed-url
+app/api/customer
 app/api/customer-approvals
 app/api/customer-approvals/request
+app/api/customer/resources
+app/api/customer/resources/acknowledge
 app/contractor
 app/contractor-agreement
+app/contractor/agreements
 app/contractor/bids
 app/contractor/certifications
 app/contractor/coi
@@ -33,12 +37,15 @@ app/contractor/company
 app/contractor/company/change-request
 app/contractor/company/change-request 2
 app/contractor/customers
+app/contractor/customers/[customerId]
+app/contractor/customers/[customerId]/resources
 app/contractor/insurance
 app/contractor/jobs
 app/contractor/jobs/[id]
 app/contractor/onboarding
 app/contractor/onboarding/company
 app/contractor/requests
+app/contractor/resources
 app/contractor/settings
 app/contractor/settings/company
 app/contractor/teams
@@ -62,6 +69,12 @@ app/customer/jobs/active
 app/customer/jobs/archive
 app/customer/jobs/new
 app/customer/requests
+app/customer/resources
+app/customer/resources/[id]
+app/customer/resources/[id]/edit
+app/customer/resources/file-url
+app/customer/resources/new
+app/customer/resources/upload-url
 app/customer/settings
 app/customer/settings/certs-per-scope
 app/customer/settings/insurance
@@ -107,13 +120,20 @@ app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/.DS_Store
 app/api/customer-approvals/request/route.ts
+app/api/customer/.DS_Store
+app/api/customer/resources/.DS_Store
+app/api/customer/resources/acknowledge/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/.DS_Store
+app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
 app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
+app/contractor/customers/.DS_Store
+app/contractor/customers/[customerId]/.DS_Store
+app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/.DS_Store
@@ -124,6 +144,7 @@ app/contractor/onboarding/.DS_Store
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
+app/contractor/resources/page.tsx
 app/contractor/settings/.DS_Store
 app/contractor/settings/company/page.tsx
 app/contractor/teams/change-request/page.tsx
@@ -151,6 +172,14 @@ app/customer/jobs/page.tsx
 app/customer/layout.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
+app/customer/resources/.DS_Store
+app/customer/resources/[id]/.DS_Store
+app/customer/resources/[id]/edit/page.tsx
+app/customer/resources/[id]/page.tsx
+app/customer/resources/file-url/route.ts
+app/customer/resources/new/page.tsx
+app/customer/resources/page.tsx
+app/customer/resources/upload-url/route.ts
 app/customer/settings/.DS_Store
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
@@ -222,12 +251,15 @@ app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
+app/api/customer/resources/acknowledge/route.ts
 app/contractor-agreement/page.tsx
+app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
 app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
+app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
@@ -236,6 +268,7 @@ app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
+app/contractor/resources/page.tsx
 app/contractor/settings/company/page.tsx
 app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
@@ -258,6 +291,12 @@ app/customer/jobs/page.tsx
 app/customer/layout.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
+app/customer/resources/[id]/edit/page.tsx
+app/customer/resources/[id]/page.tsx
+app/customer/resources/file-url/route.ts
+app/customer/resources/new/page.tsx
+app/customer/resources/page.tsx
+app/customer/resources/upload-url/route.ts
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx

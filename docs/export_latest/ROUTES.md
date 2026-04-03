@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Fri Apr  3 14:20:21 EDT 2026
+Generated: Fri Apr  3 18:25:39 EDT 2026
 
 ## App router files
 ```
@@ -16,12 +16,15 @@ app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
+app/api/customer/resources/acknowledge/route.ts
 app/contractor-agreement/page.tsx
+app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
 app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
+app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
@@ -30,6 +33,7 @@ app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
+app/contractor/resources/page.tsx
 app/contractor/settings/company/page.tsx
 app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
@@ -52,6 +56,12 @@ app/customer/jobs/page.tsx
 app/customer/layout.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
+app/customer/resources/[id]/edit/page.tsx
+app/customer/resources/[id]/page.tsx
+app/customer/resources/file-url/route.ts
+app/customer/resources/new/page.tsx
+app/customer/resources/page.tsx
+app/customer/resources/upload-url/route.ts
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx

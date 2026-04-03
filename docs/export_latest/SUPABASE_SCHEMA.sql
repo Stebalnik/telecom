@@ -52,6 +52,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
+CREATE TYPE "public"."customer_resource_audience_scope" AS ENUM (
+    'all_markets',
+    'selected_markets'
+);
+
+
+ALTER TYPE "public"."customer_resource_audience_scope" OWNER TO "postgres";
+
+
 CREATE TYPE "public"."team_member_role" AS ENUM (
     'Technician',
     'Foreman',
@@ -67,6 +76,81 @@ CREATE TYPE "public"."team_member_role" AS ENUM (
 
 
 ALTER TYPE "public"."team_member_role" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."acknowledge_customer_resource"("p_resource_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_resource public.customer_resources%rowtype;
+  v_company_id uuid;
+begin
+  select *
+  into v_resource
+  from public.customer_resources
+  where id = p_resource_id
+    and is_active = true;
+
+  if not found then
+    raise exception 'Resource not found';
+  end if;
+
+  if not public.current_contractor_has_customer_approval(v_resource.customer_id) then
+    raise exception 'Access denied';
+  end if;
+
+  if not public.current_contractor_matches_resource_market(v_resource.id) then
+    raise exception 'Access denied for this market';
+  end if;
+
+  select cc.id
+  into v_company_id
+  from public.contractor_companies cc
+  where cc.owner_user_id = auth.uid()
+  limit 1;
+
+  if v_company_id is null then
+    raise exception 'Contractor company not found';
+  end if;
+
+  insert into public.customer_resource_acknowledgements (
+    resource_id,
+    contractor_company_id,
+    acknowledged_by
+  )
+  values (
+    v_resource.id,
+    v_company_id,
+    auth.uid()
+  )
+  on conflict (resource_id, contractor_company_id)
+  do update set
+    acknowledged_by = excluded.acknowledged_by,
+    acknowledged_at = now();
+
+  insert into public.customer_resource_events (
+    resource_id,
+    contractor_company_id,
+    actor_user_id,
+    event_type
+  )
+  values (
+    v_resource.id,
+    v_company_id,
+    auth.uid(),
+    'acknowledged'
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'resource_id', v_resource.id
+  );
+end;
+$$;
+
+
+ALTER FUNCTION "public"."acknowledge_customer_resource"("p_resource_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") RETURNS "void"
@@ -370,6 +454,74 @@ $$;
 
 
 ALTER FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_contractor_has_customer_approval"("p_customer_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  select exists (
+    select 1
+    from public.contractor_companies cc
+    join public.customer_contractors rel
+      on rel.contractor_company_id = cc.id
+    where cc.owner_user_id = auth.uid()
+      and rel.customer_id = p_customer_id
+      and rel.status = 'approved'
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_contractor_has_customer_approval"("p_customer_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_contractor_matches_resource_market"("p_resource_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  with my_company as (
+    select cc.id as company_id
+    from public.contractor_companies cc
+    where cc.owner_user_id = auth.uid()
+    limit 1
+  ),
+  my_profile as (
+    select
+      cpp.company_id,
+      cpp.home_market,
+      coalesce(cpp.markets, '{}'::text[]) as markets
+    from public.contractor_public_profiles cpp
+    join my_company mc on mc.company_id = cpp.company_id
+  ),
+  resource_row as (
+    select r.id, r.audience_scope
+    from public.customer_resources r
+    where r.id = p_resource_id
+    limit 1
+  )
+  select exists (
+    select 1
+    from resource_row r
+    where
+      r.audience_scope = 'all_markets'
+      or (
+        r.audience_scope = 'selected_markets'
+        and exists (
+          select 1
+          from public.customer_resource_markets rm
+          join my_profile mp on true
+          where rm.resource_id = r.id
+            and (
+              rm.market = any(mp.markets)
+              or rm.market = mp.home_market
+            )
+        )
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_contractor_matches_resource_market"("p_resource_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."current_customer_can_view_company"("p_company_id" "uuid") RETURNS boolean
@@ -760,6 +912,95 @@ $$;
 ALTER FUNCTION "public"."list_customer_pending_contractor_requests"("p_customer_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."list_customer_resources_for_contractor"("p_customer_id" "uuid") RETURNS TABLE("id" "uuid", "customer_id" "uuid", "title" "text", "description" "text", "category" "text", "file_name" "text", "revision_label" "text", "effective_date" "date", "expires_at" "date", "is_required" boolean, "is_active" boolean, "audience_scope" "text", "created_at" timestamp with time zone, "updated_at" timestamp with time zone, "is_acknowledged" boolean)
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  with my_company as (
+    select cc.id as company_id
+    from public.contractor_companies cc
+    where cc.owner_user_id = auth.uid()
+    limit 1
+  )
+  select
+    r.id,
+    r.customer_id,
+    r.title,
+    r.description,
+    r.category,
+    r.file_name,
+    r.revision_label,
+    r.effective_date,
+    r.expires_at,
+    r.is_required,
+    r.is_active,
+    r.audience_scope,
+    r.created_at,
+    r.updated_at,
+    exists (
+      select 1
+      from public.customer_resource_acknowledgements a
+      join my_company mc on mc.company_id = a.contractor_company_id
+      where a.resource_id = r.id
+    ) as is_acknowledged
+  from public.customer_resources r
+  where r.customer_id = p_customer_id
+    and r.is_active = true
+    and public.current_contractor_has_customer_approval(p_customer_id)
+    and public.current_contractor_matches_resource_market(r.id)
+  order by r.created_at desc;
+$$;
+
+
+ALTER FUNCTION "public"."list_customer_resources_for_contractor"("p_customer_id" "uuid") OWNER TO "postgres";
+
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_resources" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "customer_id" "uuid" NOT NULL,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "category" "text" DEFAULT 'other'::"text" NOT NULL,
+    "file_name" "text" NOT NULL,
+    "file_path" "text" NOT NULL,
+    "mime_type" "text",
+    "file_size_bytes" bigint,
+    "revision_label" "text",
+    "effective_date" "date",
+    "expires_at" "date",
+    "is_required" boolean DEFAULT false NOT NULL,
+    "is_active" boolean DEFAULT true NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "audience_scope" "text" DEFAULT 'all_markets'::"text" NOT NULL,
+    CONSTRAINT "customer_resources_audience_scope_check" CHECK (("audience_scope" = ANY (ARRAY['all_markets'::"text", 'selected_markets'::"text"]))),
+    CONSTRAINT "customer_resources_category_check" CHECK (("category" = ANY (ARRAY['standard'::"text", 'sop'::"text", 'mop'::"text", 'training'::"text", 'safety'::"text", 'closeout'::"text", 'diagram'::"text", 'template'::"text", 'other'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_resources" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."list_customer_resources_for_owner"("p_customer_id" "uuid") RETURNS SETOF "public"."customer_resources"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  select r.*
+  from public.customer_resources r
+  where r.customer_id = p_customer_id
+    and public.current_user_owns_customer(p_customer_id)
+  order by r.created_at desc;
+$$;
+
+
+ALTER FUNCTION "public"."list_customer_resources_for_owner"("p_customer_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."list_marketplace_contractors"("p_search" "text" DEFAULT NULL::"text") RETURNS TABLE("company_id" "uuid", "legal_name" "text", "dba_name" "text", "headline" "text", "home_market" "text", "markets" "text"[], "available_teams_count" integer, "insurance_types" "text"[], "average_rating" numeric, "reviews_count" integer)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -844,6 +1085,69 @@ $$;
 
 
 ALTER FUNCTION "public"."list_marketplace_contractors"("p_search" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."log_customer_resource_event"("p_resource_id" "uuid", "p_event_type" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_resource public.customer_resources%rowtype;
+  v_company_id uuid;
+begin
+  if p_event_type not in ('view', 'download') then
+    raise exception 'Invalid event type';
+  end if;
+
+  select *
+  into v_resource
+  from public.customer_resources
+  where id = p_resource_id
+    and is_active = true;
+
+  if not found then
+    raise exception 'Resource not found';
+  end if;
+
+  if not public.current_contractor_has_customer_approval(v_resource.customer_id) then
+    raise exception 'Access denied';
+  end if;
+
+  if not public.current_contractor_matches_resource_market(v_resource.id) then
+    raise exception 'Access denied for this market';
+  end if;
+
+  select cc.id
+  into v_company_id
+  from public.contractor_companies cc
+  where cc.owner_user_id = auth.uid()
+  limit 1;
+
+  if v_company_id is null then
+    raise exception 'Contractor company not found';
+  end if;
+
+  insert into public.customer_resource_events (
+    resource_id,
+    contractor_company_id,
+    actor_user_id,
+    event_type
+  )
+  values (
+    v_resource.id,
+    v_company_id,
+    auth.uid(),
+    p_event_type
+  );
+
+  return jsonb_build_object(
+    'ok', true
+  );
+end;
+$$;
+
+
+ALTER FUNCTION "public"."log_customer_resource_event"("p_resource_id" "uuid", "p_event_type" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."prevent_team_request_redecision"() RETURNS "trigger"
@@ -1211,10 +1515,6 @@ $$;
 
 ALTER FUNCTION "public"."vendor_is_approved"("p_customer_id" "uuid", "p_company_id" "uuid") OWNER TO "postgres";
 
-SET default_tablespace = '';
-
-SET default_table_access_method = "heap";
-
 
 CREATE TABLE IF NOT EXISTS "public"."bid_events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -1548,9 +1848,16 @@ CREATE TABLE IF NOT EXISTS "public"."customer_agreements" (
     "signed_at" timestamp with time zone,
     "created_by" "uuid" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "effective_date" "date",
+    "expiration_date" "date",
+    "terminated_at" timestamp with time zone,
+    "cancelled_at" timestamp with time zone,
+    "internal_notes" "text",
+    "contractor_notes" "text",
     CONSTRAINT "customer_agreements_agreement_type_check" CHECK (("agreement_type" = ANY (ARRAY['msa'::"text", 'service_agreement'::"text", 'one_time_project_agreement'::"text"]))),
     CONSTRAINT "customer_agreements_source_check" CHECK (("source" = ANY (ARRAY['template'::"text", 'manual_upload'::"text"]))),
-    CONSTRAINT "customer_agreements_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'sent'::"text", 'awaiting_signature'::"text", 'signed'::"text", 'rejected'::"text", 'archived'::"text"])))
+    CONSTRAINT "customer_agreements_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'sent'::"text", 'awaiting_signature'::"text", 'signed'::"text", 'active'::"text", 'expired'::"text", 'terminated'::"text", 'cancelled'::"text"])))
 );
 
 
@@ -1676,6 +1983,42 @@ CREATE TABLE IF NOT EXISTS "public"."customer_required_endorsements" (
 ALTER TABLE "public"."customer_required_endorsements" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."customer_resource_acknowledgements" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "resource_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "acknowledged_by" "uuid",
+    "acknowledged_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."customer_resource_acknowledgements" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_resource_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "resource_id" "uuid" NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "actor_user_id" "uuid",
+    "event_type" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "customer_resource_events_event_type_check" CHECK (("event_type" = ANY (ARRAY['view'::"text", 'download'::"text", 'acknowledged'::"text"])))
+);
+
+
+ALTER TABLE "public"."customer_resource_events" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."customer_resource_markets" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "resource_id" "uuid" NOT NULL,
+    "market" "text" NOT NULL
+);
+
+
+ALTER TABLE "public"."customer_resource_markets" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."customer_scope_requirements" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "customer_id" "uuid" NOT NULL,
@@ -1694,11 +2037,25 @@ CREATE TABLE IF NOT EXISTS "public"."customers" (
     "owner_user_id" "uuid" NOT NULL,
     "name" "text" NOT NULL,
     "description" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "legal_name" "text",
+    "dba_name" "text"
 );
 
 
 ALTER TABLE "public"."customers" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."customers"."name" IS 'Legacy field. Kept for backward compatibility.';
+
+
+
+COMMENT ON COLUMN "public"."customers"."legal_name" IS 'Official customer legal name.';
+
+
+
+COMMENT ON COLUMN "public"."customers"."dba_name" IS 'Customer DBA or display name.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."documents" (
@@ -2210,6 +2567,31 @@ ALTER TABLE ONLY "public"."customer_required_endorsements"
 
 
 
+ALTER TABLE ONLY "public"."customer_resource_acknowledgements"
+    ADD CONSTRAINT "customer_resource_acknowledge_resource_id_contractor_compan_key" UNIQUE ("resource_id", "contractor_company_id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_acknowledgements"
+    ADD CONSTRAINT "customer_resource_acknowledgements_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_events"
+    ADD CONSTRAINT "customer_resource_events_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_markets"
+    ADD CONSTRAINT "customer_resource_markets_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resources"
+    ADD CONSTRAINT "customer_resources_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."customer_scope_requirements"
     ADD CONSTRAINT "customer_scope_requirements_pkey" PRIMARY KEY ("id");
 
@@ -2390,11 +2772,59 @@ CREATE UNIQUE INDEX "contractor_company_owner_unique" ON "public"."contractor_co
 
 
 
+CREATE INDEX "customer_agreements_contractor_company_id_idx" ON "public"."customer_agreements" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "customer_agreements_created_at_idx" ON "public"."customer_agreements" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "customer_agreements_customer_id_idx" ON "public"."customer_agreements" USING "btree" ("customer_id");
+
+
+
+CREATE INDEX "customer_agreements_signed_at_idx" ON "public"."customer_agreements" USING "btree" ("signed_at" DESC);
+
+
+
+CREATE INDEX "customer_agreements_status_idx" ON "public"."customer_agreements" USING "btree" ("status");
+
+
+
 CREATE INDEX "customer_contractors_contractor_company_id_idx" ON "public"."customer_contractors" USING "btree" ("contractor_company_id");
 
 
 
 CREATE INDEX "customer_contractors_customer_id_idx" ON "public"."customer_contractors" USING "btree" ("customer_id");
+
+
+
+CREATE INDEX "customer_resource_ack_company_idx" ON "public"."customer_resource_acknowledgements" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "customer_resource_ack_resource_idx" ON "public"."customer_resource_acknowledgements" USING "btree" ("resource_id");
+
+
+
+CREATE INDEX "customer_resource_events_company_idx" ON "public"."customer_resource_events" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "customer_resource_events_resource_idx" ON "public"."customer_resource_events" USING "btree" ("resource_id");
+
+
+
+CREATE INDEX "customer_resource_markets_market_idx" ON "public"."customer_resource_markets" USING "btree" ("market");
+
+
+
+CREATE INDEX "customer_resource_markets_resource_idx" ON "public"."customer_resource_markets" USING "btree" ("resource_id");
+
+
+
+CREATE UNIQUE INDEX "customer_resource_markets_unique" ON "public"."customer_resource_markets" USING "btree" ("resource_id", "market");
 
 
 
@@ -2631,6 +3061,14 @@ CREATE OR REPLACE TRIGGER "trg_archive_contractor_coi_before_update" BEFORE UPDA
 
 
 CREATE OR REPLACE TRIGGER "trg_bids_updated_at" BEFORE UPDATE ON "public"."bids" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at_bids"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_customer_agreements_updated_at" BEFORE UPDATE ON "public"."customer_agreements" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_customer_resources_updated_at" BEFORE UPDATE ON "public"."customer_resources" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -2883,6 +3321,51 @@ ALTER TABLE ONLY "public"."customer_required_endorsements"
 
 ALTER TABLE ONLY "public"."customer_required_endorsements"
     ADD CONSTRAINT "customer_required_endorsements_endorsement_code_fkey" FOREIGN KEY ("endorsement_code") REFERENCES "public"."endorsement_types"("code");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_acknowledgements"
+    ADD CONSTRAINT "customer_resource_acknowledgements_acknowledged_by_fkey" FOREIGN KEY ("acknowledged_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_acknowledgements"
+    ADD CONSTRAINT "customer_resource_acknowledgements_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_acknowledgements"
+    ADD CONSTRAINT "customer_resource_acknowledgements_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "public"."customer_resources"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_events"
+    ADD CONSTRAINT "customer_resource_events_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_events"
+    ADD CONSTRAINT "customer_resource_events_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_events"
+    ADD CONSTRAINT "customer_resource_events_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "public"."customer_resources"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_resource_markets"
+    ADD CONSTRAINT "customer_resource_markets_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "public"."customer_resources"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customer_resources"
+    ADD CONSTRAINT "customer_resources_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."customer_resources"
+    ADD CONSTRAINT "customer_resources_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE CASCADE;
 
 
 
@@ -3665,6 +4148,84 @@ CREATE POLICY "customer_request_threads_select_customer" ON "public"."customer_c
 
 
 
+CREATE POLICY "customer_resource_ack_insert_policy" ON "public"."customer_resource_acknowledgements" FOR INSERT TO "authenticated" WITH CHECK ("public"."is_admin"());
+
+
+
+CREATE POLICY "customer_resource_ack_select_policy" ON "public"."customer_resource_acknowledgements" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_acknowledgements"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+CREATE POLICY "customer_resource_ack_update_policy" ON "public"."customer_resource_acknowledgements" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+ALTER TABLE "public"."customer_resource_acknowledgements" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."customer_resource_events" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_resource_events_insert_policy" ON "public"."customer_resource_events" FOR INSERT TO "authenticated" WITH CHECK ("public"."is_admin"());
+
+
+
+CREATE POLICY "customer_resource_events_select_policy" ON "public"."customer_resource_events" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_events"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+ALTER TABLE "public"."customer_resource_markets" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_resource_markets_delete_policy" ON "public"."customer_resource_markets" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_markets"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+CREATE POLICY "customer_resource_markets_insert_policy" ON "public"."customer_resource_markets" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_markets"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+CREATE POLICY "customer_resource_markets_select_policy" ON "public"."customer_resource_markets" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_markets"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+CREATE POLICY "customer_resource_markets_update_policy" ON "public"."customer_resource_markets" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_markets"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."customer_resources" "r"
+  WHERE (("r"."id" = "customer_resource_markets"."resource_id") AND ("public"."current_user_owns_customer"("r"."customer_id") OR "public"."is_admin"())))));
+
+
+
+ALTER TABLE "public"."customer_resources" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "customer_resources_delete_policy" ON "public"."customer_resources" FOR DELETE TO "authenticated" USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_resources_insert_policy" ON "public"."customer_resources" FOR INSERT TO "authenticated" WITH CHECK (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_resources_select_policy" ON "public"."customer_resources" FOR SELECT TO "authenticated" USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
+CREATE POLICY "customer_resources_update_policy" ON "public"."customer_resources" FOR UPDATE TO "authenticated" USING (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"())) WITH CHECK (("public"."current_user_owns_customer"("customer_id") OR "public"."is_admin"()));
+
+
+
 ALTER TABLE "public"."customer_scope_requirements" ENABLE ROW LEVEL SECURITY;
 
 
@@ -4206,6 +4767,12 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."acknowledge_customer_resource"("p_resource_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."acknowledge_customer_resource"("p_resource_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."acknowledge_customer_resource"("p_resource_id" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_approved_team_change_request"("p_request_id" "uuid") TO "authenticated";
@@ -4246,6 +4813,18 @@ GRANT ALL ON FUNCTION "public"."create_customer_agreement_from_template"("p_temp
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_contractor_can_view_customer"("p_customer_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."current_contractor_has_customer_approval"("p_customer_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."current_contractor_has_customer_approval"("p_customer_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_contractor_has_customer_approval"("p_customer_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."current_contractor_matches_resource_market"("p_resource_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."current_contractor_matches_resource_market"("p_resource_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_contractor_matches_resource_market"("p_resource_id" "uuid") TO "service_role";
 
 
 
@@ -4321,9 +4900,33 @@ GRANT ALL ON FUNCTION "public"."list_customer_pending_contractor_requests"("p_cu
 
 
 
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_contractor"("p_customer_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_contractor"("p_customer_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_contractor"("p_customer_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_resources" TO "anon";
+GRANT ALL ON TABLE "public"."customer_resources" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_resources" TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_owner"("p_customer_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_owner"("p_customer_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."list_customer_resources_for_owner"("p_customer_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."list_marketplace_contractors"("p_search" "text") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."log_customer_resource_event"("p_resource_id" "uuid", "p_event_type" "text") TO "anon";
+GRANT ALL ON FUNCTION "public"."log_customer_resource_event"("p_resource_id" "uuid", "p_event_type" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."log_customer_resource_event"("p_resource_id" "uuid", "p_event_type" "text") TO "service_role";
 
 
 
@@ -4544,6 +5147,24 @@ GRANT ALL ON TABLE "public"."customer_insurance_requirements" TO "service_role";
 GRANT ALL ON TABLE "public"."customer_required_endorsements" TO "anon";
 GRANT ALL ON TABLE "public"."customer_required_endorsements" TO "authenticated";
 GRANT ALL ON TABLE "public"."customer_required_endorsements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_resource_acknowledgements" TO "anon";
+GRANT ALL ON TABLE "public"."customer_resource_acknowledgements" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_resource_acknowledgements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_resource_events" TO "anon";
+GRANT ALL ON TABLE "public"."customer_resource_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_resource_events" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."customer_resource_markets" TO "anon";
+GRANT ALL ON TABLE "public"."customer_resource_markets" TO "authenticated";
+GRANT ALL ON TABLE "public"."customer_resource_markets" TO "service_role";
 
 
 
