@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Fri Apr  3 13:44:41 EDT 2026
+Generated: Fri Apr  3 14:20:21 EDT 2026
 
 ## App router files
 ```
@@ -60,6 +60,7 @@ app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
+app/mission/page.tsx
 app/page.tsx
 app/privacy/page.tsx
 app/reset-password/page.tsx

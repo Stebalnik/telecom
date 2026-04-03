@@ -98,21 +98,33 @@ export default function AppChrome({
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-[#D9E2EC] bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-sm text-[#4B5563] sm:px-6 md:flex-row md:items-center md:justify-between">
-          <div>© {new Date().getFullYear()} LEOTEOR LLC</div>
+  <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-[#4B5563] sm:px-6 md:flex-row md:items-center md:justify-between">
+    <div>© {new Date().getFullYear()} LEOTEOR LLC</div>
 
-          <div className="flex items-center gap-4">
-            <a
-              href="https://leoteor.com"
-              target="_blank"
-              rel="noreferrer"
-              className="transition hover:text-[#1F6FB5]"
-            >
-              leoteor.com
-            </a>
-          </div>
-        </div>
-      </footer>
+    <div className="flex flex-wrap items-center gap-4">
+      <Link href="/mission" className="transition hover:text-[#1F6FB5]">
+        Our Mission
+      </Link>
+
+      <Link href="/terms" className="transition hover:text-[#1F6FB5]">
+        Terms
+      </Link>
+
+      <Link href="/privacy" className="transition hover:text-[#1F6FB5]">
+        Privacy
+      </Link>
+
+      <a
+        href="https://leoteor.com"
+        target="_blank"
+        rel="noreferrer"
+        className="transition hover:text-[#1F6FB5]"
+      >
+        leoteor.com
+      </a>
+    </div>
+  </div>
+</footer>
     </div>
   );
 }

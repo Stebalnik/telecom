@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Fri Apr  3 13:44:40 EDT 2026
+Generated: Fri Apr  3 14:20:21 EDT 2026
 
-Export folder: docs/export_files/2026-04-03_13-44-40
+Export folder: docs/export_files/2026-04-03_14-20-21
 
 ## 1. Directory tree
 ```
@@ -69,6 +69,7 @@ app/dashboard
 app/forgot-password
 app/login
 app/logout
+app/mission
 app/privacy
 app/reset-password
 app/signup
@@ -162,6 +163,7 @@ app/globals.css
 app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
+app/mission/page.tsx
 app/page.tsx
 app/privacy/page.tsx
 app/reset-password/page.tsx
@@ -264,6 +266,7 @@ app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
+app/mission/page.tsx
 app/page.tsx
 app/privacy/page.tsx
 app/reset-password/page.tsx

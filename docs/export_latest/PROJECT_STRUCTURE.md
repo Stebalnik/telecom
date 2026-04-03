@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Fri Apr  3 13:44:40 EDT 2026
+Generated: Fri Apr  3 14:20:21 EDT 2026
 
 ## 1. Root directories
 ```
@@ -68,6 +68,7 @@ Generated: Fri Apr  3 13:44:40 EDT 2026
 ./app/forgot-password
 ./app/login
 ./app/logout
+./app/mission
 ./app/privacy
 ./app/reset-password
 ./app/signup
@@ -168,6 +169,7 @@ Generated: Fri Apr  3 13:44:40 EDT 2026
 ./app/layout.tsx
 ./app/login/page.tsx
 ./app/logout/page.tsx
+./app/mission/page.tsx
 ./app/page.tsx
 ./app/privacy/page.tsx
 ./app/reset-password/page.tsx
@@ -301,6 +303,7 @@ app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx
 app/logout/page.tsx
+app/mission/page.tsx
 app/page.tsx
 app/privacy/page.tsx
 app/reset-password/page.tsx
