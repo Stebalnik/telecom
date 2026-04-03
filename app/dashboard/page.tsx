@@ -111,10 +111,6 @@ export default function DashboardPage() {
       await createMyProfile(pendingRole);
       setRole(pendingRole);
 
-      // If createMyProfile currently only writes role,
-      // add agreement timestamps in the same function later.
-      // For now this page handles the UX gate before role creation.
-
       if (pendingRole === "customer") {
         await ensureMyCustomerOrg();
         router.push("/customer/settings");
@@ -147,9 +143,11 @@ export default function DashboardPage() {
 
   const finalSupportAmount = useMemo(() => {
     const custom = Number(customSupportAmount);
+
     if (customSupportAmount.trim() !== "" && Number.isFinite(custom) && custom > 0) {
       return Math.round(custom * 100) / 100;
     }
+
     return selectedSupportAmount;
   }, [customSupportAmount, selectedSupportAmount]);
 
@@ -160,7 +158,7 @@ export default function DashboardPage() {
     try {
       const { data } = await supabase.auth.getSession();
 
-      const res = await fetch("/api/checkout/support", {
+      const res = await fetch("/api/checkout/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -168,6 +166,13 @@ export default function DashboardPage() {
         body: JSON.stringify({
           amount: finalSupportAmount,
           email: data.session?.user?.email ?? null,
+          purpose: "platform_support",
+          successPath: "/dashboard",
+          cancelPath: "/dashboard",
+          title: "Support LEOTEOR Telecom Marketplace",
+          metadata: {
+            source: "dashboard",
+          },
         }),
       });
 
@@ -270,7 +275,6 @@ export default function DashboardPage() {
                     </p>
                   </button>
                 </div>
-
               </section>
             ) : (
               <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
@@ -306,21 +310,21 @@ export default function DashboardPage() {
                     <span className="text-sm leading-6 text-[#111827]">
                       I agree to the{" "}
                       <Link
-                          href="/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1F6FB5] hover:underline"
-                          >
-                            Terms of Use
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1F6FB5] hover:underline"
+                      >
+                        Terms of Use
                       </Link>{" "}
                       and{" "}
                       <Link
-                          href="/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1F6FB5] hover:underline"
-                          >
-                          Privacy Policy
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1F6FB5] hover:underline"
+                      >
+                        Privacy Policy
                       </Link>
                       .
                     </span>
@@ -338,10 +342,10 @@ export default function DashboardPage() {
                         <>
                           I agree to the{" "}
                           <Link
-                          href="/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1F6FB5] hover:underline"
+                            href="/customer-agreement"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#1F6FB5] hover:underline"
                           >
                             Customer Agreement
                           </Link>
@@ -351,10 +355,11 @@ export default function DashboardPage() {
                         <>
                           I agree to the{" "}
                           <Link
-                          href="/terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1F6FB5] hover:underline">
+                            href="/contractor-agreement"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#1F6FB5] hover:underline"
+                          >
                             Contractor Agreement
                           </Link>
                           .
@@ -391,14 +396,15 @@ export default function DashboardPage() {
                   Support the project
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                  If you want, you can support LEOTEOR Marketplace with a voluntary one-time payment.
-                  The suggested support amount is $13, but you can choose any amount.
+                  You can support LEOTEOR Marketplace with a voluntary one-time payment.
+                  The suggested amount is $13, but you can choose any amount.
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-3">
                   {[13, 25, 50].map((amount) => {
                     const active =
-                      customSupportAmount.trim() === "" && selectedSupportAmount === amount;
+                      customSupportAmount.trim() === "" &&
+                      selectedSupportAmount === amount;
 
                     return (
                       <button
@@ -450,9 +456,15 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={handleSupportCheckout}
-                  disabled={supportLoading || !Number.isFinite(finalSupportAmount) || finalSupportAmount <= 0}
+                  disabled={
+                    supportLoading ||
+                    !Number.isFinite(finalSupportAmount) ||
+                    finalSupportAmount <= 0
+                  }
                   className={`mt-5 w-full rounded-xl px-4 py-3 text-sm font-medium text-white transition ${
-                    supportLoading || !Number.isFinite(finalSupportAmount) || finalSupportAmount <= 0
+                    supportLoading ||
+                    !Number.isFinite(finalSupportAmount) ||
+                    finalSupportAmount <= 0
                       ? "cursor-not-allowed bg-[#9CA3AF]"
                       : "bg-[#2EA3FF] hover:bg-[#1F6FB5]"
                   }`}

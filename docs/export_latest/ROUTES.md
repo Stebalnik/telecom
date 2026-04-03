@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Thu Apr  2 23:07:51 EDT 2026
+Generated: Fri Apr  3 13:44:41 EDT 2026
 
 ## App router files
 ```
@@ -12,6 +12,7 @@ app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
+app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts

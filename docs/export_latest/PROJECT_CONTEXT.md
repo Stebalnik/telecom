@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Thu Apr  2 23:07:51 EDT 2026
+Generated: Fri Apr  3 13:44:40 EDT 2026
 
-Export folder: docs/export_files/2026-04-02_23-07-51
+Export folder: docs/export_files/2026-04-03_13-44-40
 
 ## 1. Directory tree
 ```
@@ -17,6 +17,8 @@ app/admin/team-change-requests/[id]
 app/api
 app/api/auth
 app/api/auth/forgot-password
+app/api/checkout
+app/api/checkout/create
 app/api/coi
 app/api/coi/signed-upload
 app/api/coi/signed-url
@@ -97,6 +99,8 @@ app/api/.DS_Store
 app/api/auth/.DS_Store
 app/api/auth/forgot-password/.DS_Store
 app/api/auth/forgot-password/route.ts
+app/api/checkout/.DS_Store
+app/api/checkout/create/route.ts
 app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
@@ -212,6 +216,7 @@ app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
+app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
@@ -272,7 +277,8 @@ app/terms/page.tsx
   "name": "telecom",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"dev": "next dev --webpack",
+  "scripts": {
+    "dev": "next dev --webpack",
     "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
@@ -286,7 +292,8 @@ app/terms/page.tsx
     "@supabase/supabase-js": "^2.97.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "stripe": "^22.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

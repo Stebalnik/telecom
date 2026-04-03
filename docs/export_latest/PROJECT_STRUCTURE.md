@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Thu Apr  2 23:07:51 EDT 2026
+Generated: Fri Apr  3 13:44:40 EDT 2026
 
 ## 1. Root directories
 ```
@@ -16,6 +16,8 @@ Generated: Thu Apr  2 23:07:51 EDT 2026
 ./app/api
 ./app/api/auth
 ./app/api/auth/forgot-password
+./app/api/checkout
+./app/api/checkout/create
 ./app/api/coi
 ./app/api/coi/signed-upload
 ./app/api/coi/signed-url
@@ -72,6 +74,7 @@ Generated: Thu Apr  2 23:07:51 EDT 2026
 ./app/terms
 ./components
 ./docs
+./docs/export_latest 2
 ./lib
 ./lib/supabase
 ./project_rules
@@ -102,6 +105,8 @@ Generated: Thu Apr  2 23:07:51 EDT 2026
 ./app/api/auth/.DS_Store
 ./app/api/auth/forgot-password/.DS_Store
 ./app/api/auth/forgot-password/route.ts
+./app/api/checkout/.DS_Store
+./app/api/checkout/create/route.ts
 ./app/api/coi/.DS_Store
 ./app/api/coi/signed-upload/route.ts
 ./app/api/coi/signed-url/route.ts
@@ -248,6 +253,7 @@ app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/auth/forgot-password/route.ts
+app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
@@ -308,6 +314,8 @@ app/api/.DS_Store
 app/api/auth/.DS_Store
 app/api/auth/forgot-password/.DS_Store
 app/api/auth/forgot-password/route.ts
+app/api/checkout/.DS_Store
+app/api/checkout/create/route.ts
 app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
