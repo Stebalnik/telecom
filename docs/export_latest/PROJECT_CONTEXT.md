@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Fri Apr  3 18:25:39 EDT 2026
+Generated: Sat Apr  4 13:14:17 EDT 2026
 
-Export folder: docs/export_files/2026-04-03_18-25-39
+Export folder: docs/export_files/2026-04-04_13-14-17
 
 ## 1. Directory tree
 ```
@@ -15,6 +15,8 @@ app/admin/contractor-approvals
 app/admin/team-change-requests
 app/admin/team-change-requests/[id]
 app/api
+app/api/analytics
+app/api/analytics/track
 app/api/auth
 app/api/auth/forgot-password
 app/api/checkout
@@ -50,11 +52,8 @@ app/contractor/settings
 app/contractor/settings/company
 app/contractor/teams
 app/contractor/teams/change-request
-app/contractor/teams/change-request 2
 app/contractor/teams/new
-app/contractor/teams/new 2
 app/contractor/teams/requests
-app/contractor/teams/requests 2
 app/customer
 app/customer-agreement
 app/customer/agreements
@@ -97,73 +96,53 @@ supabase/.temp
 
 ## 2. File list
 ```
-app/.DS_Store
-app/(app)/.DS_Store
 app/(app)/layout.tsx
-app/admin/.DS_Store
-app/admin/company-change-requests/.DS_Store
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
-app/admin/team-change-requests/.DS_Store
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/.DS_Store
-app/api/auth/.DS_Store
-app/api/auth/forgot-password/.DS_Store
+app/api/analytics/.DS_Store
+app/api/analytics/track/route.ts
 app/api/auth/forgot-password/route.ts
-app/api/checkout/.DS_Store
 app/api/checkout/create/route.ts
-app/api/coi/.DS_Store
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
-app/api/customer-approvals/.DS_Store
 app/api/customer-approvals/request/route.ts
-app/api/customer/.DS_Store
-app/api/customer/resources/.DS_Store
 app/api/customer/resources/acknowledge/route.ts
 app/contractor-agreement/page.tsx
-app/contractor/.DS_Store
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
 app/contractor/certifications/page.tsx
 app/contractor/coi/page.tsx
 app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
-app/contractor/customers/.DS_Store
-app/contractor/customers/[customerId]/.DS_Store
 app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
 app/contractor/insurance/page.tsx
-app/contractor/jobs/.DS_Store
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
 app/contractor/layout.tsx
-app/contractor/onboarding/.DS_Store
 app/contractor/onboarding/company/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
 app/contractor/resources/page.tsx
-app/contractor/settings/.DS_Store
 app/contractor/settings/company/page.tsx
 app/contractor/teams/change-request/page.tsx
 app/contractor/teams/new/page.tsx
 app/contractor/teams/page.tsx
 app/contractor/teams/requests/page.tsx
 app/customer-agreement/page.tsx
-app/customer/.DS_Store
 app/customer/agreements/page.tsx
-app/customer/bids/.DS_Store
 app/customer/bids/[jobId]/page.tsx
 app/customer/bids/page.tsx
 app/customer/compliance/page.tsx
-app/customer/contractors/.DS_Store
 app/customer/contractors/all/page.tsx
 app/customer/contractors/approved/page.tsx
 app/customer/contractors/layout.tsx
 app/customer/contractors/page.tsx
-app/customer/jobs/.DS_Store
 app/customer/jobs/active/page.tsx
 app/customer/jobs/archive/page.tsx
 app/customer/jobs/layout.tsx
@@ -172,21 +151,17 @@ app/customer/jobs/page.tsx
 app/customer/layout.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
-app/customer/resources/.DS_Store
-app/customer/resources/[id]/.DS_Store
 app/customer/resources/[id]/edit/page.tsx
 app/customer/resources/[id]/page.tsx
 app/customer/resources/file-url/route.ts
 app/customer/resources/new/page.tsx
 app/customer/resources/page.tsx
 app/customer/resources/upload-url/route.ts
-app/customer/settings/.DS_Store
 app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
 app/dashboard/page.tsx
 app/favicon.ico
-app/forgot-password/.DS_Store
 app/forgot-password/page.tsx
 app/globals.css
 app/layout.tsx
@@ -201,7 +176,6 @@ app/terms/page.tsx
 components/AppChrome.tsx
 components/LegalPage.tsx
 components/LogoutButton.tsx
-lib/.DS_Store
 lib/adminDocs.ts
 lib/agreements.ts
 lib/auth.ts
@@ -220,7 +194,7 @@ lib/jobs.ts
 lib/profile.ts
 lib/supabase/server.ts
 lib/supabaseClient.ts
-public/.DS_Store
+lib/track.ts
 public/file.svg
 public/globe.svg
 public/logo.png
@@ -246,6 +220,7 @@ app/admin/contractor-approvals/page.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
+app/api/analytics/track/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
@@ -329,6 +304,7 @@ app/terms/page.tsx
     "release:auto": "bash ./scripts/release_auto.sh"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.2",
     "@supabase/realtime-js": "^2.97.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.97.0",

@@ -1516,6 +1516,18 @@ $$;
 ALTER FUNCTION "public"."vendor_is_approved"("p_customer_id" "uuid", "p_company_id" "uuid") OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."analytics_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "event" "text",
+    "path" "text",
+    "created_at" timestamp without time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."analytics_events" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."bid_events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "bid_id" "uuid" NOT NULL,
@@ -2395,6 +2407,11 @@ CREATE TABLE IF NOT EXISTS "public"."work_reviews" (
 
 
 ALTER TABLE "public"."work_reviews" OWNER TO "postgres";
+
+
+ALTER TABLE ONLY "public"."analytics_events"
+    ADD CONSTRAINT "analytics_events_pkey" PRIMARY KEY ("id");
+
 
 
 ALTER TABLE ONLY "public"."bid_events"
@@ -5009,6 +5026,12 @@ GRANT ALL ON FUNCTION "public"."vendor_is_approved"("p_customer_id" "uuid", "p_c
 
 
 
+
+
+
+GRANT ALL ON TABLE "public"."analytics_events" TO "anon";
+GRANT ALL ON TABLE "public"."analytics_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."analytics_events" TO "service_role";
 
 
 

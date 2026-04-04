@@ -12,6 +12,7 @@
     "release:auto": "bash ./scripts/release_auto.sh"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.2",
     "@supabase/realtime-js": "^2.97.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.97.0",
