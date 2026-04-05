@@ -1,3 +1,5 @@
+import { logError } from "@/lib/logError";
+
 export async function track(
   event: string,
   options?: {
@@ -7,7 +9,7 @@ export async function track(
   }
 ) {
   try {
-    await fetch("/api/analytics/track", {
+    const res = await fetch("/api/analytics/track", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -20,7 +22,40 @@ export async function track(
       }),
       keepalive: true,
     });
-  } catch {
-    // ignore analytics errors
+
+    if (!res.ok) {
+      const text = await res.text();
+
+      console.error("Analytics track failed:", res.status, text);
+
+      await logError("Analytics track failed", {
+        source: "client",
+        area: "analytics",
+        role: options?.role ?? null,
+        details: {
+          status: res.status,
+          responseText: text,
+          event,
+          meta: options?.meta ?? {},
+        },
+      });
+
+      return;
+    }
+
+    console.log("Analytics tracked:", event);
+  } catch (error: any) {
+    console.error("Analytics track error:", error);
+
+    await logError("Analytics track request error", {
+      source: "client",
+      area: "analytics",
+      role: options?.role ?? null,
+      details: {
+        event,
+        meta: options?.meta ?? {},
+        errorMessage: error?.message ?? String(error),
+      },
+    });
   }
 }

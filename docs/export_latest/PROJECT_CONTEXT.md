@@ -1,22 +1,23 @@
 # Project Context Snapshot
 
-Generated: Sat Apr  4 13:14:17 EDT 2026
+Generated: Sun Apr  5 13:29:18 EDT 2026
 
-Export folder: docs/export_files/2026-04-04_13-14-17
+Export folder: docs/export_files/2026-04-05_13-29-18
 
 ## 1. Directory tree
 ```
 app
 app/(app)
 app/admin
+app/admin/analytics
 app/admin/company-change-requests
 app/admin/company-change-requests/[id]
 app/admin/contractor-approvals
 app/admin/team-change-requests
 app/admin/team-change-requests/[id]
 app/api
-app/api/analytics
-app/api/analytics/track
+app/api/admin
+app/api/admin/analytics
 app/api/auth
 app/api/auth/forgot-password
 app/api/checkout
@@ -87,7 +88,9 @@ app/reset-password
 app/signup
 app/terms
 components
+components/analytics
 lib
+lib/analytics
 lib/supabase
 public
 supabase
@@ -97,15 +100,18 @@ supabase/.temp
 ## 2. File list
 ```
 app/(app)/layout.tsx
+app/admin/.DS_Store
+app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/.DS_Store
-app/api/analytics/.DS_Store
-app/api/analytics/track/route.ts
+app/api/admin/.DS_Store
+app/api/admin/analytics/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
@@ -173,11 +179,18 @@ app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
 app/terms/page.tsx
+components/.DS_Store
+components/AdminSidebar.tsx
+components/analytics/TrackPageView.tsx
 components/AppChrome.tsx
 components/LegalPage.tsx
 components/LogoutButton.tsx
+lib/.DS_Store
+lib/adminAnalytics.ts
 lib/adminDocs.ts
 lib/agreements.ts
+lib/analytics/events.ts
+lib/analytics/track.ts
 lib/auth.ts
 lib/bids.ts
 lib/coi.ts
@@ -214,13 +227,15 @@ supabase/.temp/storage-version
 ## 3. Routes
 ```
 app/(app)/layout.tsx
+app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
-app/api/analytics/track/route.ts
+app/api/admin/analytics/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts

@@ -1519,9 +1519,11 @@ ALTER FUNCTION "public"."vendor_is_approved"("p_customer_id" "uuid", "p_company_
 CREATE TABLE IF NOT EXISTS "public"."analytics_events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid",
-    "event" "text",
+    "event" "text" NOT NULL,
     "path" "text",
-    "created_at" timestamp without time zone DEFAULT "now"()
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "role" "text",
+    "meta" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL
 );
 
 
@@ -2749,6 +2751,26 @@ ALTER TABLE ONLY "public"."work_reviews"
 
 
 
+CREATE INDEX "analytics_events_created_at_idx" ON "public"."analytics_events" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "analytics_events_event_created_at_idx" ON "public"."analytics_events" USING "btree" ("event", "created_at" DESC);
+
+
+
+CREATE INDEX "analytics_events_event_idx" ON "public"."analytics_events" USING "btree" ("event");
+
+
+
+CREATE INDEX "analytics_events_role_idx" ON "public"."analytics_events" USING "btree" ("role");
+
+
+
+CREATE INDEX "analytics_events_user_id_idx" ON "public"."analytics_events" USING "btree" ("user_id");
+
+
+
 CREATE INDEX "contractor_coi_company_id_idx" ON "public"."contractor_coi" USING "btree" ("company_id");
 
 
@@ -3598,6 +3620,23 @@ ALTER TABLE ONLY "public"."work_reviews"
 
 ALTER TABLE ONLY "public"."work_reviews"
     ADD CONSTRAINT "work_reviews_reviewer_user_id_fkey" FOREIGN KEY ("reviewer_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE "public"."analytics_events" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "analytics_events_admin_read" ON "public"."analytics_events" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."role" = 'admin'::"text")))));
+
+
+
+CREATE POLICY "analytics_events_insert_authenticated" ON "public"."analytics_events" FOR INSERT TO "authenticated" WITH CHECK ((("user_id" IS NULL) OR ("user_id" = "auth"."uid"())));
+
+
+
+CREATE POLICY "analytics_events_user_read_own" ON "public"."analytics_events" FOR SELECT TO "authenticated" USING (("user_id" = "auth"."uid"()));
 
 
 

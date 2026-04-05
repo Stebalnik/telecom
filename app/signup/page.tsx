@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { track } from "../../lib/track";
 
 function getErrorMessage(message: string) {
   const normalized = message.toLowerCase();
@@ -56,7 +57,7 @@ export default function SignupPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
     });
@@ -67,6 +68,12 @@ export default function SignupPage() {
       setError(getErrorMessage(error.message));
       return;
     }
+
+    await track("signup", {
+      meta: {
+        userId: data.user?.id ?? null,
+      },
+    });
 
     setMessage(
       "Account created successfully. Check your email if confirmation is required, then log in."

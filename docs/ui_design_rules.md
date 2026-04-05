@@ -1,9 +1,13 @@
 # UI Design Rules
+This document defines UI, UX, and product interaction rules.
+
+It does NOT define frontend architecture or code patterns.
+See: frontend_standard.md 
 
 These rules ensure consistent design across the Telecom Marketplace.
 
 IMPORTANT:
-These rules apply only to UI, layout, styling, visual hierarchy, and presentation.
+These rules apply only to UI, layout, styling, visual hierarchy, interaction design, and presentation.
 They must not force changes to backend logic, database logic, authentication, or business rules.
 
 ---
@@ -197,6 +201,30 @@ Avoid:
 
 ---
 
+# Spacing System
+
+Use a consistent spacing scale.
+
+Recommended:
+
+- 4px
+- 8px
+- 12px
+- 16px
+- 24px
+- 32px
+- 40px
+- 48px
+
+Rules:
+
+- do not use random spacing values
+- keep vertical rhythm consistent
+- use 16px as default block spacing
+- use 24px+ between major sections
+
+---
+
 # Layout Rules
 
 Landing pages must include:
@@ -253,6 +281,8 @@ Use cards for:
 - onboarding sections
 - contractor summary blocks
 - insurance and certification sections
+- admin review sections
+- analytics summaries
 
 ---
 
@@ -271,11 +301,17 @@ Use cards for:
 - text: #0A2E5C
 - border: 1px solid #D9E2EC
 
+## Danger button
+- light red background or red border
+- red text
+- clearly destructive tone
+
 Buttons must have:
 
 - hover state
 - focus state
 - disabled state
+- loading state
 
 Recommended hover behavior:
 
@@ -289,6 +325,30 @@ Avoid:
 - low-contrast text
 - tiny buttons
 - overly rounded cartoon-style pills unless explicitly needed
+
+---
+
+# Action Priority
+
+Each screen must have a clear primary action.
+
+Rules:
+
+- only one primary CTA per section
+- primary action must be visually dominant
+- secondary actions must not compete
+- destructive actions must not visually look like positive actions
+
+Examples:
+
+Good:
+
+- [Create Job] primary
+- [Cancel] secondary
+
+Bad:
+
+- [Create Job] [Save Draft] [Continue] [Submit] all same style
 
 ---
 
@@ -321,6 +381,8 @@ Examples:
 - Certifications
 - Teams
 - Settings
+- Billing
+- Admin review
 
 Inputs should use:
 
@@ -339,6 +401,28 @@ Preferred input style:
 - focus ring using brand blue
 
 Avoid default browser-looking forms.
+
+---
+
+# Form UX Rules
+
+Forms must guide the user.
+
+Rules:
+
+- show errors under fields when relevant
+- allow top-level error message when needed
+- highlight invalid fields
+- keep user input on error
+- group related fields clearly
+- use progress indicators or sectioning for long forms
+- disable submit while processing
+
+Avoid:
+
+- clearing form on error
+- unclear validation messages
+- silent failures
 
 ---
 
@@ -400,6 +484,7 @@ Preferred locations:
 - top-left in dashboard chrome
 - auth pages header
 - landing page header
+- sidebar header when appropriate
 
 Logo must be:
 
@@ -489,6 +574,55 @@ Dashboards should feel like a polished enterprise product, not a mockup.
 
 ---
 
+# Feedback & Interaction States
+
+Every important user action must produce visible UI feedback.
+
+Rules:
+
+- button click must feel acknowledged
+- submit actions must show progress
+- success must be visible through confirmation, redirect, or updated state
+- errors must be readable and calm
+
+Examples:
+
+- button click → loading state
+- form submit → spinner + disabled button
+- success → confirmation or redirect
+- error → clear message
+
+Avoid:
+
+- silent actions
+- frozen UI
+- unclear system behavior
+
+---
+
+# UX + Analytics Alignment
+
+Important UI actions must be easy to identify and easy to track.
+
+Rules:
+
+- primary actions should be explicit and visible
+- important flows must be intentional in layout
+- avoid hiding critical actions in low-visibility areas
+
+Examples:
+
+- submit buttons
+- onboarding completion
+- admin approvals
+- payments
+- create job
+- apply / bid
+
+This improves both UX clarity and analytics reliability.
+
+---
+
 # Responsive Design
 
 All pages must work on:
@@ -516,6 +650,16 @@ Every page should have polished system states.
 ## Empty states
 Should feel intentional and helpful.
 
+Include when possible:
+
+- short explanation
+- clear CTA
+
+Example:
+
+- "No jobs yet"
+- CTA: "Create your first job"
+
 ## Loading states
 Should look clean and unobtrusive.
 
@@ -523,6 +667,21 @@ Should look clean and unobtrusive.
 Should be readable, calm, and actionable.
 
 Do not leave pages visually broken when data is missing.
+
+---
+
+# Consistency Rule
+
+Elements with the same meaning should look the same across the product.
+
+Examples:
+
+- all Save buttons should share the same visual system
+- all Submit buttons should share the same visual system
+- all Back buttons should share the same visual system
+- all status badges should follow the same tone logic
+
+Avoid visual randomness across pages.
 
 ---
 

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
+import { track } from "../../../../lib/track";
 
 type Company = {
   id: string;
@@ -417,6 +418,13 @@ export default function ContractorCompanyOnboardingPage() {
 
       const publicProfile = await getPublicProfile(c.id);
       fillForm(c, publicProfile);
+
+      await track("contractor_onboarding_started", {
+        role: "contractor",
+        meta: {
+          companyId: c.id,
+        },
+      });
     } catch (e: any) {
       setErr(e.message ?? "Load error");
     } finally {
@@ -587,6 +595,13 @@ export default function ContractorCompanyOnboardingPage() {
         .upsert(profilePayload, { onConflict: "company_id" });
 
       if (profileError) throw new Error(profileError.message);
+
+      await track("contractor_onboarding_submitted", {
+        role: "contractor",
+        meta: {
+          companyId: company.id,
+        },
+      });
 
       router.replace("/contractor");
     } catch (e: any) {

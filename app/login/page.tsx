@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { track } from "../../lib/track";
 
 function getErrorMessage(message: string) {
   const normalized = message.toLowerCase();
@@ -41,7 +42,7 @@ export default function LoginPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
@@ -52,6 +53,13 @@ export default function LoginPage() {
       setError(getErrorMessage(error.message));
       return;
     }
+
+    await track("login", {
+      meta: {
+        email: normalizedEmail,
+        userId: data.user?.id ?? null,
+      },
+    });
 
     router.push("/dashboard");
   }

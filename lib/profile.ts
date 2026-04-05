@@ -10,11 +10,11 @@ export async function getMyProfile() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, role, created_at")
-    .eq("id", userData.session?.user.id)
+    .eq("id", userData.session.user.id)
     .maybeSingle();
 
   if (error) throw error;
-  return data; // может быть null если профиля нет
+  return data;
 }
 
 export async function createMyProfile(role: UserRole) {
@@ -22,10 +22,17 @@ export async function createMyProfile(role: UserRole) {
   if (userErr) throw userErr;
   if (!userData.session?.user) throw new Error("Not logged in");
 
-  const { error } = await supabase.from("profiles").insert({
-    id: userData.session?.user.id,
-    role,
-  });
+  const userId = userData.session.user.id;
+
+  const { error } = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+      role,
+    },
+    {
+      onConflict: "id",
+    }
+  );
 
   if (error) throw error;
 }

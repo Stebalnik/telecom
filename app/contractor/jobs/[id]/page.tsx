@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
+import { track } from "../../../../lib/track";
+import { logError } from "../../../../lib/logError";
 import {
   listCompanyTeams,
   listMyCompanies,
@@ -211,10 +213,12 @@ export default function ContractorJobBidPage() {
 
     try {
       const profile = await getMyProfile();
+
       if (!profile) {
         router.replace("/login");
         return;
       }
+
       if (profile.role !== "contractor") {
         router.replace("/dashboard");
         return;
@@ -262,8 +266,28 @@ export default function ContractorJobBidPage() {
         const ts = (await listCompanyTeams(comps[0].id)) as TeamOption[];
         setTeams(ts);
       }
+
+      await track("job_opened", {
+        role: "contractor",
+        meta: {
+          jobId,
+          customerId: loadedJob.customer_id,
+          visibilityMode: loadedJob.visibility_mode,
+          status: loadedJob.status,
+        },
+      });
     } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      setErr("Something went wrong. Please try again.");
+
+      await logError("contractor_job_page_load_failed", {
+        source: "client",
+        area: "contractor_job_page",
+        role: "contractor",
+        details: {
+          jobId,
+          errorMessage: e?.message ?? "Unknown error",
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -281,11 +305,20 @@ export default function ContractorJobBidPage() {
         const ts = (await listCompanyTeams(companyId)) as TeamOption[];
         setTeams(ts);
         setTeamId("");
-      } catch {
-        // ignore
+      } catch (e: any) {
+        await logError("contractor_job_teams_load_failed", {
+          source: "client",
+          area: "contractor_job_page",
+          role: "contractor",
+          details: {
+            jobId,
+            companyId,
+            errorMessage: e?.message ?? "Unknown error",
+          },
+        });
       }
     })();
-  }, [companyId]);
+  }, [companyId, jobId]);
 
   function validateBid() {
     if (!job) throw new Error("Job not loaded");
@@ -323,6 +356,7 @@ export default function ContractorJobBidPage() {
       setErr("Customer not found for this job.");
       return;
     }
+
     if (!companyId) {
       setErr("Select company first.");
       return;
@@ -344,11 +378,47 @@ export default function ContractorJobBidPage() {
         } else {
           setErr(result.message || "Approval request failed.");
         }
+
+        await logError("customer_approval_request_failed", {
+          source: "client",
+          area: "contractor_job_page",
+          role: "contractor",
+          details: {
+            jobId,
+            customerId: job.customer_id,
+            companyId,
+            resultMessage: result.message ?? null,
+            cooldownUntil: result.cooldown_until ?? null,
+          },
+        });
+
+        return;
       }
+
+      await track("customer_approval_requested", {
+        role: "contractor",
+        meta: {
+          jobId,
+          customerId: job.customer_id,
+          companyId,
+        },
+      });
 
       await load();
     } catch (e: any) {
-      setErr(e.message || "Approval request failed.");
+      setErr("Approval request failed.");
+
+      await logError("customer_approval_request_exception", {
+        source: "client",
+        area: "contractor_job_page",
+        role: "contractor",
+        details: {
+          jobId,
+          customerId: job.customer_id,
+          companyId,
+          errorMessage: e?.message ?? "Unknown error",
+        },
+      });
     } finally {
       setRequestingApproval(false);
     }
@@ -374,9 +444,55 @@ export default function ContractorJobBidPage() {
 
       if (error) throw error;
 
+      await track("submit_bid", {
+        role: "contractor",
+        meta: {
+          jobId,
+          companyId,
+          teamId,
+          customerId: job?.customer_id ?? null,
+          price: Number(price),
+          plannedStartDate: startDate,
+          plannedEndDate: endDate,
+          workDays: Number(workDays),
+        },
+      });
+
       router.push("/contractor/jobs");
     } catch (e: any) {
-      setErr(e.message ?? "Bid error");
+      const safeMessage =
+        e?.message === "Job not loaded" ||
+        e?.message === "Customer approval is required before bidding." ||
+        e?.message === "Select company" ||
+        e?.message === "Select team" ||
+        e?.message === "Enter bid price" ||
+        e?.message === "Pick planned start date" ||
+        e?.message === "Pick planned end date" ||
+        e?.message === "End date must be after start date" ||
+        String(e?.message || "").includes("job deadline") ||
+        String(e?.message || "").includes("Work days") ||
+        String(e?.message || "").includes("business days")
+          ? e.message
+          : "Bid error";
+
+      setErr(safeMessage);
+
+      await logError("submit_bid_failed", {
+        source: "client",
+        area: "contractor_job_page",
+        role: "contractor",
+        details: {
+          jobId,
+          companyId,
+          teamId,
+          customerId: job?.customer_id ?? null,
+          price,
+          startDate,
+          endDate,
+          workDays,
+          errorMessage: e?.message ?? "Unknown error",
+        },
+      });
     } finally {
       setSubmitting(false);
     }

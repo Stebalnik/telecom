@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 
 export type AnalyticsRange = "1d" | "7d" | "30d" | "all";
+export type AnalyticsSegment =
+  | "general"
+  | "customers"
+  | "contractors"
+  | "admin_actions";
 
 export type AnalyticsEventRow = {
   event: string;
@@ -39,6 +44,26 @@ export type AnalyticsSummary = {
   };
 };
 
+export type AnalyticsBreakdown = {
+  range: AnalyticsRange;
+  segment: AnalyticsSegment;
+  totalEvents: number;
+  byDay: Array<{
+    day: string;
+    total: number;
+  }>;
+  topEvents: Array<{
+    event: string;
+    total: number;
+  }>;
+  roleBreakdown: Array<{
+    role: string;
+    total: number;
+  }>;
+  events: Record<string, number>;
+  conversions: Record<string, number>;
+};
+
 function getSinceDate(range: AnalyticsRange): Date | null {
   if (range === "all") return null;
 
@@ -63,9 +88,84 @@ function percent(part: number, total: number) {
   return Math.round((part / total) * 100);
 }
 
-export async function getAdminAnalyticsSummary(
-  range: AnalyticsRange = "7d"
-): Promise<AnalyticsSummary> {
+function countEvent(rows: AnalyticsEventRow[], eventName: string) {
+  return rows.filter((row) => row.event === eventName).length;
+}
+
+function buildByDay(rows: AnalyticsEventRow[]) {
+  const byDayMap = new Map<string, number>();
+
+  for (const row of rows) {
+    const day = new Date(row.created_at).toISOString().slice(0, 10);
+    byDayMap.set(day, (byDayMap.get(day) ?? 0) + 1);
+  }
+
+  return Array.from(byDayMap.entries())
+    .map(([day, total]) => ({ day, total }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function buildTopEvents(rows: AnalyticsEventRow[], limit = 12) {
+  const eventMap = new Map<string, number>();
+
+  for (const row of rows) {
+    eventMap.set(row.event, (eventMap.get(row.event) ?? 0) + 1);
+  }
+
+  return Array.from(eventMap.entries())
+    .map(([event, total]) => ({ event, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+function buildRoleBreakdown(rows: AnalyticsEventRow[]) {
+  const roleMap = new Map<string, number>();
+
+  for (const row of rows) {
+    const role = row.role || "unknown";
+    roleMap.set(role, (roleMap.get(role) ?? 0) + 1);
+  }
+
+  return Array.from(roleMap.entries())
+    .map(([role, total]) => ({ role, total }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function filterRowsBySegment(
+  rows: AnalyticsEventRow[],
+  segment: AnalyticsSegment
+): AnalyticsEventRow[] {
+  if (segment === "general") {
+    return rows;
+  }
+
+  if (segment === "customers") {
+    return rows.filter(
+      (row) =>
+        row.role === "customer" ||
+        row.event.startsWith("customer_")
+    );
+  }
+
+  if (segment === "contractors") {
+    return rows.filter(
+      (row) =>
+        row.role === "contractor" ||
+        row.event.startsWith("contractor_") ||
+        row.event === "submit_bid" ||
+        row.event === "customer_approval_requested" ||
+        row.event === "job_opened"
+    );
+  }
+
+  return rows.filter(
+    (row) =>
+      row.role === "admin" ||
+      row.event.startsWith("admin_")
+  );
+}
+
+async function getAnalyticsRows(range: AnalyticsRange): Promise<AnalyticsEventRow[]> {
   const supabase = await createClient();
 
   let query = supabase
@@ -85,49 +185,34 @@ export async function getAdminAnalyticsSummary(
     throw new Error(error.message);
   }
 
-  const rows = (data ?? []) as AnalyticsEventRow[];
+  return (data ?? []) as AnalyticsEventRow[];
+}
 
-  const count = (eventName: string) =>
-    rows.filter((row) => row.event === eventName).length;
+export async function getAdminAnalyticsSummary(
+  range: AnalyticsRange = "7d"
+): Promise<AnalyticsSummary> {
+  const rows = await getAnalyticsRows(range);
 
-  const loginCount = count("login");
-  const signupCount = count("signup");
-  const contractorOnboardingStarted = count("contractor_onboarding_started");
-  const contractorOnboardingSubmitted = count("contractor_onboarding_submitted");
-  const customerCreateJobSubmitted = count("customer_create_job_submitted");
-  const submitBidCount = count("submit_bid");
-  const openMissionPageCount = count("open_mission_page");
-  const startDonationCheckoutCount = count("start_donation_checkout");
-
-  const byDayMap = new Map<string, number>();
-  for (const row of rows) {
-    const day = new Date(row.created_at).toISOString().slice(0, 10);
-    byDayMap.set(day, (byDayMap.get(day) ?? 0) + 1);
-  }
-
-  const byDay = Array.from(byDayMap.entries())
-    .map(([day, total]) => ({ day, total }))
-    .sort((a, b) => a.day.localeCompare(b.day));
-
-  const eventMap = new Map<string, number>();
-  for (const row of rows) {
-    eventMap.set(row.event, (eventMap.get(row.event) ?? 0) + 1);
-  }
-
-  const topEvents = Array.from(eventMap.entries())
-    .map(([event, total]) => ({ event, total }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 12);
-
-  const roleMap = new Map<string, number>();
-  for (const row of rows) {
-    const role = row.role || "unknown";
-    roleMap.set(role, (roleMap.get(role) ?? 0) + 1);
-  }
-
-  const roleBreakdown = Array.from(roleMap.entries())
-    .map(([role, total]) => ({ role, total }))
-    .sort((a, b) => b.total - a.total);
+  const loginCount = countEvent(rows, "login");
+  const signupCount = countEvent(rows, "signup");
+  const contractorOnboardingStarted = countEvent(
+    rows,
+    "contractor_onboarding_started"
+  );
+  const contractorOnboardingSubmitted = countEvent(
+    rows,
+    "contractor_onboarding_submitted"
+  );
+  const customerCreateJobSubmitted = countEvent(
+    rows,
+    "customer_create_job_submitted"
+  );
+  const submitBidCount = countEvent(rows, "submit_bid");
+  const openMissionPageCount = countEvent(rows, "open_mission_page");
+  const startDonationCheckoutCount = countEvent(
+    rows,
+    "start_donation_checkout"
+  );
 
   return {
     range,
@@ -140,9 +225,9 @@ export async function getAdminAnalyticsSummary(
     submitBidCount,
     openMissionPageCount,
     startDonationCheckoutCount,
-    byDay,
-    topEvents,
-    roleBreakdown,
+    byDay: buildByDay(rows),
+    topEvents: buildTopEvents(rows),
+    roleBreakdown: buildRoleBreakdown(rows),
     conversions: {
       onboardingSubmitRate: percent(
         contractorOnboardingSubmitted,
@@ -153,5 +238,75 @@ export async function getAdminAnalyticsSummary(
         openMissionPageCount
       ),
     },
+  };
+}
+
+export async function getAdminAnalyticsBreakdown(
+  segment: AnalyticsSegment,
+  range: AnalyticsRange = "7d"
+): Promise<AnalyticsBreakdown> {
+  const rows = await getAnalyticsRows(range);
+  const filteredRows = filterRowsBySegment(rows, segment);
+
+  const events: Record<string, number> = {};
+  for (const row of filteredRows) {
+    events[row.event] = (events[row.event] ?? 0) + 1;
+  }
+
+  let conversions: Record<string, number> = {};
+
+  if (segment === "customers") {
+    const customerSignups = countEvent(filteredRows, "signup");
+    const customerJobsCreated = countEvent(
+      filteredRows,
+      "customer_create_job_submitted"
+    );
+
+    conversions = {
+      customerJobCreationRate: percent(customerJobsCreated, customerSignups),
+    };
+  } else if (segment === "contractors") {
+    const onboardingStarted = countEvent(
+      filteredRows,
+      "contractor_onboarding_started"
+    );
+    const onboardingSubmitted = countEvent(
+      filteredRows,
+      "contractor_onboarding_submitted"
+    );
+    const bidsSubmitted = countEvent(filteredRows, "submit_bid");
+
+    conversions = {
+      onboardingSubmitRate: percent(onboardingSubmitted, onboardingStarted),
+      bidSubmitRateFromOnboarding: percent(bidsSubmitted, onboardingSubmitted),
+    };
+  } else if (segment === "admin_actions") {
+    const approved = countEvent(filteredRows, "admin_contractor_approved");
+    const returnedToDraft = countEvent(
+      filteredRows,
+      "admin_contractor_returned_to_draft"
+    );
+
+    conversions = {
+      approvalVsReturnRate: percent(approved, approved + returnedToDraft),
+    };
+  } else {
+    const missionOpens = countEvent(filteredRows, "open_mission_page");
+    const donationStarts = countEvent(filteredRows, "start_donation_checkout");
+
+    conversions = {
+      missionCheckoutRate: percent(donationStarts, missionOpens),
+    };
+  }
+
+  return {
+    range,
+    segment,
+    totalEvents: filteredRows.length,
+    byDay: buildByDay(filteredRows),
+    topEvents: buildTopEvents(filteredRows),
+    roleBreakdown: buildRoleBreakdown(filteredRows),
+    events,
+    conversions,
   };
 }

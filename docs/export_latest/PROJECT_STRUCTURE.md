@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Sat Apr  4 13:14:17 EDT 2026
+Generated: Sun Apr  5 13:29:19 EDT 2026
 
 ## 1. Root directories
 ```
@@ -8,14 +8,15 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ./app
 ./app/(app)
 ./app/admin
+./app/admin/analytics
 ./app/admin/company-change-requests
 ./app/admin/company-change-requests/[id]
 ./app/admin/contractor-approvals
 ./app/admin/team-change-requests
 ./app/admin/team-change-requests/[id]
 ./app/api
-./app/api/analytics
-./app/api/analytics/track
+./app/api/admin
+./app/api/admin/analytics
 ./app/api/auth
 ./app/api/auth/forgot-password
 ./app/api/checkout
@@ -86,8 +87,10 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ./app/signup
 ./app/terms
 ./components
+./components/analytics
 ./docs
 ./lib
+./lib/analytics
 ./lib/supabase
 ./project_rules
 ./public
@@ -102,15 +105,18 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ./.env.local
 ./.gitignore
 ./app/(app)/layout.tsx
+./app/admin/.DS_Store
+./app/admin/analytics/page.tsx
 ./app/admin/company-change-requests/[id]/page.tsx
 ./app/admin/company-change-requests/page.tsx
 ./app/admin/contractor-approvals/page.tsx
+./app/admin/layout.tsx
 ./app/admin/page.tsx
 ./app/admin/team-change-requests/[id]/page.tsx
 ./app/admin/team-change-requests/page.tsx
 ./app/api/.DS_Store
-./app/api/analytics/.DS_Store
-./app/api/analytics/track/route.ts
+./app/api/admin/.DS_Store
+./app/api/admin/analytics/route.ts
 ./app/api/auth/forgot-password/route.ts
 ./app/api/checkout/create/route.ts
 ./app/api/coi/signed-upload/route.ts
@@ -178,9 +184,13 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ./app/reset-password/page.tsx
 ./app/signup/page.tsx
 ./app/terms/page.tsx
+./components/.DS_Store
+./components/AdminSidebar.tsx
+./components/analytics/TrackPageView.tsx
 ./components/AppChrome.tsx
 ./components/LegalPage.tsx
 ./components/LogoutButton.tsx
+./docs/.DS_Store
 ./docs/AI_CONTEXT.md
 ./docs/api_contracts.md
 ./docs/backend_rules.md
@@ -190,8 +200,12 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ./docs/security_rules.md
 ./docs/ui_design_rules.md
 ./eslint.config.mjs
+./lib/.DS_Store
+./lib/adminAnalytics.ts
 ./lib/adminDocs.ts
 ./lib/agreements.ts
+./lib/analytics/events.ts
+./lib/analytics/track.ts
 ./lib/auth.ts
 ./lib/bids.ts
 ./lib/coi.ts
@@ -249,13 +263,15 @@ Generated: Sat Apr  4 13:14:17 EDT 2026
 ## 3. App route files
 ```
 app/(app)/layout.tsx
+app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
-app/api/analytics/track/route.ts
+app/api/admin/analytics/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
@@ -326,8 +342,8 @@ app/terms/page.tsx
 ## 4. API route files
 ```
 app/api/.DS_Store
-app/api/analytics/.DS_Store
-app/api/analytics/track/route.ts
+app/api/admin/.DS_Store
+app/api/admin/analytics/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
@@ -338,8 +354,12 @@ app/api/customer/resources/acknowledge/route.ts
 
 ## 5. Library files
 ```
+lib/.DS_Store
+lib/adminAnalytics.ts
 lib/adminDocs.ts
 lib/agreements.ts
+lib/analytics/events.ts
+lib/analytics/track.ts
 lib/auth.ts
 lib/bids.ts
 lib/coi.ts
@@ -361,6 +381,9 @@ lib/track.ts
 
 ## 6. Component files
 ```
+components/.DS_Store
+components/AdminSidebar.tsx
+components/analytics/TrackPageView.tsx
 components/AppChrome.tsx
 components/LegalPage.tsx
 components/LogoutButton.tsx

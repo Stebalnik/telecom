@@ -18,6 +18,7 @@ import {
 } from "../../../../lib/customers";
 import { listCertTypes, CertType } from "../../../../lib/documents";
 import { uploadJobFile } from "../../../../lib/jobFiles";
+import { track } from "../../../../lib/track";
 
 type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
 
@@ -286,6 +287,17 @@ export default function CustomerJobsNewPage() {
           await uploadJobFile(job.id, f);
         }
       }
+
+      await track("customer_create_job_submitted", {
+        role: "customer",
+        meta: {
+          jobId: job.id,
+          visibilityMode,
+          scopeCount: selectedScopeIds.length,
+          fileCount: selectedFiles.length,
+          requiresOneTimeContract,
+        },
+      });
 
       router.push("/customer/jobs/active");
     } catch (e: any) {
