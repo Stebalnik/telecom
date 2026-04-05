@@ -16,7 +16,6 @@ DEPLOY_HOST="${DEPLOY_HOST:-root@165.232.145.239}"
 DEPLOY_COMMAND="${DEPLOY_COMMAND:-bash /var/www/deploy.sh}"
 
 SKIP_BUILD="${SKIP_BUILD:-0}"
-SKIP_DOCS="${SKIP_DOCS:-0}"
 SKIP_DEPLOY="${SKIP_DEPLOY:-0}"
 RELEASE_BUMP="${RELEASE_BUMP:-}"
 
@@ -35,16 +34,6 @@ run_build() {
 
   echo "Running build..."
   npm run build
-}
-
-run_docs() {
-  if [ "$SKIP_DOCS" = "1" ]; then
-    echo "Skipping docs:update: SKIP_DOCS=1"
-    return 0
-  fi
-
-  echo "Running docs:update..."
-  npm run docs:update
 }
 
 get_changed_files() {
@@ -200,7 +189,6 @@ main() {
   ensure_ssh_ready
 
   run_build
-  run_docs
 
   local changed_files
   changed_files="$(get_changed_files)"

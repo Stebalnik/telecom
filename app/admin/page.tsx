@@ -413,443 +413,233 @@ export default function AdminPage() {
     filter === "all" || filter === "contractor_approvals";
 
   return (
-    <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#111827]">
+            Admin review center
+          </h1>
+          <p className="mt-2 text-sm text-[#4B5563]">
+            Review pending documents, contractor approvals, contractor company
+            change requests, and team change requests.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Total pending</div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {counts.total}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Documents</div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {counts.documents}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Contractor approvals</div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {counts.contractorApprovals}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Company changes</div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {counts.companyChanges}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Team changes</div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827]">
+              {counts.teamChanges}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+            <div className="text-sm text-[#4B5563]">Filter</div>
+            <div className="mt-2 text-sm font-medium text-[#111827] capitalize">
+              {filter === "all"
+                ? "All requests"
+                : filter === "documents"
+                ? "Documents only"
+                : filter === "contractor_approvals"
+                ? "Contractor approvals only"
+                : filter === "company_changes"
+                ? "Company changes only"
+                : "Team changes only"}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+            All ({counts.total})
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "documents"}
+            onClick={() => setFilter("documents")}
+          >
+            Documents ({counts.documents})
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "contractor_approvals"}
+            onClick={() => setFilter("contractor_approvals")}
+          >
+            Contractor approvals ({counts.contractorApprovals})
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "company_changes"}
+            onClick={() => setFilter("company_changes")}
+          >
+            Company changes ({counts.companyChanges})
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "team_changes"}
+            onClick={() => setFilter("team_changes")}
+          >
+            Team changes ({counts.teamChanges})
+          </FilterButton>
+        </div>
+      </section>
+
+      {loading ? (
         <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <p className="text-sm text-[#4B5563]">Loading review queue...</p>
+        </section>
+      ) : null}
+
+      {err ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+          {err}
+        </section>
+      ) : null}
+
+      {!loading && counts.total === 0 ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#4B5563]">No pending items.</p>
+        </section>
+      ) : null}
+
+      {showContractorApprovals ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-[#111827]">
-                Admin review center
-              </h1>
-              <p className="mt-2 text-sm text-[#4B5563]">
-                Review pending documents, contractor approvals, contractor company
-                change requests, and team change requests.
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Pending contractor approvals
+              </h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                Submitted contractor onboardings waiting for admin approval.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/admin/contractor-approvals"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all contractor approvals
-              </Link>
-
-              <Link
-                href="/admin/company-change-requests"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all company change requests
-              </Link>
-
-              <Link
-                href="/admin/team-change-requests"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all team change requests
-              </Link>
-
-              <Link
-                href="/dashboard"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                Back to dashboard
-              </Link>
-            </div>
+            <Link
+              href="/admin/contractor-approvals"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              View all
+            </Link>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Total pending</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {counts.total}
-              </div>
+          {contractorApprovals.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No pending contractor approvals.
             </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {contractorApprovals.map((row) => {
+                const publicProfile = Array.isArray(row.public_profile)
+                  ? row.public_profile[0] ?? null
+                  : row.public_profile;
 
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Documents</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {counts.documents}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Contractor approvals</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {counts.contractorApprovals}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Company changes</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {counts.companyChanges}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Team changes</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {counts.teamChanges}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Filter</div>
-              <div className="mt-2 text-sm font-medium text-[#111827] capitalize">
-                {filter === "all"
-                  ? "All requests"
-                  : filter === "documents"
-                  ? "Documents only"
-                  : filter === "contractor_approvals"
-                  ? "Contractor approvals only"
-                  : filter === "company_changes"
-                  ? "Company changes only"
-                  : "Team changes only"}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
-              All ({counts.total})
-            </FilterButton>
-
-            <FilterButton
-              active={filter === "documents"}
-              onClick={() => setFilter("documents")}
-            >
-              Documents ({counts.documents})
-            </FilterButton>
-
-            <FilterButton
-              active={filter === "contractor_approvals"}
-              onClick={() => setFilter("contractor_approvals")}
-            >
-              Contractor approvals ({counts.contractorApprovals})
-            </FilterButton>
-
-            <FilterButton
-              active={filter === "company_changes"}
-              onClick={() => setFilter("company_changes")}
-            >
-              Company changes ({counts.companyChanges})
-            </FilterButton>
-
-            <FilterButton
-              active={filter === "team_changes"}
-              onClick={() => setFilter("team_changes")}
-            >
-              Team changes ({counts.teamChanges})
-            </FilterButton>
-          </div>
-        </section>
-
-        {loading ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#4B5563]">Loading review queue...</p>
-          </section>
-        ) : null}
-
-        {err ? (
-          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
-            {err}
-          </section>
-        ) : null}
-
-        {!loading && counts.total === 0 ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#4B5563]">No pending items.</p>
-          </section>
-        ) : null}
-
-        {showContractorApprovals ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[#111827]">
-                  Pending contractor approvals
-                </h2>
-                <p className="mt-1 text-sm text-[#4B5563]">
-                  Submitted contractor onboardings waiting for admin approval.
-                </p>
-              </div>
-
-              <Link
-                href="/admin/contractor-approvals"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all
-              </Link>
-            </div>
-
-            {contractorApprovals.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-                No pending contractor approvals.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                {contractorApprovals.map((row) => {
-                  const publicProfile = Array.isArray(row.public_profile)
-                    ? row.public_profile[0] ?? null
-                    : row.public_profile;
-
-                  return (
-                    <div
-                      key={row.id}
-                      className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
-                    >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-[#111827]">
-                              {row.legal_name || "Unnamed company"}
-                            </h3>
-                            <MetaBadge
-                              text={row.onboarding_status || "unknown"}
-                              tone="warning"
-                            />
-                            <MetaBadge
-                              text={row.status || "unknown"}
-                              tone="info"
-                            />
-                            <MetaBadge
-                              text={publicProfile?.is_listed ? "listed" : "not listed"}
-                              tone={publicProfile?.is_listed ? "success" : "neutral"}
-                            />
-                          </div>
-
-                          {row.dba_name ? (
-                            <div className="mt-2 text-sm text-[#4B5563]">
-                              DBA: {row.dba_name}
-                            </div>
-                          ) : null}
-
-                          <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-                            <div>
-                              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                                Created
-                              </div>
-                              <div className="mt-1 text-sm font-medium text-[#111827]">
-                                {formatDate(row.created_at)}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                                Home market
-                              </div>
-                              <div className="mt-1 text-sm font-medium text-[#111827]">
-                                {publicProfile?.home_market || "—"}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                                Headline
-                              </div>
-                              <div className="mt-1 text-sm font-medium text-[#111827]">
-                                {publicProfile?.headline || "—"}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                                Public profile
-                              </div>
-                              <div className="mt-1 text-sm font-medium text-[#111827]">
-                                {publicProfile ? "Exists" : "Missing"}
-                              </div>
-                            </div>
-                          </div>
-
-                          {row.block_reason ? (
-                            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                              Block reason: {row.block_reason}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="lg:text-right">
-                          <Link
-                            href="/admin/contractor-approvals"
-                            className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                          >
-                            Open
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        ) : null}
-
-        {showDocuments ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[#111827]">
-                  Pending documents
-                </h2>
-                <p className="mt-1 text-sm text-[#4B5563]">
-                  COI and certifications waiting for review.
-                </p>
-              </div>
-            </div>
-
-            {docs.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-                No pending documents.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                {docs.map((d) => {
-                  const isBusy = busyDocId === d.id;
-
-                  return (
-                    <div
-                      key={d.id}
-                      className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
-                    >
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-[#111827]">
-                              {d.doc_kind.toUpperCase()}
-                            </h3>
-                            <StatusBadge status="pending" />
-                          </div>
-
-                          <div className="text-sm text-[#4B5563]">
-                            Expires: {d.expires_at || "—"}
-                          </div>
-
-                          <a
-                            className="inline-flex text-sm font-medium text-[#1F6FB5] hover:underline"
-                            href={d.file_public_url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open file
-                          </a>
-                        </div>
-
-                        <div className="w-full max-w-md space-y-3">
-                          <input
-                            className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 text-sm outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
-                            placeholder="Reject reason (optional)"
-                            value={rejectNote[d.id] || ""}
-                            onChange={(e) =>
-                              setRejectNote((prev) => ({
-                                ...prev,
-                                [d.id]: e.target.value,
-                              }))
-                            }
+                return (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-[#111827]">
+                            {row.legal_name || "Unnamed company"}
+                          </h3>
+                          <MetaBadge
+                            text={row.onboarding_status || "unknown"}
+                            tone="warning"
                           />
+                          <MetaBadge
+                            text={row.status || "unknown"}
+                            tone="info"
+                          />
+                          <MetaBadge
+                            text={publicProfile?.is_listed ? "listed" : "not listed"}
+                            tone={publicProfile?.is_listed ? "success" : "neutral"}
+                          />
+                        </div>
 
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
-                              onClick={() => onApprove(d.id)}
-                            >
-                              {isBusy ? "Processing..." : "Approve"}
-                            </button>
+                        {row.dba_name ? (
+                          <div className="mt-2 text-sm text-[#4B5563]">
+                            DBA: {row.dba_name}
+                          </div>
+                        ) : null}
 
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
-                              onClick={() => onReject(d.id)}
-                            >
-                              Reject
-                            </button>
+                        <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-4">
+                          <div>
+                            <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                              Created
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#111827]">
+                              {formatDate(row.created_at)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                              Home market
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#111827]">
+                              {publicProfile?.home_market || "—"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                              Headline
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#111827]">
+                              {publicProfile?.headline || "—"}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                              Public profile
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#111827]">
+                              {publicProfile ? "Exists" : "Missing"}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        ) : null}
 
-        {showCompanyChanges ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[#111827]">
-                  Pending company change requests
-                </h2>
-                <p className="mt-1 text-sm text-[#4B5563]">
-                  Contractor requests to update company data.
-                </p>
-              </div>
-
-              <Link
-                href="/admin/company-change-requests"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all
-              </Link>
-            </div>
-
-            {companyRequests.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-                No pending company change requests.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                {companyRequests.map((row) => (
-                  <div
-                    key={row.id}
-                    className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
-                  >
-                    <div className="grid gap-4 lg:grid-cols-[2fr_2fr_1fr_1.5fr_auto] lg:items-center">
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Company
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {row.company?.legal_name || "—"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          DBA
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {row.company?.dba_name || "—"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Status
-                        </div>
-                        <div className="mt-2">
-                          <StatusBadge status={row.status} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Created
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {formatDate(row.created_at)}
-                        </div>
+                        {row.block_reason ? (
+                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                            Block reason: {row.block_reason}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="lg:text-right">
                         <Link
-                          href={`/admin/company-change-requests/${row.id}`}
+                          href="/admin/contractor-approvals"
                           className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
                         >
                           Open
@@ -857,96 +647,272 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
-
-        {showTeamChanges ? (
-          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[#111827]">
-                  Pending team change requests
-                </h2>
-                <p className="mt-1 text-sm text-[#4B5563]">
-                  Contractor requests to change team composition.
-                </p>
-              </div>
-
-              <Link
-                href="/admin/team-change-requests"
-                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-              >
-                View all
-              </Link>
+                );
+              })}
             </div>
+          )}
+        </section>
+      ) : null}
 
-            {teamRequests.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-                No pending team change requests.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                {teamRequests.map((row) => (
+      {showDocuments ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Pending documents
+              </h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                COI and certifications waiting for review.
+              </p>
+            </div>
+          </div>
+
+          {docs.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No pending documents.
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {docs.map((d) => {
+                const isBusy = busyDocId === d.id;
+
+                return (
                   <div
-                    key={row.id}
+                    key={d.id}
                     className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
                   >
-                    <div className="grid gap-4 lg:grid-cols-[1.6fr_2fr_1fr_1.5fr_auto] lg:items-center">
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Request ID
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-[#111827]">
+                            {d.doc_kind.toUpperCase()}
+                          </h3>
+                          <StatusBadge status="pending" />
                         </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {row.id}
-                        </div>
-                      </div>
 
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Reason
+                        <div className="text-sm text-[#4B5563]">
+                          Expires: {d.expires_at || "—"}
                         </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {row.reason}
-                        </div>
-                      </div>
 
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Status
-                        </div>
-                        <div className="mt-2">
-                          <StatusBadge status={row.status} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Created
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {formatDate(row.created_at)}
-                        </div>
-                      </div>
-
-                      <div className="lg:text-right">
-                        <Link
-                          href={`/admin/team-change-requests/${row.id}`}
-                          className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                        <a
+                          className="inline-flex text-sm font-medium text-[#1F6FB5] hover:underline"
+                          href={d.file_public_url}
+                          target="_blank"
+                          rel="noreferrer"
                         >
-                          Open
-                        </Link>
+                          Open file
+                        </a>
+                      </div>
+
+                      <div className="w-full max-w-md space-y-3">
+                        <input
+                          className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 text-sm outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+                          placeholder="Reject reason (optional)"
+                          value={rejectNote[d.id] || ""}
+                          onChange={(e) =>
+                            setRejectNote((prev) => ({
+                              ...prev,
+                              [d.id]: e.target.value,
+                            }))
+                          }
+                        />
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => onApprove(d.id)}
+                          >
+                            {isBusy ? "Processing..." : "Approve"}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => onReject(d.id)}
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
-      </div>
-    </main>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {showCompanyChanges ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Pending company change requests
+              </h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                Contractor requests to update company data.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/company-change-requests"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              View all
+            </Link>
+          </div>
+
+          {companyRequests.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No pending company change requests.
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {companyRequests.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                >
+                  <div className="grid gap-4 lg:grid-cols-[2fr_2fr_1fr_1.5fr_auto] lg:items-center">
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Company
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {row.company?.legal_name || "—"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        DBA
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {row.company?.dba_name || "—"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Status
+                      </div>
+                      <div className="mt-2">
+                        <StatusBadge status={row.status} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Created
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {formatDate(row.created_at)}
+                      </div>
+                    </div>
+
+                    <div className="lg:text-right">
+                      <Link
+                        href={`/admin/company-change-requests/${row.id}`}
+                        className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {showTeamChanges ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Pending team change requests
+              </h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                Contractor requests to change team composition.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/team-change-requests"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              View all
+            </Link>
+          </div>
+
+          {teamRequests.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No pending team change requests.
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {teamRequests.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                >
+                  <div className="grid gap-4 lg:grid-cols-[1.6fr_2fr_1fr_1.5fr_auto] lg:items-center">
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Request ID
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {row.id}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Reason
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {row.reason}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Status
+                      </div>
+                      <div className="mt-2">
+                        <StatusBadge status={row.status} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Created
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {formatDate(row.created_at)}
+                      </div>
+                    </div>
+
+                    <div className="lg:text-right">
+                      <Link
+                        href={`/admin/team-change-requests/${row.id}`}
+                        className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+    </div>
   );
 }
