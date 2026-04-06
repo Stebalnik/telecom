@@ -1,10 +1,10 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createSupabaseServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -18,11 +18,14 @@ export async function createClient() {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // В Server Component set может быть вызван не всегда безопасно.
-            // Это ок, если у тебя refresh handling идёт через middleware.
+            // Safe to ignore in some Server Component contexts.
           }
         },
       },
     }
   );
+}
+
+export async function createServerClient() {
+  return createClient();
 }

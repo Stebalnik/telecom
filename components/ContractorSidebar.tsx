@@ -37,11 +37,13 @@ const navItems: NavItem[] = [
   { href: "/contractor/teams", label: "My Teams" },
   { href: "/contractor/requests", label: "Active Requests" },
   { href: "/contractor/agreements", label: "Agreements" },
+  { href: "/feedback", label: "Feedback" },
   { href: "/contractor/settings/company", label: "Settings" },
 ];
 
 function pathMatches(pathname: string, href: string) {
   if (href === "/contractor") return pathname === href;
+  if (href === "/feedback") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

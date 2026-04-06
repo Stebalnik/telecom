@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
 
@@ -26,8 +26,38 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkExistingSession() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (!mounted) return;
+        if (error) throw error;
+
+        if (data.session?.user) {
+          router.replace("/dashboard");
+          router.refresh();
+          return;
+        }
+      } catch {
+        // ignore and allow login form
+      } finally {
+        if (mounted) setCheckingSession(false);
+      }
+    }
+
+    checkExistingSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,9 +77,8 @@ export default function LoginPage() {
       password,
     });
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       setError(getErrorMessage(error.message));
       return;
     }
@@ -61,13 +90,24 @@ export default function LoginPage() {
       },
     });
 
-    router.push("/dashboard");
+    router.replace("/dashboard");
+    router.refresh();
+  }
+
+  if (checkingSession) {
+    return (
+      <main className="min-h-screen bg-[#F4F8FC] px-4 py-10">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
+          <p className="text-sm text-[#4B5563]">Checking session...</p>
+        </div>
+      </main>
+    );
   }
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] px-4 py-10">
       <div className="mx-auto max-w-md rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-[#111827]">Log in</h1>
+        <h1 className="text-2xl font-semibold text-[#0A2E5C]">Log in</h1>
 
         <p className="mt-2 text-sm text-[#4B5563]">
           Sign in to access your Telecom Marketplace account.
@@ -77,7 +117,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="mb-2 block text-sm font-medium text-[#111827]"
+              className="mb-2 block text-sm font-medium text-[#0A2E5C]"
             >
               Email
             </label>
@@ -88,7 +128,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-3 text-[#111827] outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
               placeholder="you@company.com"
             />
           </div>
@@ -97,14 +137,14 @@ export default function LoginPage() {
             <div className="mb-2 flex items-center justify-between">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-[#111827]"
+                className="block text-sm font-medium text-[#0A2E5C]"
               >
                 Password
               </label>
 
               <Link
                 href="/forgot-password"
-                className="text-sm text-[#1F6FB5] hover:underline"
+                className="text-sm text-[#1F6FB5] hover:text-[#0A2E5C] hover:underline"
               >
                 Forgot password?
               </Link>
@@ -117,7 +157,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-xl border border-[#D9E2EC] px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+              className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-3 text-[#111827] outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
               placeholder="Enter your password"
             />
           </div>
@@ -139,7 +179,10 @@ export default function LoginPage() {
 
         <div className="mt-6 text-sm text-[#4B5563]">
           No account?{" "}
-          <Link href="/signup" className="text-[#1F6FB5] hover:underline">
+          <Link
+            href="/signup"
+            className="text-[#1F6FB5] hover:text-[#0A2E5C] hover:underline"
+          >
             Create one
           </Link>
         </div>

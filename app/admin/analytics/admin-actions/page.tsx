@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabaseClient";
+import { supabase } from "../../../../lib/supabase/browser";
 import { getMyProfile } from "../../../../lib/profile";
 
 type AnalyticsRange = "1d" | "7d" | "30d" | "all";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabaseClient";
+import { supabase } from "../../../../lib/supabase/browser";
 import { getMyProfile } from "../../../../lib/profile";
 import { track } from "../../../../lib/track";
 import { logError } from "../../../../lib/logError";

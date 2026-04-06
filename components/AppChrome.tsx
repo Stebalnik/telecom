@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 import LogoutButton from "./LogoutButton";
 
 export default function AppChrome({
@@ -11,6 +13,9 @@ export default function AppChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
+  const [hasSession, setHasSession] = useState<boolean>(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   const isAuthPage =
     pathname === "/login" ||
@@ -24,7 +29,38 @@ export default function AppChrome({
     pathname.startsWith("/contractor") ||
     pathname.startsWith("/admin");
 
-  const homeHref = isProtectedPage ? "/dashboard" : "/";
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSession() {
+      try {
+        const { data } = await supabase.auth.getSession();
+
+        if (!mounted) return;
+
+        setHasSession(!!data.session?.user);
+      } finally {
+        if (mounted) setSessionChecked(true);
+      }
+    }
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(!!session?.user);
+      setSessionChecked(true);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const showAuthenticatedChrome = hasSession || isProtectedPage;
+  const homeHref = showAuthenticatedChrome ? "/dashboard" : "/";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F4F8FC] text-[#111827]">
@@ -57,7 +93,18 @@ export default function AppChrome({
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {isAuthPage ? (
+            {!sessionChecked ? null : showAuthenticatedChrome ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#0A2E5C] shadow-sm transition hover:border-[#1F6FB5] hover:bg-[#F8FBFF]"
+                >
+                  Dashboard
+                </Link>
+
+                <LogoutButton />
+              </>
+            ) : isAuthPage ? (
               <>
                 {pathname !== "/login" ? (
                   <Link
@@ -77,20 +124,23 @@ export default function AppChrome({
                   </Link>
                 ) : null}
               </>
-            ) : null}
-
-            {isProtectedPage ? (
+            ) : (
               <>
                 <Link
-                  href="/dashboard"
+                  href="/login"
                   className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#0A2E5C] shadow-sm transition hover:border-[#1F6FB5] hover:bg-[#F8FBFF]"
                 >
-                  Dashboard
+                  Log in
                 </Link>
 
-                <LogoutButton />
+                <Link
+                  href="/signup"
+                  className="rounded-xl bg-[#2EA3FF] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[#1F6FB5]"
+                >
+                  Sign up
+                </Link>
               </>
-            ) : null}
+            )}
           </div>
         </div>
       </header>
@@ -98,33 +148,40 @@ export default function AppChrome({
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-[#D9E2EC] bg-white">
-  <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-[#4B5563] sm:px-6 md:flex-row md:items-center md:justify-between">
-    <div>© {new Date().getFullYear()} LEOTEOR LLC</div>
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-[#4B5563] sm:px-6 md:flex-row md:items-center md:justify-between">
+          <div>© {new Date().getFullYear()} LEOTEOR LLC</div>
 
-    <div className="flex flex-wrap items-center gap-4">
-      <Link href="/mission" className="transition hover:text-[#1F6FB5]">
-        Our Mission
-      </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/mission" className="transition hover:text-[#1F6FB5]">
+              Our Mission
+            </Link>
 
-      <Link href="/terms" className="transition hover:text-[#1F6FB5]">
-        Terms
-      </Link>
+            <Link
+              href="/feedback"
+              className="font-medium text-[#1F6FB5] transition hover:text-[#0A2E5C]"
+            >
+              Feedback
+            </Link>
 
-      <Link href="/privacy" className="transition hover:text-[#1F6FB5]">
-        Privacy
-      </Link>
+            <Link href="/terms" className="transition hover:text-[#1F6FB5]">
+              Terms
+            </Link>
 
-      <a
-        href="https://leoteor.com"
-        target="_blank"
-        rel="noreferrer"
-        className="transition hover:text-[#1F6FB5]"
-      >
-        leoteor.com
-      </a>
-    </div>
-  </div>
-</footer>
+            <Link href="/privacy" className="transition hover:text-[#1F6FB5]">
+              Privacy
+            </Link>
+
+            <a
+              href="https://leoteor.com"
+              target="_blank"
+              rel="noreferrer"
+              className="transition hover:text-[#1F6FB5]"
+            >
+              leoteor.com
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

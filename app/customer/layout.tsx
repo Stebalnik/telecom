@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabase/browser";
 import { getMyProfile } from "../../lib/profile";
+import CustomerSidebar from "../../components/CustomerSidebar";
 
 type NavItem = {
   label: string;
@@ -20,11 +21,13 @@ const navItems: NavItem[] = [
   { label: "Contractor Resources", href: "/customer/resources" },
   { label: "Agreements", href: "/customer/agreements" },
   { label: "Requests", href: "/customer/requests" },
+  { label: "Feedback", href: "/feedback" },
   { label: "Settings", href: "/customer/settings" },
 ];
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/customer") return pathname === "/customer";
+  if (href === "/feedback") return pathname === "/feedback";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -106,53 +109,13 @@ export default function CustomerLayout({
 
   return (
     <main className="min-h-screen bg-[#F4F8FC]">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
-        <aside className="hidden w-[260px] shrink-0 lg:block">
-          <div className="sticky top-6 rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-[#E5EDF5] pb-4">
-              <Image
-                src="/logo.png"
-                alt="LEOTEOR"
-                width={28}
-                height={28}
-                className="h-7 w-7 rounded object-contain"
-              />
-              <div className="min-w-0">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
-                  Customer workspace
-                </div>
-                <div className="truncate text-sm font-semibold text-[#0A2E5C]">
-                  Telecom Marketplace
-                </div>
-              </div>
-            </div>
-
-            <nav className="mt-4 space-y-1">
-              {navItems.map((item) => {
-                const active = isActivePath(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                      active
-                        ? "bg-[#EAF3FF] text-[#0A2E5C]"
-                        : "text-[#4B5563] hover:bg-[#F4F8FC] hover:text-[#0A2E5C]"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            
-          </div>
+      <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <aside className="hidden w-[260px] shrink-0 md:block">
+          <CustomerSidebar />
         </aside>
 
         <section className="min-w-0 flex-1">
-          <div className="mb-6 rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm lg:hidden">
+          <div className="mb-6 rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm md:hidden">
             <div className="flex items-center gap-3">
               <Image
                 src="/logo.png"
@@ -189,6 +152,13 @@ export default function CustomerLayout({
                   </Link>
                 );
               })}
+
+              <Link
+                href="/dashboard"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-3 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                Back to dashboard
+              </Link>
             </div>
           </div>
 
