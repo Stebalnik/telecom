@@ -5,8 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
-import { track } from "../../../lib/track";
-import { logError } from "../../../lib/logError";
 
 type ContractorApprovalRow = {
   id: string;
@@ -120,30 +118,21 @@ export default function AdminContractorApprovalsPage() {
 
       setRows((companies || []) as ContractorApprovalRow[]);
     } catch (e: any) {
-      setErr("Something went wrong. Please try again.");
-
-      await logError("admin_contractor_approvals_load_failed", {
-        source: "admin",
-        area: "contractor_approvals",
-        role: "admin",
-        details: {
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
+      setErr(e.message ?? "Load error");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadPage();
+    loadPage();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        void loadPage();
+        loadPage();
       }, 300);
     };
 
@@ -198,28 +187,9 @@ export default function AdminContractorApprovalsPage() {
         if (profileErr) throw new Error(profileErr.message);
       }
 
-      await track("admin_contractor_approved", {
-        role: "admin",
-        meta: {
-          companyId,
-          hasPublicProfile,
-        },
-      });
-
       await loadPage();
     } catch (e: any) {
-      setErr("Something went wrong. Please try again.");
-
-      await logError("admin_contractor_approved_failed", {
-        source: "admin",
-        area: "contractor_approvals",
-        role: "admin",
-        details: {
-          companyId,
-          hasPublicProfile,
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
+      setErr(e.message ?? "Approve error");
     } finally {
       setBusyId(null);
     }
@@ -239,186 +209,171 @@ export default function AdminContractorApprovalsPage() {
 
       if (error) throw new Error(error.message);
 
-      await track("admin_contractor_returned_to_draft", {
-        role: "admin",
-        meta: {
-          companyId,
-        },
-      });
-
       await loadPage();
     } catch (e: any) {
-      setErr("Something went wrong. Please try again.");
-
-      await logError("admin_contractor_returned_to_draft_failed", {
-        source: "admin",
-        area: "contractor_approvals",
-        role: "admin",
-        details: {
-          companyId,
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
+      setErr(e.message ?? "Reject error");
     } finally {
       setBusyId(null);
     }
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-[#111827]">
-              Contractor approvals
-            </h1>
-            <p className="mt-2 text-sm text-[#4B5563]">
-              Review submitted contractor onboardings and approve them for marketplace visibility.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/admin"
-              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-            >
-              Back to admin
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {loading ? (
+    <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-          <p className="text-sm text-[#4B5563]">Loading contractor approvals...</p>
-        </section>
-      ) : null}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-[#111827]">
+                Contractor approvals
+              </h1>
+              <p className="mt-2 text-sm text-[#4B5563]">
+                Review submitted contractor onboardings and approve them for marketplace visibility.
+              </p>
+            </div>
 
-      {err ? (
-        <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
-          {err}
-        </section>
-      ) : null}
-
-      {!loading && rows.length === 0 ? (
-        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-          <p className="text-sm text-[#4B5563]">No submitted contractors waiting for approval.</p>
-        </section>
-      ) : null}
-
-      {!loading && rows.length > 0 ? (
-        <section className="grid gap-4">
-          {rows.map((row) => {
-            const publicProfile = Array.isArray(row.public_profile)
-              ? row.public_profile[0] ?? null
-              : row.public_profile;
-
-            const isBusy = busyId === row.id;
-
-            return (
-              <article
-                key={row.id}
-                className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm"
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold text-[#111827]">
-                        {row.legal_name || "Unnamed company"}
-                      </h2>
-
-                      <StatusBadge
-                        status={row.onboarding_status || "unknown"}
-                        tone="warning"
-                      />
-
-                      <StatusBadge
-                        status={row.status || "unknown"}
-                        tone="info"
-                      />
-
-                      <StatusBadge
-                        status={publicProfile?.is_listed ? "listed" : "not listed"}
-                        tone={publicProfile?.is_listed ? "success" : "neutral"}
-                      />
-                    </div>
-
-                    {row.dba_name ? (
-                      <p className="mt-2 text-sm text-[#4B5563]">
-                        DBA: {row.dba_name}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Created
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {formatDate(row.created_at)}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Home market
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {publicProfile?.home_market || "—"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Headline
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {publicProfile?.headline || "—"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-                          Public profile
-                        </div>
-                        <div className="mt-1 text-sm font-medium text-[#111827]">
-                          {publicProfile ? "Exists" : "Missing"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {row.block_reason ? (
-                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                        Block reason: {row.block_reason}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => approveCompany(row.id, !!publicProfile)}
-                      className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isBusy ? "Processing..." : "Approve"}
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => rejectCompany(row.id)}
-                      className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Return to draft
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+                Back to admin
+              </Link>
+            </div>
+          </div>
         </section>
-      ) : null}
-    </div>
+
+        {loading ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <p className="text-sm text-[#4B5563]">Loading contractor approvals...</p>
+          </section>
+        ) : null}
+
+        {err ? (
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
+            {err}
+          </section>
+        ) : null}
+
+        {!loading && rows.length === 0 ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <p className="text-sm text-[#4B5563]">No submitted contractors waiting for approval.</p>
+          </section>
+        ) : null}
+
+        {!loading && rows.length > 0 ? (
+          <section className="grid gap-4">
+            {rows.map((row) => {
+              const publicProfile = Array.isArray(row.public_profile)
+                ? row.public_profile[0] ?? null
+                : row.public_profile;
+
+              const isBusy = busyId === row.id;
+
+              return (
+                <article
+                  key={row.id}
+                  className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-semibold text-[#111827]">
+                          {row.legal_name || "Unnamed company"}
+                        </h2>
+
+                        <StatusBadge
+                          status={row.onboarding_status || "unknown"}
+                          tone="warning"
+                        />
+
+                        <StatusBadge
+                          status={row.status || "unknown"}
+                          tone="info"
+                        />
+
+                        <StatusBadge
+                          status={publicProfile?.is_listed ? "listed" : "not listed"}
+                          tone={publicProfile?.is_listed ? "success" : "neutral"}
+                        />
+                      </div>
+
+                      {row.dba_name ? (
+                        <p className="mt-2 text-sm text-[#4B5563]">
+                          DBA: {row.dba_name}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Created
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {formatDate(row.created_at)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Home market
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {publicProfile?.home_market || "—"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Headline
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {publicProfile?.headline || "—"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Public profile
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {publicProfile ? "Exists" : "Missing"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {row.block_reason ? (
+                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                          Block reason: {row.block_reason}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => approveCompany(row.id, !!publicProfile)}
+                        className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isBusy ? "Processing..." : "Approve"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => rejectCompany(row.id)}
+                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Return to draft
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        ) : null}
+      </div>
+    </main>
   );
 }
