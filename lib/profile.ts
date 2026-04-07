@@ -1,10 +1,19 @@
+import { normalizeError } from "./errors/normalizeError";
+import { unwrapSupabase } from "./errors/unwrapSupabase";
 import { supabase } from "./supabaseClient";
 
 export type UserRole = "customer" | "contractor" | "admin";
 
+export type Profile = {
+  id: string;
+  role: UserRole | null;
+  created_at: string;
+};
+
 type AppError = Error & {
   code?: string;
   details?: Record<string, unknown>;
+  statusCode?: number;
 };
 
 function createAppError(
@@ -18,94 +27,113 @@ function createAppError(
   return error;
 }
 
-function normalizeProfileError(error: any, context: string): AppError {
-  const rawMessage =
-    error?.message ||
-    error?.error_description ||
-    error?.details ||
-    "Unknown profile error";
+function normalizeProfileError(
+  error: unknown,
+  context: string,
+  fallbackMessage: string
+): AppError {
+  const normalized = normalizeError(error) as AppError;
 
-  const code = String(error?.code || "").toLowerCase();
+  const rawMessage = normalized.message || fallbackMessage;
+  const rawCode = String(normalized.code || "").toLowerCase();
   const message = String(rawMessage).toLowerCase();
 
   if (
-    code === "23505" ||
+    rawCode === "23505" ||
     message.includes("duplicate key") ||
     message.includes("profiles_pkey")
   ) {
-    return createAppError(
-      "Profile already exists.",
-      `${context}_duplicate`,
-      {
-        rawMessage,
-        dbCode: error?.code ?? null,
-      }
+    return createAppError("Profile already exists.", `${context}_duplicate`, {
+      rawMessage,
+      originalCode: normalized.code ?? null,
+      statusCode: normalized.statusCode ?? null,
+      ...(normalized.details ?? {}),
+    });
+  }
+
+  return createAppError(rawMessage, `${context}_failed`, {
+    rawMessage,
+    originalCode: normalized.code ?? null,
+    statusCode: normalized.statusCode ?? null,
+    ...(normalized.details ?? {}),
+  });
+}
+
+export async function getMyProfile(): Promise<Profile | null> {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw normalizeProfileError(
+      sessionError,
+      "get_profile_session",
+      "Unable to get current session."
     );
   }
 
-  return createAppError(
-    rawMessage,
-    `${context}_failed`,
-    {
-      rawMessage,
-      dbCode: error?.code ?? null,
-      hint: error?.hint ?? null,
-      details: error?.details ?? null,
-    }
-  );
+  if (!sessionData.session?.user) {
+    return null;
+  }
+
+  try {
+    const data = unwrapSupabase<Profile | null>(
+      await supabase
+        .from("profiles")
+        .select("id, role, created_at")
+        .eq("id", sessionData.session.user.id)
+        .maybeSingle(),
+      "get_profile_failed"
+    );
+
+    return data;
+  } catch (error) {
+    throw normalizeProfileError(
+      error,
+      "get_profile",
+      "Unable to load profile."
+    );
+  }
 }
 
-export async function getMyProfile() {
-  const { data: userData, error: userErr } = await supabase.auth.getSession();
+export async function createMyProfile(
+  role: UserRole
+): Promise<{ id: string; role: UserRole }> {
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
 
-  if (userErr) {
-    throw createAppError("Unable to get current session.", "get_profile_session_failed", {
-      rawMessage: userErr.message,
-    });
+  if (sessionError) {
+    throw normalizeProfileError(
+      sessionError,
+      "create_profile_session",
+      "Unable to get current session."
+    );
   }
 
-  if (!userData.session?.user) return null;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, role, created_at")
-    .eq("id", userData.session.user.id)
-    .maybeSingle();
-
-  if (error) {
-    throw normalizeProfileError(error, "get_profile");
+  if (!sessionData.session?.user) {
+    throw createAppError("Not logged in.", "create_profile_not_logged_in");
   }
 
-  return data;
-}
+  const userId = sessionData.session.user.id;
 
-export async function createMyProfile(role: UserRole) {
-  const { data: userData, error: userErr } = await supabase.auth.getSession();
-
-  if (userErr) {
-    throw createAppError("Unable to get current session.", "create_profile_session_failed", {
-      rawMessage: userErr.message,
-    });
-  }
-
-  if (!userData.session?.user) {
-    throw createAppError("Not logged in", "create_profile_not_logged_in");
-  }
-
-  const userId = userData.session.user.id;
-
-  const { error } = await supabase.from("profiles").upsert(
-    {
-      id: userId,
-      role,
-    },
-    {
-      onConflict: "id",
-    }
-  );
-
-  if (error) {
-    throw normalizeProfileError(error, "create_profile");
+  try {
+    unwrapSupabase(
+      await supabase.from("profiles").upsert(
+        {
+          id: userId,
+          role,
+        },
+        {
+          onConflict: "id",
+        }
+      ),
+      "create_profile_failed"
+    );
+  } catch (error) {
+    throw normalizeProfileError(
+      error,
+      "create_profile",
+      "Unable to create profile."
+    );
   }
 
   return {

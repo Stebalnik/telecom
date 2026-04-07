@@ -31,19 +31,16 @@ Supabase Usage
 Two Supabase clients may exist.
 
 Client side:
-
 Supabase anon key
-
 Server side:
-
 Supabase server client
 service role only when strictly required
-
 Rules:
-
 service role must NEVER reach frontend
 do not expose secrets
 prefer authenticated server client
+never return raw Supabase errors to client
+all Supabase errors must be normalized before leaving backend
 Validation
 
 All requests must validate:
@@ -54,6 +51,41 @@ input data
 
 Before any DB write.
 
+Authentication
+
+All protected routes require auth:
+
+/dashboard
+/customer
+/contractor
+/admin
+Authorization
+
+Always check role on server:
+
+customer
+contractor
+admin
+
+Never trust frontend for role decisions.
+
+Supabase RLS
+
+RLS must be enabled.
+
+Rules:
+
+users can only access their own data
+admin access must be explicit and controlled
+never bypass RLS unless absolutely required
+API Protection
+
+All endpoints must:
+
+validate input
+validate role
+prevent abuse
+return safe errors
 Error Responses
 
 Always return structured errors:
@@ -61,149 +93,71 @@ Always return structured errors:
 {
   "error": "Invalid request"
 }
-
 Rules:
-
 no stack traces to user
+no internal system messages
+no Supabase / Postgres messages
 no secrets
 user-friendly messages only
-Logging
+🔥 Error Handling System (Core)
 
-Important operations must log:
+Error handling is a required system, not optional.
 
-user_id
-operation
-timestamp
+Core Rules
+no raw Supabase error may cross a layer boundary
+all unexpected errors MUST be logged
+logging must be centralized
+logging must be non-blocking
+logs must be structured and sanitized
+API must return safe messages only
+Required Error Helpers
 
-Examples:
+Backend must use shared helpers:
 
-company changes
-approvals
-critical failures
-Default Analytics Rule
+lib/server/logServerError.ts
+lib/errors/normalizeError.ts
+lib/errors/unwrapSupabase.ts
+lib/errors/withServerErrorLogging.ts
+Supabase Error Handling
+Required pattern
+const result = await supabase.from("profiles").select("*").maybeSingle();
+return unwrapSupabase(result, "get_profile_failed");
+Forbidden
+if (error) throw error;
+API Error Pattern
+try {
+  const result = await withServerErrorLogging(
+    async () => {
+      // db logic
+      return { ok: true };
+    },
+    {
+      message: "create_job_failed",
+      code: "create_job_failed",
+      source: "api",
+      area: "jobs",
+      path: "/api/jobs",
+    }
+  );
 
-Analytics must be built-in by default but centralized.
-
-Goals:
-
-easy to use
-consistent
-no code duplication
-minimal noise in features
-Analytics Architecture
-
-Frontend:
-
-use ONLY helper:
-
-track("event_name", { meta })
-
-do NOT use raw fetch everywhere
-
-Backend:
-
-all events go through:
-
-app/api/analytics/track/route.ts
-
-This route handles:
-
-validation
-auth
-DB insert
-
-Storage:
-
-Table: public.analytics_events
-
-Fields:
-
-id
-user_id
-event
-path
-role
-meta
-created_at
-Event Naming
-
-Use simple stable names:
-
-Good:
-
-login
-signup
-submit_bid
-
-Bad:
-
-submit_bid_job_123
-
-Dynamic data → meta
-
-Example:
-
-track("submit_bid", { jobId })
-
-Where to Track
-
-Track ONLY important actions:
-
-Auth:
-
-login
-signup
-
-Contractor:
-
-onboarding started
-onboarding submitted
-submit bid
-
-Customer:
-
-create job
-
-Mission:
-
-open page
-start checkout
-
-Admin:
-
-approvals
-When to Track
-
-ONLY after success.
-
-Correct:
-
-after DB insert
-after API success
-
-Wrong:
-
-before action completes
-Keep It Lightweight
-
-Rules:
-
-one helper (track)
-no duplicated fetch logic
-no over-tracking
-only meaningful events
+  return NextResponse.json(result);
+} catch {
+  return NextResponse.json(
+    { error: "Unable to create job." },
+    { status: 500 }
+  );
+}
+Forbidden Pattern
+catch (e) {
+  return NextResponse.json({ error: e.message });
+}
 Error Logging (Separate System)
 
 Errors must go to a dedicated system.
 
 API:
-
 app/api/errors/log/route.ts
-
-Admin API:
-
 app/api/admin/errors/route.ts
-
 Table:
 
 public.error_logs
@@ -221,7 +175,7 @@ message
 details
 path
 level (info | warning | error | critical)
-source (frontend | api | db | auth)
+source (frontend | api | db | auth | server | admin)
 area (contractor | customer | admin | auth | jobs | bids | documents)
 code (stable error code)
 status_code (optional)
@@ -238,64 +192,66 @@ Applies to:
 API routes
 server actions
 admin actions
-critical DB operations
-
+DB operations
 Rules:
-
-every try/catch must log error
-use shared helper (no inline DB inserts)
+use shared helper (no inline inserts)
 logs must be structured
 logs must be sanitized
 logging must NOT break user flow
-Frontend Error Logging
-
-Frontend must use:
-
-logError("message", details)
-
-Rules:
-
-must be called on every failure
-must be non-blocking
-must NOT expose sensitive data
-must include useful context (path, action, ids)
 Server Error Logging
 
-Backend must use a shared helper:
+Backend must use:
 
 lib/server/logServerError.ts
 
 Rules:
-
-log inside catch blocks
-sanitize all data before insert
-never log raw request bodies
+log inside catch or wrapper
+sanitize all data
 never log secrets
-Error Visibility
+never log raw request bodies
+Error Normalization Rule
 
-User:
+All errors must be normalized before:
 
-sees safe message only
-no technical details
+logging
+rethrow
+returning to client
 
-Admin:
+Never pass raw:
 
-sees full structured error logs
-can filter and inspect
+Supabase errors
+Postgres errors
+stack traces
+Error Boundary Rule
+
+Server must separate:
+
+Internal:
+full error details
+stack
+DB codes
+
+→ goes to logs
+
+External:
+safe message
+
+→ goes to client
+
 Admin Error System
 
-Admin must have full access to errors.
+Admin must have full visibility.
 
 Capabilities:
 
 view all errors
-filter by level, source, area, date
+filter by level / source / area / date
 group similar errors
-inspect full details
-mark as resolved
-track unresolved issues
+inspect details
+mark resolved
+track unresolved
 
-Errors are part of operational dashboard, not optional.
+Errors are part of operational dashboard.
 
 Security Logging Rules
 
@@ -313,40 +269,113 @@ Always sanitize:
 request data
 error messages
 stack traces
-Authentication
+Logging
 
-All protected routes require auth:
+Important operations must log:
 
-/dashboard
-/customer
-/contractor
-/admin
-Authorization
+user_id
+operation
+timestamp
 
-Always check role:
+Examples:
 
-customer
-contractor
-admin
+approvals
+onboarding
+company updates
+critical failures
+Analytics System
 
-On server side only.
+Analytics must be centralized.
 
-Supabase RLS
+Frontend
 
-Must be enabled.
+Use ONLY:
+
+track("event_name", { meta })
+
+Do NOT use raw fetch.
+
+Backend
+
+All events go through:
+
+app/api/analytics/track/route.ts
+
+Handles:
+
+validation
+auth
+DB insert
+Analytics Storage
+
+Table:
+
+public.analytics_events
+
+Fields:
+
+id
+user_id
+event
+path
+role
+meta
+created_at
+Event Naming
+
+Good:
+
+login
+signup
+submit_bid
+
+Bad:
+
+submit_bid_job_123
+
+Dynamic data → meta
+
+Where to Track
+
+Track only meaningful actions:
+
+Auth:
+
+login
+signup
+
+Contractor:
+
+onboarding started
+onboarding submitted
+submit bid
+
+Customer:
+
+create job
+
+Admin:
+
+approvals
+When to Track
+
+ONLY after success.
+
+Correct:
+
+after DB insert
+
+Wrong:
+
+before action completes
+Keep It Lightweight
 
 Rules:
 
-users see only their data
-admin has controlled access
-API Protection
-
-All endpoints must:
-
-validate input
-validate role
-prevent abuse
-return safe errors
+one helper (track)
+no duplicate logic
+no noise
+only meaningful events
 File Uploads
 
 Use:
@@ -354,7 +383,7 @@ Use:
 signed URLs
 secure buckets
 
-Never expose open access.
+Never expose public write access.
 
 Frontend Rule
 
@@ -375,14 +404,14 @@ Examples:
 lib/track.ts
 lib/logError.ts
 lib/server/logServerError.ts
-lib/errors/errorCodes.ts
+lib/errors/*
 Default Minimal Pattern
 
 Every feature:
 
 do action
 on success → track()
-on failure → logError()
+on failure → error helper (auto log)
 Final Rule
 
 System must be:
@@ -390,8 +419,9 @@ System must be:
 centralized
 secure
 observable
+consistent
 easy to extend
 clean in code
 
-Analytics and error logging are NOT optional.
-They are part of core product behavior.
+Analytics and error handling are NOT optional.
+They are part of core product architecture.

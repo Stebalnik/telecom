@@ -154,6 +154,44 @@ structured logs
 sanitized data
 no secrets
 non-blocking
+### 15A. Shared Error Handling Helpers Standard
+
+Frontend error handling must use shared helpers.
+
+Required helpers:
+
+- `lib/logError.ts`
+- `lib/errors/normalizeError.ts`
+- `lib/errors/unwrapSupabase.ts`
+- `lib/errors/withErrorLogging.ts`
+
+Rules:
+
+- direct raw Supabase errors must not be thrown across layer boundaries
+- repeated `if (error) throw error` patterns should be replaced with shared helpers where practical
+- repeated manual `logError(...)` blocks should be replaced with `withErrorLogging(...)` where practical
+- every important async failure must be logged
+- user-facing messages must remain safe and non-technical
+- logging must be non-blocking
+- no sensitive data in logs
+
+Client page pattern:
+
+- action
+- `withErrorLogging(...)`
+- local `catch` only for user-facing UI state such as `setErr(...)`
+
+Frontend purpose of helpers:
+
+- reduce duplication
+- standardize logging shape
+- standardize normalization
+- prevent missing logs
+- keep UI code clean
+
+The goal is NOT to eliminate `catch` entirely.
+The goal is to eliminate duplicated logging and normalization logic 
+
 16. Error Handling UX Standard
 
 User:
@@ -211,6 +249,21 @@ understand system state
 act on issues
 
 Admin UI = operational control panel
+
+### 23A. Frontend Error Boundary Rule
+
+No raw Supabase or database-style error message may be shown to the user.
+
+Good:
+
+- "Unable to save your changes."
+- "Something went wrong. Please try again."
+
+Bad:
+
+- "duplicate key value violates unique constraint ..."
+- "row-level security policy violation ..."
+- raw stack traces
 
 24. Final Rule
 

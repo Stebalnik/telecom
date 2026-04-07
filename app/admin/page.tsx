@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getMyProfile } from "../../lib/profile";
+import { getMyProfile, UserRole } from "../../lib/profile";
 import { supabase } from "../../lib/supabaseClient";
 import {
   approveDoc,
@@ -15,7 +15,8 @@ import {
   listAdminTeamChangeRequests,
   type TeamChangeRequest,
 } from "../../lib/contractor";
-import { logError } from "../../lib/logError";
+import { unwrapSupabase } from "../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 
 type AdminFilter =
   | "all"
@@ -95,6 +96,10 @@ type ErrorSummary = {
     total: number;
   }>;
 };
+
+type AdminProfileLike = {
+  role?: UserRole | null;
+} | null;
 
 function mapRequestRow(row: RequestRowDb): RequestRow {
   const company = Array.isArray(row.company) ? row.company[0] ?? null : row.company;
@@ -218,111 +223,126 @@ export default function AdminPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const result = await withErrorLogging(
+        async () => {
+          const { data: sessionData, error: sessionError } =
+            await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
-      }
+          if (sessionError) {
+            throw sessionError;
+          }
 
-      const profile = await getMyProfile();
+          if (!sessionData.session?.user) {
+            router.replace("/login");
+            return null;
+          }
 
-      if (!profile || profile.role !== "admin") {
-        router.replace("/dashboard");
-        return;
-      }
+          const profile = (await getMyProfile()) as AdminProfileLike;
 
-      const [
-        docsResult,
-        requestsResult,
-        teamRequestsResult,
-        contractorApprovalsResult,
-        errorSummaryResponse,
-      ] = await Promise.all([
-        listPendingDocs(),
-        supabase
-          .from("company_change_requests")
-          .select(`
-            id,
-            company_id,
-            requested_by,
-            status,
-            created_at,
-            reviewed_at,
-            company:contractor_companies (
-              legal_name,
-              dba_name
-            )
-          `)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false }),
-        listAdminTeamChangeRequests(),
-        supabase
-          .from("contractor_companies")
-          .select(`
-            id,
-            legal_name,
-            dba_name,
-            status,
-            onboarding_status,
-            created_at,
-            owner_user_id,
-            block_reason,
-            public_profile:contractor_public_profiles (
-              company_id,
-              is_listed,
-              headline,
-              home_market,
-              markets
-            )
-          `)
-          .eq("onboarding_status", "submitted")
-          .order("created_at", { ascending: false }),
-        fetch("/api/admin/errors?summary=true&resolved=false", {
-          method: "GET",
-          cache: "no-store",
-        }),
-      ]);
+          if (!profile || profile.role !== "admin") {
+            router.replace("/dashboard");
+            return null;
+          }
 
-      setDocs(docsResult);
+          const [
+            docsResult,
+            requestsResult,
+            teamRequestsResult,
+            contractorApprovalsResult,
+            errorSummaryResponse,
+          ] = await Promise.all([
+            listPendingDocs(),
+            supabase
+              .from("company_change_requests")
+              .select(`
+                id,
+                company_id,
+                requested_by,
+                status,
+                created_at,
+                reviewed_at,
+                company:contractor_companies (
+                  legal_name,
+                  dba_name
+                )
+              `)
+              .eq("status", "pending")
+              .order("created_at", { ascending: false }),
+            listAdminTeamChangeRequests(),
+            supabase
+              .from("contractor_companies")
+              .select(`
+                id,
+                legal_name,
+                dba_name,
+                status,
+                onboarding_status,
+                created_at,
+                owner_user_id,
+                block_reason,
+                public_profile:contractor_public_profiles (
+                  company_id,
+                  is_listed,
+                  headline,
+                  home_market,
+                  markets
+                )
+              `)
+              .eq("onboarding_status", "submitted")
+              .order("created_at", { ascending: false }),
+            fetch("/api/admin/errors?summary=true&resolved=false", {
+              method: "GET",
+              cache: "no-store",
+            }),
+          ]);
 
-      if (requestsResult.error) {
-        throw new Error(requestsResult.error.message);
-      }
+          const companyChangeRows = unwrapSupabase<RequestRowDb[]>(
+            requestsResult,
+            "admin_company_change_requests_load_failed"
+          );
 
-      if (contractorApprovalsResult.error) {
-        throw new Error(contractorApprovalsResult.error.message);
-      }
+          const contractorApprovalRows = unwrapSupabase<ContractorApprovalRow[]>(
+            contractorApprovalsResult,
+            "admin_contractor_approvals_load_failed"
+          );
 
-      const errorSummaryJson = await errorSummaryResponse.json().catch(() => ({}));
+          const errorSummaryJson = await errorSummaryResponse
+            .json()
+            .catch(() => ({}));
 
-      if (!errorSummaryResponse.ok) {
-        throw new Error(
-          errorSummaryJson?.error || "Unable to load error summary"
-        );
-      }
+          if (!errorSummaryResponse.ok) {
+            throw new Error(
+              errorSummaryJson?.error || "Unable to load error summary"
+            );
+          }
 
-      const normalizedCompanyRequests = (
-        (requestsResult.data ?? []) as RequestRowDb[]
-      ).map(mapRequestRow);
-
-      setCompanyRequests(normalizedCompanyRequests);
-      setTeamRequests(teamRequestsResult.filter((row) => row.status === "pending"));
-      setContractorApprovals(
-        (contractorApprovalsResult.data ?? []) as ContractorApprovalRow[]
-      );
-      setErrorSummary(errorSummaryJson.summary || {});
-    } catch (e: any) {
-      await logError("admin_review_center_load_failed", {
-        source: "admin",
-        area: "admin",
-        path: "/admin",
-        code: "admin_review_center_load_failed",
-        details: {
-          message: e?.message || "Unknown error",
+          return {
+            docs: docsResult,
+            companyRequests: (companyChangeRows ?? []).map(mapRequestRow),
+            teamRequests: teamRequestsResult.filter(
+              (row) => row.status === "pending"
+            ),
+            contractorApprovals: contractorApprovalRows ?? [],
+            errorSummary: errorSummaryJson.summary || {},
+          };
         },
-      });
+        {
+          message: "admin_review_center_load_failed",
+          code: "admin_review_center_load_failed",
+          source: "admin",
+          area: "admin",
+          path: "/admin",
+        }
+      );
 
+      if (!result) return;
+
+      setDocs(result.docs);
+      setCompanyRequests(result.companyRequests);
+      setTeamRequests(result.teamRequests);
+      setContractorApprovals(result.contractorApprovals);
+      setErrorSummary(result.errorSummary);
+    } catch {
       setErr("Unable to load review center. Please try again.");
     } finally {
       setLoading(false);
@@ -402,20 +422,22 @@ export default function AdminPage() {
     setBusyDocId(id);
 
     try {
-      await approveDoc(id);
-      await load();
-    } catch (e: any) {
-      await logError("admin_doc_approve_failed", {
-        source: "admin",
-        area: "documents",
-        path: "/admin",
-        code: "admin_doc_approve_failed",
-        details: {
-          documentId: id,
-          message: e?.message || "Unknown error",
-        },
-      });
+      await withErrorLogging(
+        () => approveDoc(id),
+        {
+          message: "admin_doc_approve_failed",
+          code: "admin_doc_approve_failed",
+          source: "admin",
+          area: "documents",
+          path: "/admin",
+          details: {
+            documentId: id,
+          },
+        }
+      );
 
+      await load();
+    } catch {
       setErr("Unable to approve document. Please try again.");
     } finally {
       setBusyDocId(null);
@@ -427,21 +449,23 @@ export default function AdminPage() {
     setBusyDocId(id);
 
     try {
-      await rejectDoc(id, rejectNote[id] || "Rejected");
-      await load();
-    } catch (e: any) {
-      await logError("admin_doc_reject_failed", {
-        source: "admin",
-        area: "documents",
-        path: "/admin",
-        code: "admin_doc_reject_failed",
-        details: {
-          documentId: id,
-          rejectReason: rejectNote[id] || "Rejected",
-          message: e?.message || "Unknown error",
-        },
-      });
+      await withErrorLogging(
+        () => rejectDoc(id, rejectNote[id] || "Rejected"),
+        {
+          message: "admin_doc_reject_failed",
+          code: "admin_doc_reject_failed",
+          source: "admin",
+          area: "documents",
+          path: "/admin",
+          details: {
+            documentId: id,
+            rejectReason: rejectNote[id] || "Rejected",
+          },
+        }
+      );
 
+      await load();
+    } catch {
       setErr("Unable to reject document. Please try again.");
     } finally {
       setBusyDocId(null);

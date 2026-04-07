@@ -1,5 +1,7 @@
-import { supabase } from "./supabaseClient";
 import { getMyUserId } from "./auth";
+import { normalizeError } from "./errors/normalizeError";
+import { unwrapSupabase } from "./errors/unwrapSupabase";
+import { supabase } from "./supabaseClient";
 
 export type Customer = {
   id: string;
@@ -11,6 +13,7 @@ export type Customer = {
 type AppError = Error & {
   code?: string;
   details?: Record<string, unknown>;
+  statusCode?: number;
 };
 
 function createAppError(
@@ -24,18 +27,19 @@ function createAppError(
   return error;
 }
 
-function normalizeCustomerError(error: any, context: string): AppError {
-  const rawMessage =
-    error?.message ||
-    error?.error_description ||
-    error?.details ||
-    "Unknown customer error";
+function normalizeCustomerError(
+  error: unknown,
+  context: string,
+  fallbackMessage: string
+): AppError {
+  const normalized = normalizeError(error) as AppError;
 
-  const dbCode = String(error?.code || "").toLowerCase();
+  const rawMessage = normalized.message || fallbackMessage;
+  const rawCode = String(normalized.code || "").toLowerCase();
   const message = String(rawMessage).toLowerCase();
 
   if (
-    dbCode === "23505" ||
+    rawCode === "23505" ||
     message.includes("duplicate key") ||
     message.includes("customers_owner_user_id") ||
     message.includes("unique")
@@ -45,32 +49,42 @@ function normalizeCustomerError(error: any, context: string): AppError {
       `${context}_duplicate`,
       {
         rawMessage,
-        dbCode: error?.code ?? null,
-        hint: error?.hint ?? null,
-        details: error?.details ?? null,
+        originalCode: normalized.code ?? null,
+        statusCode: normalized.statusCode ?? null,
+        ...(normalized.details ?? {}),
       }
     );
   }
 
   return createAppError(rawMessage, `${context}_failed`, {
     rawMessage,
-    dbCode: error?.code ?? null,
-    hint: error?.hint ?? null,
-    details: error?.details ?? null,
+    originalCode: normalized.code ?? null,
+    statusCode: normalized.statusCode ?? null,
+    ...(normalized.details ?? {}),
   });
 }
 
 export async function getMyCustomer(): Promise<Customer | null> {
   const uid = await getMyUserId();
 
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id, owner_user_id, name, description")
-    .eq("owner_user_id", uid)
-    .maybeSingle();
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customers")
+        .select("id, owner_user_id, name, description")
+        .eq("owner_user_id", uid)
+        .maybeSingle(),
+      "get_my_customer_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "get_my_customer");
-  return (data || null) as Customer | null;
+    return (data ?? null) as Customer | null;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "get_my_customer",
+      "Unable to load customer."
+    );
+  }
 }
 
 export type CustomerOrg = {
@@ -113,86 +127,140 @@ export type CustomerScopeRequirement = {
 export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
   const userId = await getMyUserId();
 
-  const { data, error } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("owner_user_id", userId)
-    .maybeSingle();
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customers")
+        .select("*")
+        .eq("owner_user_id", userId)
+        .maybeSingle(),
+      "get_my_customer_org_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "get_my_customer_org");
-  return (data ?? null) as CustomerOrg | null;
+    return (data ?? null) as CustomerOrg | null;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "get_my_customer_org",
+      "Unable to load customer organization."
+    );
+  }
 }
 
 export async function createMyCustomerOrg(params: {
   name: string;
   description?: string;
-}) {
+}): Promise<CustomerOrg> {
   const userId = await getMyUserId();
 
-  const { data, error } = await supabase
-    .from("customers")
-    .insert({
-      owner_user_id: userId,
-      name: params.name,
-      description: params.description || null,
-    })
-    .select("*")
-    .single();
+  try {
+    const data = unwrapSupabase<CustomerOrg>(
+      await supabase
+        .from("customers")
+        .insert({
+          owner_user_id: userId,
+          name: params.name,
+          description: params.description ?? null,
+        })
+        .select("*")
+        .single(),
+      "create_my_customer_org_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "create_my_customer_org");
-  return data as CustomerOrg;
+    return data;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "create_my_customer_org",
+      "Unable to create customer organization."
+    );
+  }
 }
 
 export async function listScopes(): Promise<Scope[]> {
-  const { data, error } = await supabase
-    .from("scopes")
-    .select("*")
-    .order("name");
+  try {
+    const data = unwrapSupabase(
+      await supabase.from("scopes").select("*").order("name"),
+      "list_scopes_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_scopes");
-  return (data || []) as Scope[];
+    return (data || []) as Scope[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_scopes",
+      "Unable to load scopes."
+    );
+  }
 }
 
 export async function listCustomerInsuranceReq(
   customerId: string
 ): Promise<CustomerInsuranceRequirement[]> {
-  const { data, error } = await supabase
-    .from("customer_insurance_requirements")
-    .select("*")
-    .eq("customer_id", customerId);
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_insurance_requirements")
+        .select("*")
+        .eq("customer_id", customerId),
+      "list_customer_insurance_requirements_failed"
+    );
 
-  if (error) {
-    throw normalizeCustomerError(error, "list_customer_insurance_requirements");
+    return (data || []) as CustomerInsuranceRequirement[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_customer_insurance_requirements",
+      "Unable to load customer insurance requirements."
+    );
   }
-
-  return (data || []) as CustomerInsuranceRequirement[];
 }
 
 export async function upsertCustomerInsuranceReq(
   row: Omit<CustomerInsuranceRequirement, "id"> & { id?: string }
 ) {
-  const payload: any = { ...row };
+  const payload: Omit<CustomerInsuranceRequirement, "id"> & { id?: string } = {
+    ...row,
+  };
+
   if (!row.id) delete payload.id;
 
-  const { error } = await supabase
-    .from("customer_insurance_requirements")
-    .upsert(payload, { onConflict: "customer_id,insurance_type_id" });
-
-  if (error) {
-    throw normalizeCustomerError(error, "upsert_customer_insurance_requirement");
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_insurance_requirements")
+        .upsert(payload, { onConflict: "customer_id,insurance_type_id" }),
+      "upsert_customer_insurance_requirement_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "upsert_customer_insurance_requirement",
+      "Unable to save customer insurance requirement."
+    );
   }
 }
 
 export async function listCustomerScopeReq(
   customerId: string
 ): Promise<CustomerScopeRequirement[]> {
-  const { data, error } = await supabase
-    .from("customer_scope_requirements")
-    .select("*")
-    .eq("customer_id", customerId);
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_scope_requirements")
+        .select("*")
+        .eq("customer_id", customerId),
+      "list_customer_scope_requirements_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_customer_scope_requirements");
-  return (data || []) as CustomerScopeRequirement[];
+    return (data || []) as CustomerScopeRequirement[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_customer_scope_requirements",
+      "Unable to load customer scope requirements."
+    );
+  }
 }
 
 export async function upsertCustomerScopeReq(row: {
@@ -202,20 +270,27 @@ export async function upsertCustomerScopeReq(row: {
   min_count_in_team: number;
   notes?: string | null;
 }) {
-  const { error } = await supabase
-    .from("customer_scope_requirements")
-    .upsert(
-      {
-        customer_id: row.customer_id,
-        scope_id: row.scope_id,
-        cert_type_id: row.cert_type_id,
-        min_count_in_team: row.min_count_in_team,
-        notes: row.notes ?? null,
-      },
-      { onConflict: "customer_id,scope_id,cert_type_id" }
+  try {
+    unwrapSupabase(
+      await supabase.from("customer_scope_requirements").upsert(
+        {
+          customer_id: row.customer_id,
+          scope_id: row.scope_id,
+          cert_type_id: row.cert_type_id,
+          min_count_in_team: row.min_count_in_team,
+          notes: row.notes ?? null,
+        },
+        { onConflict: "customer_id,scope_id,cert_type_id" }
+      ),
+      "upsert_customer_scope_requirement_failed"
     );
-
-  if (error) throw normalizeCustomerError(error, "upsert_customer_scope_requirement");
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "upsert_customer_scope_requirement",
+      "Unable to save customer scope requirement."
+    );
+  }
 }
 
 export async function deleteCustomerScopeReq(
@@ -223,14 +298,23 @@ export async function deleteCustomerScopeReq(
   scopeId: string,
   certTypeId: string
 ) {
-  const { error } = await supabase
-    .from("customer_scope_requirements")
-    .delete()
-    .eq("customer_id", customerId)
-    .eq("scope_id", scopeId)
-    .eq("cert_type_id", certTypeId);
-
-  if (error) throw normalizeCustomerError(error, "delete_customer_scope_requirement");
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_scope_requirements")
+        .delete()
+        .eq("customer_id", customerId)
+        .eq("scope_id", scopeId)
+        .eq("cert_type_id", certTypeId),
+      "delete_customer_scope_requirement_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "delete_customer_scope_requirement",
+      "Unable to delete customer scope requirement."
+    );
+  }
 }
 
 export async function ensureMyCustomerOrg() {
@@ -242,8 +326,9 @@ export async function ensureMyCustomerOrg() {
       name: "My Customer Org",
       description: "",
     });
-  } catch (error: any) {
-    const code = String(error?.code || "");
+  } catch (error) {
+    const normalized = normalizeError(error) as AppError;
+    const code = String(normalized.code || "");
 
     if (code === "create_my_customer_org_duplicate") {
       const retry = await getMyCustomerOrg();
@@ -322,10 +407,12 @@ export async function listApprovedCustomerContractorsDetailed(): Promise<
 > {
   const customerId = await getMyCustomerId();
 
-  const { data, error } = await supabase
-    .from("customer_contractors")
-    .select(
-      `
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_contractors")
+        .select(
+          `
       contractor_company_id,
       status,
       created_at,
@@ -337,16 +424,21 @@ export async function listApprovedCustomerContractorsDetailed(): Promise<
         block_reason
       )
     `
-    )
-    .eq("customer_id", customerId)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+        )
+        .eq("customer_id", customerId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false }),
+      "list_approved_customer_contractors_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_approved_customer_contractors");
-
-  return normalizeApprovedContractors(
-    (data || []) as ApprovedContractorRowDb[]
-  );
+    return normalizeApprovedContractors((data || []) as ApprovedContractorRowDb[]);
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_approved_customer_contractors",
+      "Unable to load approved customer contractors."
+    );
+  }
 }
 
 export async function listApprovedContractors(): Promise<ApprovedContractorRow[]> {
@@ -357,23 +449,35 @@ export async function listLatestApprovedCoiByCompanies(
   companyIds: string[]
 ): Promise<Record<string, ContractorCoiRow | null>> {
   const map: Record<string, ContractorCoiRow | null> = {};
-  companyIds.forEach((id) => (map[id] = null));
+  companyIds.forEach((id) => {
+    map[id] = null;
+  });
+
   if (companyIds.length === 0) return map;
 
-  const { data, error } = await supabase
-    .from("contractor_coi")
-    .select("id, company_id, status, file_path, created_at")
-    .in("company_id", companyIds)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("contractor_coi")
+        .select("id, company_id, status, file_path, created_at")
+        .in("company_id", companyIds)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false }),
+      "list_latest_approved_coi_by_companies_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_latest_approved_coi_by_companies");
+    for (const row of (data || []) as ContractorCoiRow[]) {
+      if (!map[row.company_id]) map[row.company_id] = row;
+    }
 
-  for (const row of (data || []) as ContractorCoiRow[]) {
-    if (!map[row.company_id]) map[row.company_id] = row;
+    return map;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_latest_approved_coi_by_companies",
+      "Unable to load approved COI records."
+    );
   }
-
-  return map;
 }
 
 export type ContractorCompanyMini = {
@@ -389,15 +493,25 @@ export async function searchContractorCompanies(
   const query = q.trim();
   if (!query) return [];
 
-  const { data, error } = await supabase
-    .from("contractor_companies")
-    .select("id, legal_name, dba_name, status")
-    .or(`legal_name.ilike.%${query}%,dba_name.ilike.%${query}%`)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("contractor_companies")
+        .select("id, legal_name, dba_name, status")
+        .or(`legal_name.ilike.%${query}%,dba_name.ilike.%${query}%`)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      "search_contractor_companies_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "search_contractor_companies");
-  return (data || []) as ContractorCompanyMini[];
+    return (data || []) as ContractorCompanyMini[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "search_contractor_companies",
+      "Unable to search contractor companies."
+    );
+  }
 }
 
 export async function upsertCustomerContractor(params: {
@@ -406,18 +520,25 @@ export async function upsertCustomerContractor(params: {
 }) {
   const customerId = await getMyCustomerId();
 
-  const { error } = await supabase
-    .from("customer_contractors")
-    .upsert(
-      {
-        customer_id: customerId,
-        contractor_company_id: params.contractor_company_id,
-        status: params.status,
-      },
-      { onConflict: "customer_id,contractor_company_id" }
+  try {
+    unwrapSupabase(
+      await supabase.from("customer_contractors").upsert(
+        {
+          customer_id: customerId,
+          contractor_company_id: params.contractor_company_id,
+          status: params.status,
+        },
+        { onConflict: "customer_id,contractor_company_id" }
+      ),
+      "upsert_customer_contractor_failed"
     );
-
-  if (error) throw normalizeCustomerError(error, "upsert_customer_contractor");
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "upsert_customer_contractor",
+      "Unable to save customer contractor."
+    );
+  }
 }
 
 export async function updateCustomerContractorStatus(
@@ -426,25 +547,43 @@ export async function updateCustomerContractorStatus(
 ) {
   const customerId = await getMyCustomerId();
 
-  const { error } = await supabase
-    .from("customer_contractors")
-    .update({ status })
-    .eq("customer_id", customerId)
-    .eq("contractor_company_id", contractorCompanyId);
-
-  if (error) throw normalizeCustomerError(error, "update_customer_contractor_status");
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_contractors")
+        .update({ status })
+        .eq("customer_id", customerId)
+        .eq("contractor_company_id", contractorCompanyId),
+      "update_customer_contractor_status_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "update_customer_contractor_status",
+      "Unable to update customer contractor status."
+    );
+  }
 }
 
 export async function removeCustomerContractor(contractorCompanyId: string) {
   const customerId = await getMyCustomerId();
 
-  const { error } = await supabase
-    .from("customer_contractors")
-    .delete()
-    .eq("customer_id", customerId)
-    .eq("contractor_company_id", contractorCompanyId);
-
-  if (error) throw normalizeCustomerError(error, "remove_customer_contractor");
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_contractors")
+        .delete()
+        .eq("customer_id", customerId)
+        .eq("contractor_company_id", contractorCompanyId),
+      "remove_customer_contractor_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "remove_customer_contractor",
+      "Unable to remove customer contractor."
+    );
+  }
 }
 
 export async function listCustomerContractorsByStatus(
@@ -452,10 +591,12 @@ export async function listCustomerContractorsByStatus(
 ): Promise<ApprovedContractorRow[]> {
   const customerId = await getMyCustomerId();
 
-  const { data, error } = await supabase
-    .from("customer_contractors")
-    .select(
-      `
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_contractors")
+        .select(
+          `
       contractor_company_id,
       status,
       created_at,
@@ -467,16 +608,21 @@ export async function listCustomerContractorsByStatus(
         block_reason
       )
     `
-    )
-    .eq("customer_id", customerId)
-    .eq("status", status)
-    .order("created_at", { ascending: false });
+        )
+        .eq("customer_id", customerId)
+        .eq("status", status)
+        .order("created_at", { ascending: false }),
+      "list_customer_contractors_by_status_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_customer_contractors_by_status");
-
-  return normalizeApprovedContractors(
-    (data || []) as ApprovedContractorRowDb[]
-  );
+    return normalizeApprovedContractors((data || []) as ApprovedContractorRowDb[]);
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_customer_contractors_by_status",
+      "Unable to load customer contractors."
+    );
+  }
 }
 
 export type ContractorBadgeState = {
@@ -554,7 +700,7 @@ export type InsuranceType = {
   code: string;
   name: string;
   is_core: boolean;
-  limit_schema: any;
+  limit_schema: unknown;
 };
 
 export type EndorsementType = {
@@ -580,86 +726,141 @@ export type CustomerInsuranceConfig = {
 };
 
 export async function listInsuranceTypes(): Promise<InsuranceType[]> {
-  const { data, error } = await supabase
-    .from("insurance_types")
-    .select("id, code, name, is_core, limit_schema")
-    .order("is_core", { ascending: false })
-    .order("name", { ascending: true });
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("insurance_types")
+        .select("id, code, name, is_core, limit_schema")
+        .order("is_core", { ascending: false })
+        .order("name", { ascending: true }),
+      "list_insurance_types_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_insurance_types");
-  return (data || []) as InsuranceType[];
+    return (data || []) as InsuranceType[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_insurance_types",
+      "Unable to load insurance types."
+    );
+  }
 }
 
 export async function listEndorsementTypes(): Promise<EndorsementType[]> {
-  const { data, error } = await supabase
-    .from("endorsement_types")
-    .select("id, code, name")
-    .order("name", { ascending: true });
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("endorsement_types")
+        .select("id, code, name")
+        .order("name", { ascending: true }),
+      "list_endorsement_types_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_endorsement_types");
-  return (data || []) as EndorsementType[];
+    return (data || []) as EndorsementType[];
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_endorsement_types",
+      "Unable to load endorsement types."
+    );
+  }
 }
 
 export async function getCustomerInsuranceConfig(
   customerId: string
 ): Promise<CustomerInsuranceConfig | null> {
-  const { data, error } = await supabase
-    .from("customer_insurance_config")
-    .select("*")
-    .eq("customer_id", customerId)
-    .maybeSingle();
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_insurance_config")
+        .select("*")
+        .eq("customer_id", customerId)
+        .maybeSingle(),
+      "get_customer_insurance_config_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "get_customer_insurance_config");
-  return (data ?? null) as CustomerInsuranceConfig | null;
+    return (data ?? null) as CustomerInsuranceConfig | null;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "get_customer_insurance_config",
+      "Unable to load customer insurance config."
+    );
+  }
 }
 
 export async function upsertCustomerInsuranceConfig(
   row: CustomerInsuranceConfig
 ) {
-  const { error } = await supabase
-    .from("customer_insurance_config")
-    .upsert(row, { onConflict: "customer_id" });
-
-  if (error) throw normalizeCustomerError(error, "upsert_customer_insurance_config");
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_insurance_config")
+        .upsert(row, { onConflict: "customer_id" }),
+      "upsert_customer_insurance_config_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "upsert_customer_insurance_config",
+      "Unable to save customer insurance config."
+    );
+  }
 }
 
 export async function listCustomerRequiredEndorsements(
   customerId: string
 ): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("customer_required_endorsements")
-    .select("endorsement_type_id")
-    .eq("customer_id", customerId);
+  try {
+    const data = unwrapSupabase(
+      await supabase
+        .from("customer_required_endorsements")
+        .select("endorsement_type_id")
+        .eq("customer_id", customerId),
+      "list_customer_required_endorsements_failed"
+    );
 
-  if (error) throw normalizeCustomerError(error, "list_customer_required_endorsements");
-  return (data || []).map((x: any) => x.endorsement_type_id as string);
+    return (data || []).map(
+      (item: { endorsement_type_id: string }) => item.endorsement_type_id
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "list_customer_required_endorsements",
+      "Unable to load customer required endorsements."
+    );
+  }
 }
 
 export async function setCustomerRequiredEndorsements(
   customerId: string,
   endorsementTypeIds: string[]
 ) {
-  const { error: delErr } = await supabase
-    .from("customer_required_endorsements")
-    .delete()
-    .eq("customer_id", customerId);
-
-  if (delErr) {
-    throw normalizeCustomerError(delErr, "delete_customer_required_endorsements");
-  }
-
-  if (endorsementTypeIds.length === 0) return;
-
-  const { error: insErr } = await supabase
-    .from("customer_required_endorsements")
-    .insert(
-      endorsementTypeIds.map((id) => ({
-        customer_id: customerId,
-        endorsement_type_id: id,
-      }))
+  try {
+    unwrapSupabase(
+      await supabase
+        .from("customer_required_endorsements")
+        .delete()
+        .eq("customer_id", customerId),
+      "delete_customer_required_endorsements_failed"
     );
 
-  if (insErr) {
-    throw normalizeCustomerError(insErr, "insert_customer_required_endorsements");
+    if (endorsementTypeIds.length === 0) return;
+
+    unwrapSupabase(
+      await supabase.from("customer_required_endorsements").insert(
+        endorsementTypeIds.map((id) => ({
+          customer_id: customerId,
+          endorsement_type_id: id,
+        }))
+      ),
+      "insert_customer_required_endorsements_failed"
+    );
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "set_customer_required_endorsements",
+      "Unable to save customer required endorsements."
+    );
   }
 }

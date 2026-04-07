@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
-import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
+import { useEffect, useMemo, useState } from "react";
 import { ensureMyCustomerOrg } from "../../lib/customers";
-import { logError } from "../../lib/logError";
+import { normalizeError } from "../../lib/errors/normalizeError";
+import { withErrorLogging } from "../../lib/errors/withErrorLogging";
+import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
+import { supabase } from "../../lib/supabaseClient";
 
 type PendingRole = "customer" | "contractor" | null;
 
@@ -15,8 +16,13 @@ type AppLikeError = Error & {
   details?: Record<string, unknown>;
 };
 
-function getSafeDashboardErrorMessage(error: AppLikeError, fallback: string) {
-  const code = String(error?.code || "");
+type DashboardProfile = {
+  role?: UserRole | null;
+} | null;
+
+function getSafeDashboardErrorMessage(error: unknown, fallback: string) {
+  const normalized = normalizeError(error) as AppLikeError;
+  const code = String(normalized.code || "");
 
   if (code.includes("duplicate")) {
     return "This account setup already exists. Please try again.";
@@ -56,60 +62,75 @@ export default function DashboardPage() {
       setErr(null);
 
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        const sessionResult = await withErrorLogging(
+          async () => {
+            const result = await supabase.auth.getSession();
+
+            if (result.error) {
+              throw result.error;
+            }
+
+            return result;
+          },
+          {
+            message: "dashboard_load_failed",
+            code: "dashboard_load_failed",
+            source: "frontend",
+            area: "auth",
+            role: null,
+            path: "/dashboard",
+          }
+        );
 
         if (!mounted) return;
 
-        if (!data.session?.user) {
+        if (!sessionResult.data.session?.user) {
           router.replace("/login");
           return;
         }
 
-        setEmail(data.session.user.email ?? null);
+        setEmail(sessionResult.data.session.user.email ?? null);
 
-        const profile = await getMyProfile();
+        const loadedProfile = (await withErrorLogging(
+          async () => (await getMyProfile()) as DashboardProfile,
+          {
+            message: "dashboard_get_profile_failed",
+            code: "dashboard_get_profile_failed",
+            source: "frontend",
+            area: "auth",
+            role: null,
+            path: "/dashboard",
+          }
+        )) as DashboardProfile;
 
         if (!mounted) return;
 
-        if (profile?.role) {
-          const r = profile.role as UserRole;
-          setRole(r);
+        if (loadedProfile?.role) {
+          const nextRole = loadedProfile.role;
+          setRole(nextRole);
 
-          if (r === "customer") {
+          if (nextRole === "customer") {
             router.replace("/customer");
             return;
           }
 
-          if (r === "contractor") {
+          if (nextRole === "contractor") {
             router.replace("/contractor");
             return;
           }
 
-          if (r === "admin") {
+          if (nextRole === "admin") {
             router.replace("/admin");
             return;
           }
         }
-      } catch (e: any) {
+      } catch {
         if (!mounted) return;
-
-        await logError("dashboard_load_failed", {
-          source: "frontend",
-          area: "auth",
-          role: null,
-          path: "/dashboard",
-          code: "dashboard_load_failed",
-          details: {
-            message: e?.message || "Unknown error",
-            originalCode: e?.code || null,
-            originalDetails: e?.details || null,
-          },
-        });
-
         setErr("Unable to load dashboard. Please try again.");
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -142,31 +163,43 @@ export default function DashboardPage() {
     setErr(null);
 
     try {
-      await createMyProfile(pendingRole);
+      await withErrorLogging(
+        () => createMyProfile(pendingRole),
+        {
+          message: "dashboard_create_profile_failed",
+          code: "dashboard_create_profile_failed",
+          source: "frontend",
+          area: "auth",
+          role: pendingRole,
+          path: "/dashboard",
+          details: {
+            selectedRole: pendingRole,
+          },
+        }
+      );
+
       setRole(pendingRole);
 
       if (pendingRole === "customer") {
         try {
-          await ensureMyCustomerOrg();
+          await withErrorLogging(
+            () => ensureMyCustomerOrg(),
+            {
+              message: "dashboard_ensure_customer_org_failed",
+              code: "dashboard_ensure_customer_org_failed",
+              source: "frontend",
+              area: "customer",
+              role: "customer",
+              path: "/dashboard",
+            }
+          );
+
           router.push("/customer/settings");
           return;
-        } catch (e: any) {
-          await logError("dashboard_ensure_customer_org_failed", {
-            source: "frontend",
-            area: "customer",
-            role: "customer",
-            path: "/dashboard",
-            code: "dashboard_ensure_customer_org_failed",
-            details: {
-              message: e?.message || "Unknown error",
-              originalCode: e?.code || null,
-              originalDetails: e?.details || null,
-            },
-          });
-
+        } catch (error) {
           setErr(
             getSafeDashboardErrorMessage(
-              e,
+              error,
               "Role was saved, but customer workspace setup failed. Please try again."
             )
           );
@@ -178,24 +211,10 @@ export default function DashboardPage() {
         router.push("/contractor");
         return;
       }
-    } catch (e: any) {
-      await logError("dashboard_create_profile_failed", {
-        source: "frontend",
-        area: "auth",
-        role: pendingRole,
-        path: "/dashboard",
-        code: "dashboard_create_profile_failed",
-        details: {
-          message: e?.message || "Unknown error",
-          selectedRole: pendingRole,
-          originalCode: e?.code || null,
-          originalDetails: e?.details || null,
-        },
-      });
-
+    } catch (error) {
       setErr(
         getSafeDashboardErrorMessage(
-          e,
+          error,
           "Unable to save your role. Please try again."
         )
       );
@@ -207,23 +226,30 @@ export default function DashboardPage() {
   async function handleLogout() {
     try {
       setLoggingOut(true);
-      await supabase.auth.signOut();
+
+      await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.signOut();
+
+          if (result.error) {
+            throw result.error;
+          }
+
+          return result;
+        },
+        {
+          message: "dashboard_logout_failed",
+          code: "dashboard_logout_failed",
+          source: "frontend",
+          area: "auth",
+          role,
+          path: "/dashboard",
+        }
+      );
+
       router.replace("/login");
       router.refresh();
-    } catch (e: any) {
-      await logError("dashboard_logout_failed", {
-        source: "frontend",
-        area: "auth",
-        role,
-        path: "/dashboard",
-        code: "dashboard_logout_failed",
-        details: {
-          message: e?.message || "Unknown error",
-          originalCode: e?.code || null,
-          originalDetails: e?.details || null,
-        },
-      });
-
+    } catch {
       setErr("Unable to log out. Please try again.");
     } finally {
       setLoggingOut(false);
@@ -245,50 +271,59 @@ export default function DashboardPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const checkout = await withErrorLogging(
+        async () => {
+          const sessionResult = await supabase.auth.getSession();
 
-      const res = await fetch("/api/checkout/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
+
+          const res = await fetch("/api/checkout/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              amount: finalSupportAmount,
+              email: sessionResult.data.session?.user?.email ?? null,
+              purpose: "platform_support",
+              successPath: "/dashboard",
+              cancelPath: "/dashboard",
+              title: "Support LEOTEOR Telecom Marketplace",
+              metadata: {
+                source: "dashboard",
+              },
+            }),
+          });
+
+          const json = await res.json();
+
+          if (!res.ok) {
+            throw new Error(json?.error || "Unable to start checkout");
+          }
+
+          if (!json?.url) {
+            throw new Error("Stripe checkout URL was not returned");
+          }
+
+          return json as { url: string };
         },
-        body: JSON.stringify({
-          amount: finalSupportAmount,
-          email: data.session?.user?.email ?? null,
-          purpose: "platform_support",
-          successPath: "/dashboard",
-          cancelPath: "/dashboard",
-          title: "Support LEOTEOR Telecom Marketplace",
-          metadata: {
-            source: "dashboard",
+        {
+          message: "dashboard_support_checkout_failed",
+          code: "dashboard_support_checkout_failed",
+          source: "frontend",
+          area: "checkout",
+          role,
+          path: "/dashboard",
+          details: {
+            amount: finalSupportAmount,
           },
-        }),
-      });
+        }
+      );
 
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Unable to start checkout");
-      }
-
-      if (!json?.url) {
-        throw new Error("Stripe checkout URL was not returned");
-      }
-
-      window.location.href = json.url;
-    } catch (e: any) {
-      await logError("dashboard_support_checkout_failed", {
-        source: "frontend",
-        area: "checkout",
-        role,
-        path: "/dashboard",
-        code: "dashboard_support_checkout_failed",
-        details: {
-          message: e?.message || "Unknown error",
-          amount: finalSupportAmount,
-        },
-      });
-
+      window.location.href = checkout.url;
+    } catch {
       setErr("Unable to open support checkout. Please try again.");
       setSupportLoading(false);
     }

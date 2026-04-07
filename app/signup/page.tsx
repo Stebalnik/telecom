@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { normalizeError } from "../../lib/errors/normalizeError";
+import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
-import { logError } from "../../lib/logError";
 
-function getErrorMessage(message: string) {
-  const normalized = message.toLowerCase();
+function getErrorMessage(error: unknown) {
+  const normalized = normalizeError(error);
+  const message = String(normalized.message || "").toLowerCase();
 
-  if (normalized.includes("user already registered")) {
+  if (message.includes("user already registered")) {
     return "An account with this email already exists.";
   }
 
-  if (normalized.includes("password should be at least")) {
+  if (message.includes("password should be at least")) {
     return "Password must be at least 6 characters.";
   }
 
@@ -23,6 +25,7 @@ function getErrorMessage(message: string) {
 
 export default function SignupPage() {
   const router = useRouter();
+  const redirectTimeoutRef = useRef<number | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,6 +34,14 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current !== null) {
+        window.clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,27 +70,30 @@ export default function SignupPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-      });
+      const { data } = await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.signUp({
+            email: normalizedEmail,
+            password,
+          });
 
-      if (error) {
-        await logError("signup_failed", {
+          if (result.error) {
+            throw result.error;
+          }
+
+          return result;
+        },
+        {
+          message: "signup_failed",
+          code: "signup_failed",
           source: "frontend",
           area: "auth",
           path: "/signup",
-          code: "signup_failed",
           details: {
-            message: error.message,
             email: normalizedEmail,
           },
-        });
-
-        setError(getErrorMessage(error.message));
-        setLoading(false);
-        return;
-      }
+        }
+      );
 
       await track("signup", {
         meta: {
@@ -95,24 +109,12 @@ export default function SignupPage() {
       setPassword("");
       setConfirmPassword("");
 
-      setLoading(false);
-
-      setTimeout(() => {
+      redirectTimeoutRef.current = window.setTimeout(() => {
         router.push("/login");
       }, 1200);
-    } catch (e: any) {
-      await logError("signup_exception", {
-        source: "frontend",
-        area: "auth",
-        path: "/signup",
-        code: "signup_exception",
-        details: {
-          message: e?.message || "Unknown error",
-          email: normalizedEmail,
-        },
-      });
-
-      setError("Unable to create account. Please try again.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
       setLoading(false);
     }
   }

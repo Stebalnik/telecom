@@ -3,10 +3,12 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { normalizeError } from "../../../../lib/errors/normalizeError";
+import { unwrapSupabase } from "../../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
+import { getMyProfile, UserRole } from "../../../../lib/profile";
 import { supabase } from "../../../../lib/supabaseClient";
-import { getMyProfile } from "../../../../lib/profile";
 import { track } from "../../../../lib/track";
-import { logError } from "../../../../lib/logError";
 
 type Company = {
   id: string;
@@ -63,6 +65,10 @@ type AppLikeError = Error & {
   code?: string;
   details?: Record<string, unknown>;
 };
+
+type ProfileLike = {
+  role?: UserRole | null;
+} | null;
 
 const US_STATES = [
   "Alabama",
@@ -121,14 +127,10 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function last4(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits.slice(-4);
-}
-
-function getSafeErrorMessage(error: AppLikeError, fallback: string) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function getSafeErrorMessage(error: unknown, fallback: string) {
+  const normalized = normalizeError(error) as AppLikeError;
+  const code = String(normalized.code || "");
+  const message = String(normalized.message || "").toLowerCase();
 
   if (code.includes("duplicate") || message.includes("duplicate key")) {
     return "This company record already exists. Please refresh and try again.";
@@ -227,29 +229,11 @@ export default function ContractorCompanyOnboardingPage() {
   const [bankRouting, setBankRouting] = useState("");
   const [bankAccount, setBankAccount] = useState("");
 
-  const [payoutMethodType, setPayoutMethodType] = useState("ach");
+  const [payoutMethodType] = useState("ach");
   const [payoutAccountLabel, setPayoutAccountLabel] = useState("");
   const [payoutContactEmail, setPayoutContactEmail] = useState("");
   const [payoutContactPhone, setPayoutContactPhone] = useState("");
   const [payoutExternalRef, setPayoutExternalRef] = useState("");
-
-  const [billingMethodType, setBillingMethodType] = useState("debit_card");
-  const [billingAccountLabel, setBillingAccountLabel] = useState("");
-  const [billingContactEmail, setBillingContactEmail] = useState("");
-  const [billingContactPhone, setBillingContactPhone] = useState("");
-  const [billingExternalRef, setBillingExternalRef] = useState("");
-
-  const [billingCardholderName, setBillingCardholderName] = useState("");
-  const [billingCardNumber, setBillingCardNumber] = useState("");
-  const [billingCardSecurityCode, setBillingCardSecurityCode] = useState("");
-  const [billingCardExpMonth, setBillingCardExpMonth] = useState("");
-  const [billingCardExpYear, setBillingCardExpYear] = useState("");
-
-  const [billingPaypalEmail, setBillingPaypalEmail] = useState("");
-  const [billingStripeAccountId, setBillingStripeAccountId] = useState("");
-  const [billingBankHolder, setBillingBankHolder] = useState("");
-  const [billingBankRouting, setBillingBankRouting] = useState("");
-  const [billingBankAccountNumber, setBillingBankAccountNumber] = useState("");
 
   const [homeMarket, setHomeMarket] = useState("");
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
@@ -290,195 +274,196 @@ export default function ContractorCompanyOnboardingPage() {
     setBankRouting(c.bank_routing || "");
     setBankAccount(c.bank_account || "");
 
-    setPayoutMethodType(c.payout_method_type || "ach");
     setPayoutAccountLabel(c.payout_account_label || "");
     setPayoutContactEmail(c.payout_contact_email || "");
     setPayoutContactPhone(c.payout_contact_phone || "");
     setPayoutExternalRef(c.payout_external_ref || "");
-
-    setBillingMethodType(c.billing_method_type || "debit_card");
-    setBillingAccountLabel(c.billing_account_label || "");
-    setBillingContactEmail(c.billing_contact_email || "");
-    setBillingContactPhone(c.billing_contact_phone || "");
-    setBillingExternalRef(c.billing_external_ref || "");
 
     setHomeMarket(profile?.home_market || "");
     setSelectedMarkets(profile?.markets || []);
   }
 
   async function getOrCreateDraftCompany(userId: string): Promise<Company> {
-    const { data: existing, error: selErr } = await supabase
-      .from("contractor_companies")
-      .select(`
-        id,
-        owner_user_id,
-        legal_name,
-        dba_name,
-        fein,
-        phone,
-        email,
-        address_line1,
-        address_line2,
-        city,
-        state,
-        zip,
-        country,
-        bank_account_holder,
-        bank_routing,
-        bank_account,
-        payout_method_type,
-        payout_account_label,
-        payout_contact_email,
-        payout_contact_phone,
-        payout_external_ref,
-        billing_method_type,
-        billing_account_label,
-        billing_contact_email,
-        billing_contact_phone,
-        billing_external_ref,
-        billing_provider,
-        billing_customer_id,
-        billing_payment_method_id,
-        billing_card_brand,
-        billing_last4,
-        billing_exp_month,
-        billing_exp_year,
-        onboarding_status
-      `)
-      .eq("owner_user_id", userId)
-      .maybeSingle();
+    const existing = unwrapSupabase<Company | null>(
+      await supabase
+        .from("contractor_companies")
+        .select(
+          `
+          id,
+          owner_user_id,
+          legal_name,
+          dba_name,
+          fein,
+          phone,
+          email,
+          address_line1,
+          address_line2,
+          city,
+          state,
+          zip,
+          country,
+          bank_account_holder,
+          bank_routing,
+          bank_account,
+          payout_method_type,
+          payout_account_label,
+          payout_contact_email,
+          payout_contact_phone,
+          payout_external_ref,
+          billing_method_type,
+          billing_account_label,
+          billing_contact_email,
+          billing_contact_phone,
+          billing_external_ref,
+          billing_provider,
+          billing_customer_id,
+          billing_payment_method_id,
+          billing_card_brand,
+          billing_last4,
+          billing_exp_month,
+          billing_exp_year,
+          onboarding_status
+        `
+        )
+        .eq("owner_user_id", userId)
+        .maybeSingle(),
+      "contractor_onboarding_get_company_failed"
+    );
 
-    if (selErr) {
-      throw new Error(selErr.message);
-    }
+    if (existing) return existing;
 
-    if (existing) return existing as Company;
+    const created = unwrapSupabase<Company>(
+      await supabase
+        .from("contractor_companies")
+        .insert({
+          owner_user_id: userId,
+          legal_name: "Draft company",
+          onboarding_status: "draft",
+          status: "active",
+          payout_method_type: "ach",
+        })
+        .select(
+          `
+          id,
+          owner_user_id,
+          legal_name,
+          dba_name,
+          fein,
+          phone,
+          email,
+          address_line1,
+          address_line2,
+          city,
+          state,
+          zip,
+          country,
+          bank_account_holder,
+          bank_routing,
+          bank_account,
+          payout_method_type,
+          payout_account_label,
+          payout_contact_email,
+          payout_contact_phone,
+          payout_external_ref,
+          billing_method_type,
+          billing_account_label,
+          billing_contact_email,
+          billing_contact_phone,
+          billing_external_ref,
+          billing_provider,
+          billing_customer_id,
+          billing_payment_method_id,
+          billing_card_brand,
+          billing_last4,
+          billing_exp_month,
+          billing_exp_year,
+          onboarding_status
+        `
+        )
+        .single(),
+      "contractor_onboarding_create_company_failed"
+    );
 
-    const { data: created, error: insErr } = await supabase
-      .from("contractor_companies")
-      .insert({
-        owner_user_id: userId,
-        legal_name: "Draft company",
-        onboarding_status: "draft",
-        status: "active",
-      })
-      .select(`
-        id,
-        owner_user_id,
-        legal_name,
-        dba_name,
-        fein,
-        phone,
-        email,
-        address_line1,
-        address_line2,
-        city,
-        state,
-        zip,
-        country,
-        bank_account_holder,
-        bank_routing,
-        bank_account,
-        payout_method_type,
-        payout_account_label,
-        payout_contact_email,
-        payout_contact_phone,
-        payout_external_ref,
-        billing_method_type,
-        billing_account_label,
-        billing_contact_email,
-        billing_contact_phone,
-        billing_external_ref,
-        billing_provider,
-        billing_customer_id,
-        billing_payment_method_id,
-        billing_card_brand,
-        billing_last4,
-        billing_exp_month,
-        billing_exp_year,
-        onboarding_status
-      `)
-      .single();
-
-    if (insErr) {
-      throw new Error(insErr.message);
-    }
-
-    return created as Company;
+    return created;
   }
 
   async function getPublicProfile(
     companyId: string
   ): Promise<ContractorPublicProfile | null> {
-    const { data, error } = await supabase
-      .from("contractor_public_profiles")
-      .select("company_id, home_market, markets, is_listed")
-      .eq("company_id", companyId)
-      .maybeSingle();
+    const data = unwrapSupabase<ContractorPublicProfile | null>(
+      await supabase
+        .from("contractor_public_profiles")
+        .select("company_id, home_market, markets, is_listed")
+        .eq("company_id", companyId)
+        .maybeSingle(),
+      "contractor_onboarding_get_public_profile_failed"
+    );
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data ?? null) as ContractorPublicProfile | null;
+    return data ?? null;
   }
 
   async function loadPage() {
-    setLoading(true);
-    setErr(null);
+  setLoading(true);
+  setErr(null);
 
-    try {
-      const { data } = await supabase.auth.getSession();
+  try {
+    await withErrorLogging(
+      async () => {
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
-      }
+        if (sessionError) {
+          throw sessionError;
+        }
 
-      const profile = await getMyProfile();
+        if (!sessionData.session?.user) {
+          router.replace("/login");
+          return;
+        }
 
-      if (!profile || profile.role !== "contractor") {
-        router.replace("/dashboard");
-        return;
-      }
+        const profile = (await getMyProfile()) as ProfileLike;
 
-      const c = await getOrCreateDraftCompany(data.session.user.id);
+        if (!profile || profile.role !== "contractor") {
+          router.replace("/dashboard");
+          return;
+        }
 
-      if (c.onboarding_status !== "draft") {
-        router.replace("/contractor");
-        return;
-      }
+        const draftCompany = await getOrCreateDraftCompany(
+          sessionData.session.user.id
+        );
 
-      const publicProfile = await getPublicProfile(c.id);
-      fillForm(c, publicProfile);
+        if (draftCompany.onboarding_status !== "draft") {
+          router.replace("/contractor");
+          return;
+        }
 
-      await track("contractor_onboarding_started", {
-        role: "contractor",
-        meta: {
-          companyId: c.id,
-        },
-      });
-    } catch (e: any) {
-      await logError("contractor_onboarding_load_failed", {
+        const publicProfile = await getPublicProfile(draftCompany.id);
+        fillForm(draftCompany, publicProfile);
+
+        await track("contractor_onboarding_started", {
+          role: "contractor",
+          meta: {
+            companyId: draftCompany.id,
+          },
+        });
+      },
+      {
+        message: "contractor_onboarding_load_failed",
+        code: "contractor_onboarding_load_failed",
         source: "frontend",
         area: "contractor",
         role: "contractor",
         path: "/contractor/onboarding/company",
-        code: "contractor_onboarding_load_failed",
-        details: {
-          message: e?.message || "Unknown error",
-          originalCode: e?.code || null,
-          originalDetails: e?.details || null,
-        },
-      });
-
-      setErr(
-        getSafeErrorMessage(e, "Unable to load onboarding. Please try again.")
-      );
-    } finally {
-      setLoading(false);
-    }
+      }
+    );
+  } catch (error) {
+    setErr(
+      getSafeErrorMessage(error, "Unable to load onboarding. Please try again.")
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     void loadPage();
@@ -489,207 +474,122 @@ export default function ContractorCompanyOnboardingPage() {
     e.preventDefault();
     setErr(null);
 
+    if (!company) {
+      setErr("Company draft was not created.");
+      return;
+    }
+
+    if (!legalName.trim()) {
+      setErr("Company legal name is required.");
+      return;
+    }
+
+    if (!homeMarket.trim()) {
+      setErr("Home state is required.");
+      return;
+    }
+
+    if (selectedMarkets.length === 0) {
+      setErr("Select at least one working state.");
+      return;
+    }
+
     try {
-      if (!company) {
-        await logError("contractor_onboarding_missing_company", {
+      setSaving(true);
+
+      await withErrorLogging(
+        async () => {
+          const companyPayload = {
+            legal_name: legalName.trim(),
+            dba_name: dbaName.trim() || null,
+            fein: fein.trim() || null,
+            phone: phone.trim() || null,
+            email: email.trim() || null,
+            address_line1: addressLine1.trim() || null,
+            address_line2: addressLine2.trim() || null,
+            city: city.trim() || null,
+            state: stateValue.trim() || null,
+            zip: zip.trim() || null,
+            country: country.trim() || "US",
+
+            bank_account_holder: bankAccountHolder.trim() || null,
+            bank_routing: bankRouting.trim() || null,
+            bank_account: bankAccount.trim() || null,
+
+            payout_method_type: payoutMethodType,
+            payout_account_label: payoutAccountLabel.trim() || null,
+            payout_contact_email: payoutContactEmail.trim() || null,
+            payout_contact_phone: payoutContactPhone.trim() || null,
+            payout_external_ref: payoutExternalRef.trim() || null,
+
+            billing_method_type: null,
+            billing_account_label: null,
+            billing_contact_email: null,
+            billing_contact_phone: null,
+            billing_external_ref: null,
+
+            billing_provider: null,
+            billing_customer_id: null,
+            billing_payment_method_id: null,
+            billing_card_brand: null,
+            billing_last4: null,
+            billing_exp_month: null,
+            billing_exp_year: null,
+
+            onboarding_status: "submitted" as const,
+            submitted_at: new Date().toISOString(),
+          };
+
+          unwrapSupabase(
+            await supabase
+              .from("contractor_companies")
+              .update(companyPayload)
+              .eq("id", company.id),
+            "contractor_onboarding_update_company_failed"
+          );
+
+          const profilePayload = {
+            company_id: company.id,
+            home_market: homeMarket,
+            markets: uniq(selectedMarkets),
+            is_listed: true,
+            updated_at: new Date().toISOString(),
+          };
+
+          unwrapSupabase(
+            await supabase
+              .from("contractor_public_profiles")
+              .upsert(profilePayload, { onConflict: "company_id" }),
+            "contractor_onboarding_update_public_profile_failed"
+          );
+
+          await track("contractor_onboarding_submitted", {
+            role: "contractor",
+            meta: {
+              companyId: company.id,
+            },
+          });
+
+          router.replace("/contractor");
+        },
+        {
+          message: "contractor_onboarding_submit_failed",
+          code: "contractor_onboarding_submit_failed",
           source: "frontend",
           area: "contractor",
           role: "contractor",
           path: "/contractor/onboarding/company",
-          code: "contractor_onboarding_missing_company",
-          details: {},
-        });
-
-        setErr("Company draft was not created.");
-        return;
-      }
-
-      if (!legalName.trim()) {
-        setErr("Company legal name is required.");
-        return;
-      }
-
-      if (!homeMarket.trim()) {
-        setErr("Home state is required.");
-        return;
-      }
-
-      if (selectedMarkets.length === 0) {
-        setErr("Select at least one working state.");
-        return;
-      }
-
-      let nextBillingAccountLabel = billingAccountLabel.trim() || null;
-      let nextBillingContactEmail = billingContactEmail.trim() || null;
-      let nextBillingContactPhone = billingContactPhone.trim() || null;
-      let nextBillingExternalRef = billingExternalRef.trim() || null;
-
-      let nextBillingProvider: string | null = null;
-      let nextBillingCustomerId: string | null = null;
-      let nextBillingPaymentMethodId: string | null = null;
-      let nextBillingCardBrand: string | null = null;
-      let nextBillingLast4: string | null = null;
-      let nextBillingExpMonth: number | null = null;
-      let nextBillingExpYear: number | null = null;
-
-      if (
-        billingMethodType === "credit_card" ||
-        billingMethodType === "debit_card"
-      ) {
-        if (!billingCardNumber.trim()) {
-          setErr("Card number is required for card billing.");
-          return;
+          details: {
+            companyId: company.id,
+          },
         }
-
-        if (!billingCardExpMonth.trim() || !billingCardExpYear.trim()) {
-          setErr("Card expiration date is required.");
-          return;
-        }
-
-        const masked = last4(billingCardNumber);
-        nextBillingLast4 = masked || null;
-        nextBillingExpMonth = Number(billingCardExpMonth) || null;
-        nextBillingExpYear = Number(billingCardExpYear) || null;
-        nextBillingCardBrand =
-          billingMethodType === "credit_card" ? "credit_card" : "debit_card";
-
-        nextBillingAccountLabel =
-          nextBillingAccountLabel ||
-          `${
-            billingMethodType === "credit_card" ? "Credit card" : "Debit card"
-          } ending ${masked}`;
-
-        nextBillingExternalRef = `ending ${masked}`;
-      }
-
-      if (billingMethodType === "paypal") {
-        if (!billingPaypalEmail.trim()) {
-          setErr("PayPal email is required.");
-          return;
-        }
-
-        nextBillingContactEmail = billingPaypalEmail.trim();
-        nextBillingAccountLabel = nextBillingAccountLabel || "PayPal";
-        nextBillingExternalRef = billingPaypalEmail.trim();
-      }
-
-      if (billingMethodType === "stripe_connect") {
-        if (!billingStripeAccountId.trim()) {
-          setErr("Stripe account ID is required.");
-          return;
-        }
-
-        nextBillingProvider = "stripe";
-        nextBillingAccountLabel = nextBillingAccountLabel || "Stripe Connect";
-        nextBillingExternalRef = billingStripeAccountId.trim();
-      }
-
-      if (billingMethodType === "bank_account") {
-        if (!billingBankRouting.trim() || !billingBankAccountNumber.trim()) {
-          setErr("Bank routing and account number are required.");
-          return;
-        }
-
-        const masked = last4(billingBankAccountNumber);
-        nextBillingAccountLabel =
-          nextBillingAccountLabel ||
-          `${billingBankHolder.trim() || "Bank account"} ending ${masked}`;
-        nextBillingExternalRef = `ending ${masked}`;
-      }
-
-      setSaving(true);
-
-      const companyPayload = {
-        legal_name: legalName.trim(),
-        dba_name: dbaName.trim() || null,
-        fein: fein.trim() || null,
-        phone: phone.trim() || null,
-        email: email.trim() || null,
-        address_line1: addressLine1.trim() || null,
-        address_line2: addressLine2.trim() || null,
-        city: city.trim() || null,
-        state: stateValue.trim() || null,
-        zip: zip.trim() || null,
-        country: country.trim() || "US",
-
-        bank_account_holder: bankAccountHolder.trim() || null,
-        bank_routing: bankRouting.trim() || null,
-        bank_account: bankAccount.trim() || null,
-
-        payout_method_type: payoutMethodType || null,
-        payout_account_label: payoutAccountLabel.trim() || null,
-        payout_contact_email: payoutContactEmail.trim() || null,
-        payout_contact_phone: payoutContactPhone.trim() || null,
-        payout_external_ref: payoutExternalRef.trim() || null,
-
-        billing_method_type: billingMethodType || null,
-        billing_account_label: nextBillingAccountLabel,
-        billing_contact_email: nextBillingContactEmail,
-        billing_contact_phone: nextBillingContactPhone,
-        billing_external_ref: nextBillingExternalRef,
-
-        billing_provider: nextBillingProvider,
-        billing_customer_id: nextBillingCustomerId,
-        billing_payment_method_id: nextBillingPaymentMethodId,
-        billing_card_brand: nextBillingCardBrand,
-        billing_last4: nextBillingLast4,
-        billing_exp_month: nextBillingExpMonth,
-        billing_exp_year: nextBillingExpYear,
-
-        onboarding_status: "submitted" as const,
-        submitted_at: new Date().toISOString(),
-      };
-
-      const { error: companyError } = await supabase
-        .from("contractor_companies")
-        .update(companyPayload)
-        .eq("id", company.id);
-
-      if (companyError) {
-        throw new Error(companyError.message);
-      }
-
-      const profilePayload = {
-        company_id: company.id,
-        home_market: homeMarket,
-        markets: uniq(selectedMarkets),
-        is_listed: true,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: profileError } = await supabase
-        .from("contractor_public_profiles")
-        .upsert(profilePayload, { onConflict: "company_id" });
-
-      if (profileError) {
-        throw new Error(profileError.message);
-      }
-
-      await track("contractor_onboarding_submitted", {
-        role: "contractor",
-        meta: {
-          companyId: company.id,
-        },
-      });
-
-      router.replace("/contractor");
-    } catch (e: any) {
-      await logError("contractor_onboarding_submit_failed", {
-        source: "frontend",
-        area: "contractor",
-        role: "contractor",
-        path: "/contractor/onboarding/company",
-        code: "contractor_onboarding_submit_failed",
-        details: {
-          message: e?.message || "Unknown error",
-          companyId: company?.id ?? null,
-          originalCode: e?.code || null,
-          originalDetails: e?.details || null,
-        },
-      });
-
+      );
+    } catch (error) {
       setErr(
-        getSafeErrorMessage(e, "Unable to submit onboarding. Please try again.")
+        getSafeErrorMessage(
+          error,
+          "Unable to submit onboarding. Please try again."
+        )
       );
     } finally {
       setSaving(false);
@@ -909,10 +809,15 @@ export default function ContractorCompanyOnboardingPage() {
           </SectionCard>
 
           <SectionCard
-            title="Payout & ACH details"
-            description="These details are used for contractor payouts, ACH paperwork, and agreement data between customer and contractor."
+            title="Payout details"
+            description="For now, we only collect ACH payout details for contractor payments."
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <FieldLabel>Payout method</FieldLabel>
+                <TextInput value="ACH" disabled readOnly />
+              </div>
+
               <div className="sm:col-span-2">
                 <FieldLabel>Account holder</FieldLabel>
                 <TextInput
@@ -927,6 +832,7 @@ export default function ContractorCompanyOnboardingPage() {
                 <TextInput
                   value={bankRouting}
                   onChange={(e) => setBankRouting(e.target.value)}
+                  placeholder="Routing number"
                 />
               </div>
 
@@ -935,22 +841,8 @@ export default function ContractorCompanyOnboardingPage() {
                 <TextInput
                   value={bankAccount}
                   onChange={(e) => setBankAccount(e.target.value)}
+                  placeholder="Account number"
                 />
-              </div>
-
-              <div className="sm:col-span-2">
-                <FieldLabel>Payout method</FieldLabel>
-                <SelectInput
-                  value={payoutMethodType}
-                  onChange={(e) => setPayoutMethodType(e.target.value)}
-                >
-                  <option value="ach">ACH</option>
-                  <option value="wire">Wire transfer</option>
-                  <option value="bank_transfer">Bank transfer</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="zelle">Zelle</option>
-                  <option value="other">Other</option>
-                </SelectInput>
               </div>
 
               <div className="sm:col-span-2">
@@ -985,180 +877,9 @@ export default function ContractorCompanyOnboardingPage() {
                 <TextInput
                   value={payoutExternalRef}
                   onChange={(e) => setPayoutExternalRef(e.target.value)}
-                  placeholder="Internal payout account name, processor reference, or other note"
+                  placeholder="Internal payout reference or ACH note"
                 />
               </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Marketplace billing method"
-            description="Choose how your company will pay marketplace fees and services. Sensitive card data should later go directly to the payment processor."
-          >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <FieldLabel>Billing method</FieldLabel>
-                <SelectInput
-                  value={billingMethodType}
-                  onChange={(e) => setBillingMethodType(e.target.value)}
-                >
-                  <option value="debit_card">Debit card</option>
-                  <option value="credit_card">Credit card</option>
-                  <option value="bank_account">Bank account</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="stripe_connect">Stripe Connect</option>
-                  <option value="other">Other</option>
-                </SelectInput>
-              </div>
-
-              {(billingMethodType === "credit_card" ||
-                billingMethodType === "debit_card") && (
-                <>
-                  <div className="sm:col-span-2">
-                    <FieldLabel>Cardholder name</FieldLabel>
-                    <TextInput
-                      value={billingCardholderName}
-                      onChange={(e) => setBillingCardholderName(e.target.value)}
-                      placeholder="Name on card"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <FieldLabel required>Card number</FieldLabel>
-                    <TextInput
-                      value={billingCardNumber}
-                      onChange={(e) => setBillingCardNumber(e.target.value)}
-                      placeholder="•••• •••• •••• ••••"
-                      inputMode="numeric"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel required>Expiration month</FieldLabel>
-                    <TextInput
-                      value={billingCardExpMonth}
-                      onChange={(e) => setBillingCardExpMonth(e.target.value)}
-                      placeholder="MM"
-                      inputMode="numeric"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel required>Expiration year</FieldLabel>
-                    <TextInput
-                      value={billingCardExpYear}
-                      onChange={(e) => setBillingCardExpYear(e.target.value)}
-                      placeholder="YYYY"
-                      inputMode="numeric"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <FieldLabel>Security code</FieldLabel>
-                    <TextInput
-                      value={billingCardSecurityCode}
-                      onChange={(e) => setBillingCardSecurityCode(e.target.value)}
-                      placeholder="CVV / CVC"
-                      inputMode="numeric"
-                    />
-                  </div>
-                </>
-              )}
-
-              {billingMethodType === "paypal" && (
-                <div className="sm:col-span-2">
-                  <FieldLabel required>PayPal email</FieldLabel>
-                  <TextInput
-                    value={billingPaypalEmail}
-                    onChange={(e) => setBillingPaypalEmail(e.target.value)}
-                    placeholder="paypal@company.com"
-                  />
-                </div>
-              )}
-
-              {billingMethodType === "stripe_connect" && (
-                <div className="sm:col-span-2">
-                  <FieldLabel required>Stripe account ID</FieldLabel>
-                  <TextInput
-                    value={billingStripeAccountId}
-                    onChange={(e) => setBillingStripeAccountId(e.target.value)}
-                    placeholder="acct_..."
-                  />
-                </div>
-              )}
-
-              {billingMethodType === "bank_account" && (
-                <>
-                  <div className="sm:col-span-2">
-                    <FieldLabel>Account holder</FieldLabel>
-                    <TextInput
-                      value={billingBankHolder}
-                      onChange={(e) => setBillingBankHolder(e.target.value)}
-                      placeholder="Account holder name"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel required>Routing number</FieldLabel>
-                    <TextInput
-                      value={billingBankRouting}
-                      onChange={(e) => setBillingBankRouting(e.target.value)}
-                      placeholder="Routing number"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel required>Account number</FieldLabel>
-                    <TextInput
-                      value={billingBankAccountNumber}
-                      onChange={(e) =>
-                        setBillingBankAccountNumber(e.target.value)
-                      }
-                      placeholder="Account number"
-                    />
-                  </div>
-                </>
-              )}
-
-              {billingMethodType === "other" && (
-                <>
-                  <div className="sm:col-span-2">
-                    <FieldLabel>Billing account label</FieldLabel>
-                    <TextInput
-                      value={billingAccountLabel}
-                      onChange={(e) => setBillingAccountLabel(e.target.value)}
-                      placeholder="Describe billing method"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel>Billing email</FieldLabel>
-                    <TextInput
-                      value={billingContactEmail}
-                      onChange={(e) => setBillingContactEmail(e.target.value)}
-                      placeholder="billing@company.com"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel>Billing phone</FieldLabel>
-                    <TextInput
-                      value={billingContactPhone}
-                      onChange={(e) => setBillingContactPhone(e.target.value)}
-                      placeholder="+1 ..."
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <FieldLabel>Billing external reference</FieldLabel>
-                    <TextInput
-                      value={billingExternalRef}
-                      onChange={(e) => setBillingExternalRef(e.target.value)}
-                      placeholder="Safe reference or identifier"
-                    />
-                  </div>
-                </>
-              )}
             </div>
           </SectionCard>
 

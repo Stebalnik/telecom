@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Mon Apr  6 21:49:34 EDT 2026
+Generated: Tue Apr  7 09:01:34 EDT 2026
 
 ## 1. Root directories
 ```
@@ -110,6 +110,7 @@ Generated: Mon Apr  6 21:49:34 EDT 2026
 ./docs
 ./lib
 ./lib/analytics
+./lib/errors
 ./lib/server
 ./lib/supabase
 ./project_rules
@@ -238,6 +239,7 @@ Generated: Mon Apr  6 21:49:34 EDT 2026
 ./components/LogoutButton.tsx
 ./docs/.DS_Store
 ./docs/backend_rules.md
+./docs/error_handling_standard.md
 ./docs/frontend_patterns.md
 ./docs/frontend_standard.md
 ./docs/LEOTEOR_UI_DESIGN_SYSTEM.md
@@ -260,6 +262,10 @@ Generated: Mon Apr  6 21:49:34 EDT 2026
 ./lib/dateUtils.ts
 ./lib/documents.ts
 ./lib/eligibility.ts
+./lib/errors/normalizeError.ts
+./lib/errors/unwrapSupabase.ts
+./lib/errors/withErrorLogging.ts
+./lib/errors/withServerErrorLogging.ts
 ./lib/jobFiles.ts
 ./lib/jobs.ts
 ./lib/logError.ts
@@ -449,6 +455,10 @@ lib/customers.ts
 lib/dateUtils.ts
 lib/documents.ts
 lib/eligibility.ts
+lib/errors/normalizeError.ts
+lib/errors/unwrapSupabase.ts
+lib/errors/withErrorLogging.ts
+lib/errors/withServerErrorLogging.ts
 lib/jobFiles.ts
 lib/jobs.ts
 lib/logError.ts

@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { withErrorLogging } from "../../lib/errors/withErrorLogging";
+import { normalizeError } from "../../lib/errors/normalizeError";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
-import { logError } from "../../lib/logError";
 
-function getErrorMessage(message: string) {
-  const normalized = message.toLowerCase();
+function getErrorMessage(error: unknown) {
+  const normalized = normalizeError(error);
+  const message = String(normalized.message || "").toLowerCase();
 
-  if (normalized.includes("invalid login credentials")) {
+  if (message.includes("invalid login credentials")) {
     return "Invalid email or password.";
   }
 
-  if (normalized.includes("email not confirmed")) {
+  if (message.includes("email not confirmed")) {
     return "Please confirm your email before logging in.";
   }
 
@@ -36,30 +38,38 @@ export default function LoginPage() {
 
     async function checkExistingSession() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await withErrorLogging(
+          async () => {
+            const result = await supabase.auth.getSession();
+
+            if (result.error) {
+              throw result.error;
+            }
+
+            return result;
+          },
+          {
+            message: "login_check_session_failed",
+            code: "login_check_session_failed",
+            source: "frontend",
+            area: "auth",
+            path: "/login",
+          }
+        );
 
         if (!mounted) return;
-        if (error) throw error;
 
         if (data.session?.user) {
           router.replace("/dashboard");
           router.refresh();
           return;
         }
-      } catch (e: any) {
+      } catch {
         if (!mounted) return;
-
-        await logError("login_check_session_failed", {
-          source: "frontend",
-          area: "auth",
-          path: "/login",
-          code: "login_check_session_failed",
-          details: {
-            message: e?.message || "Unknown error",
-          },
-        });
       } finally {
-        if (mounted) setCheckingSession(false);
+        if (mounted) {
+          setCheckingSession(false);
+        }
       }
     }
 
@@ -84,26 +94,27 @@ export default function LoginPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
+      const { data } = await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
 
-      if (error) {
-        await logError("login_failed", {
+          if (result.error) {
+            throw result.error;
+          }
+
+          return result;
+        },
+        {
+          message: "login_failed",
+          code: "login_failed",
           source: "frontend",
           area: "auth",
           path: "/login",
-          code: "login_failed",
-          details: {
-            message: error.message,
-          },
-        });
-
-        setLoading(false);
-        setError(getErrorMessage(error.message));
-        return;
-      }
+        }
+      );
 
       await track("login", {
         meta: {
@@ -113,18 +124,9 @@ export default function LoginPage() {
 
       router.replace("/dashboard");
       router.refresh();
-    } catch (e: any) {
-      await logError("login_exception", {
-        source: "frontend",
-        area: "auth",
-        path: "/login",
-        code: "login_exception",
-        details: {
-          message: e?.message || "Unknown error",
-        },
-      });
-
-      setError("Unable to sign in. Please try again.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
       setLoading(false);
     }
   }

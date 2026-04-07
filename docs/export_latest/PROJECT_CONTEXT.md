@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Mon Apr  6 21:49:34 EDT 2026
+Generated: Tue Apr  7 09:01:34 EDT 2026
 
-Export folder: docs/export_files/2026-04-06_21-49-34
+Export folder: docs/export_files/2026-04-07_09-01-34
 
 ## 1. Directory tree
 ```
@@ -110,6 +110,7 @@ components
 components/analytics
 lib
 lib/analytics
+lib/errors
 lib/server
 lib/supabase
 public
@@ -248,6 +249,10 @@ lib/customers.ts
 lib/dateUtils.ts
 lib/documents.ts
 lib/eligibility.ts
+lib/errors/normalizeError.ts
+lib/errors/unwrapSupabase.ts
+lib/errors/withErrorLogging.ts
+lib/errors/withServerErrorLogging.ts
 lib/jobFiles.ts
 lib/jobs.ts
 lib/logError.ts
