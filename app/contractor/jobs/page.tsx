@@ -1,22 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
+import { useEffect, useMemo, useState } from "react";
+import { listMyCompanies, listMyCustomerApprovalRows, approvalRowByCustomerId, requestCustomerApproval, type CustomerApprovalRow } from "../../../lib/contractor";
+import { normalizeError } from "../../../lib/errors/normalizeError";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { listJobFilesForJobs, openJobFileSigned, JobFileRow } from "../../../lib/jobFiles";
 import { getMyProfile } from "../../../lib/profile";
-import {
-  listJobFilesForJobs,
-  openJobFileSigned,
-  JobFileRow,
-} from "../../../lib/jobFiles";
-import {
-  listMyCompanies,
-  listMyCustomerApprovalRows,
-  approvalRowByCustomerId,
-  requestCustomerApproval,
-  type CustomerApprovalRow,
-} from "../../../lib/contractor";
+import { supabase } from "../../../lib/supabaseClient";
 
 type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
 
@@ -51,6 +44,18 @@ type CompanyOption = {
   name?: string | null;
 };
 
+type LoadJobsResult = {
+  jobs: JobRow[];
+  filesByJob: Record<string, JobFileRow[]>;
+  myCompany: CompanyOption | null;
+  approvalMap: Record<string, CustomerApprovalRow>;
+};
+
+type AppLikeError = Error & {
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
 function normalizeCustomer(
   value: JobRow["customers"]
 ): { id: string; name: string | null; description: string | null } | null {
@@ -72,6 +77,17 @@ function visibilityLabel(mode: JobVisibilityMode) {
   if (mode === "approved_only") return "Approved contractors only";
   if (mode === "qualified_only") return "Qualified contractors only";
   return "All contractors";
+}
+
+function getSafeJobsErrorMessage(error: unknown, fallback: string) {
+  const normalized = normalizeError(error) as AppLikeError;
+  const code = String(normalized.code || "");
+
+  if (code.includes("not_logged_in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  return fallback;
 }
 
 function StatusBadge({ status }: { status?: string | null }) {
@@ -181,63 +197,102 @@ export default function ContractorJobsPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
-      if (!profile) {
-        router.replace("/login");
-        return;
-      }
-      if (profile.role !== "contractor") {
-        router.replace("/dashboard");
-        return;
-      }
+      const result = await withErrorLogging(
+        async (): Promise<LoadJobsResult> => {
+          const profile = await getMyProfile();
 
-      const comps = await listMyCompanies();
-      const company = comps[0] || null;
-      setMyCompany(company);
+          if (!profile) {
+            router.replace("/login");
+            return {
+              jobs: [],
+              filesByJob: {},
+              myCompany: null,
+              approvalMap: {},
+            };
+          }
 
-      const [jobsResult, approvals] = await Promise.all([
-        supabase
-          .from("jobs")
-          .select(
-            `
-            id,
-            title,
-            description,
-            location,
-            status,
-            created_at,
-            deadline_date,
-            customer_id,
-            visibility_mode,
-            customers (
-              id,
-              name,
-              description
-            )
-          `
-          )
-          .eq("status", "open")
-          .order("created_at", { ascending: false }),
-        listMyCustomerApprovalRows(),
-      ]);
+          if (profile.role !== "contractor") {
+            router.replace("/dashboard");
+            return {
+              jobs: [],
+              filesByJob: {},
+              myCompany: null,
+              approvalMap: {},
+            };
+          }
 
-      if (jobsResult.error) throw jobsResult.error;
+          const comps = await listMyCompanies();
+          const company = comps[0] || null;
 
-      const arr = (jobsResult.data || []) as JobRow[];
-      setJobs(arr);
-      setApprovalMap(approvalRowByCustomerId(approvals));
+          const [jobsResult, approvals] = await Promise.all([
+            supabase
+              .from("jobs")
+              .select(
+                `
+                id,
+                title,
+                description,
+                location,
+                status,
+                created_at,
+                deadline_date,
+                customer_id,
+                visibility_mode,
+                customers (
+                  id,
+                  name,
+                  description
+                )
+              `
+              )
+              .eq("status", "open")
+              .order("created_at", { ascending: false }),
+            listMyCustomerApprovalRows(),
+          ]);
 
-      const allFiles = await listJobFilesForJobs(arr.map((x) => x.id));
-      const map: Record<string, JobFileRow[]> = {};
+          const jobsData = unwrapSupabase(
+            jobsResult,
+            "load_contractor_jobs_failed",
+            "Unable to load available jobs."
+          ) as JobRow[];
 
-      for (const f of allFiles) {
-        if (!map[f.job_id]) map[f.job_id] = [];
-        map[f.job_id].push(f);
-      }
+          const allFiles = await listJobFilesForJobs(jobsData.map((job) => job.id));
+          const nextFilesByJob: Record<string, JobFileRow[]> = {};
 
-      setFilesByJob(map);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+          for (const file of allFiles) {
+            if (!nextFilesByJob[file.job_id]) {
+              nextFilesByJob[file.job_id] = [];
+            }
+            nextFilesByJob[file.job_id].push(file);
+          }
+
+          return {
+            jobs: jobsData,
+            filesByJob: nextFilesByJob,
+            myCompany: company,
+            approvalMap: approvalRowByCustomerId(approvals),
+          };
+        },
+        {
+          message: "contractor_jobs_load_failed",
+          code: "contractor_jobs_load_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/contractor/jobs",
+        }
+      );
+
+      setJobs(result.jobs);
+      setFilesByJob(result.filesByJob);
+      setMyCompany(result.myCompany);
+      setApprovalMap(result.approvalMap);
+    } catch (error) {
+      setErr(
+        getSafeJobsErrorMessage(
+          error,
+          "Unable to load available jobs. Please try again."
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -258,7 +313,20 @@ export default function ContractorJobsPage() {
     setRequestingCustomerId(customerId);
 
     try {
-      const result = await requestCustomerApproval(customerId, myCompany.id);
+      const result = await withErrorLogging(
+        () => requestCustomerApproval(customerId, myCompany.id),
+        {
+          message: "contractor_request_customer_approval_failed",
+          code: "contractor_request_customer_approval_failed",
+          source: "frontend",
+          area: "customer",
+          path: "/contractor/jobs",
+          details: {
+            customerId,
+            contractorCompanyId: myCompany.id,
+          },
+        }
+      );
 
       if (!result.ok) {
         if (result.cooldown_until) {
@@ -273,8 +341,10 @@ export default function ContractorJobsPage() {
       }
 
       await load();
-    } catch (e: any) {
-      setErr(e.message || "Approval request failed.");
+    } catch (error) {
+      setErr(
+        getSafeJobsErrorMessage(error, "Approval request failed.")
+      );
     } finally {
       setRequestingCustomerId(null);
     }

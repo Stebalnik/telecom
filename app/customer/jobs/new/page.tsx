@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
+import { unwrapSupabase } from "../../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
 import {
   listCustomerAgreementTemplates,
   agreementTypeLabel,
@@ -13,29 +15,30 @@ import {
   getMyCustomerOrg,
   listScopes,
   listCustomerScopeReq,
-  Scope,
-  CustomerScopeRequirement,
+  type Scope,
+  type CustomerScopeRequirement,
 } from "../../../../lib/customers";
-import { listCertTypes, CertType } from "../../../../lib/documents";
+import { listCertTypes, type CertType } from "../../../../lib/documents";
 import { uploadJobFile } from "../../../../lib/jobFiles";
 import { track } from "../../../../lib/track";
 
 type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
 
 async function setJobScopes(jobId: string, scopeIds: string[]) {
-  const { error: delErr } = await supabase
+  const deleteResult = await supabase
     .from("job_scopes")
     .delete()
     .eq("job_id", jobId);
-  if (delErr) throw delErr;
+
+  unwrapSupabase(deleteResult, "delete_job_scopes_failed");
 
   if (!scopeIds.length) return;
 
-  const { error } = await supabase
+  const insertResult = await supabase
     .from("job_scopes")
     .insert(scopeIds.map((sid) => ({ job_id: jobId, scope_id: sid })));
 
-  if (error) throw error;
+  unwrapSupabase(insertResult, "insert_job_scopes_failed");
 }
 
 function scopeLabel(s: Scope) {
@@ -96,13 +99,17 @@ export default function CustomerJobsNewPage() {
 
   const certNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    certTypes.forEach((c) => (m[c.id] = c.name));
+    certTypes.forEach((c) => {
+      m[c.id] = c.name;
+    });
     return m;
   }, [certTypes]);
 
   const scopeLabelById = useMemo(() => {
     const m: Record<string, string> = {};
-    scopes.forEach((s) => (m[s.id] = scopeLabel(s)));
+    scopes.forEach((s) => {
+      m[s.id] = scopeLabel(s);
+    });
     return m;
   }, [scopes]);
 
@@ -112,6 +119,7 @@ export default function CustomerJobsNewPage() {
 
   const unionRequirements = useMemo(() => {
     if (!customerId) return [];
+
     const relevant = custScopeReq.filter((r) =>
       selectedScopeIds.includes(r.scope_id)
     );
@@ -124,6 +132,7 @@ export default function CustomerJobsNewPage() {
     for (const r of relevant) {
       const key = r.cert_type_id;
       const current = map.get(key);
+
       if (!current) {
         map.set(key, {
           cert_type_id: key,
@@ -151,48 +160,63 @@ export default function CustomerJobsNewPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
-      if (!profile) {
-        router.replace("/login");
-        return;
-      }
-      if (profile.role !== "customer") {
-        router.replace("/dashboard");
-        return;
-      }
+      await withErrorLogging(
+        async () => {
+          const profile = await getMyProfile();
 
-      const org = await getMyCustomerOrg();
-      if (!org) {
-        router.replace("/customer/settings");
-        return;
-      }
+          if (!profile) {
+            router.replace("/login");
+            return;
+          }
 
-      setCustomerId(org.id);
+          if (profile.role !== "customer") {
+            router.replace("/dashboard");
+            return;
+          }
 
-      const [sc, ct, csr, templates] = await Promise.all([
-        listScopes(),
-        listCertTypes(),
-        listCustomerScopeReq(org.id),
-        listCustomerAgreementTemplates(org.id),
-      ]);
+          const org = await getMyCustomerOrg();
 
-      setScopes(sc);
-      setCertTypes(ct);
-      setCustScopeReq(csr);
+          if (!org) {
+            router.replace("/customer/settings");
+            return;
+          }
 
-      const oneTimeTemplates = templates.filter(
-        (tpl) =>
-          tpl.status === "active" &&
-          tpl.template_type === "one_time_project_agreement" &&
-          (tpl.applies_to === "per_job" || tpl.applies_to === "both")
+          setCustomerId(org.id);
+
+          const [sc, ct, csr, templates] = await Promise.all([
+            listScopes(),
+            listCertTypes(),
+            listCustomerScopeReq(org.id),
+            listCustomerAgreementTemplates(org.id),
+          ]);
+
+          setScopes(sc);
+          setCertTypes(ct);
+          setCustScopeReq(csr);
+
+          const oneTimeTemplates = templates.filter(
+            (tpl) =>
+              tpl.status === "active" &&
+              tpl.template_type === "one_time_project_agreement" &&
+              (tpl.applies_to === "per_job" || tpl.applies_to === "both")
+          );
+
+          setAgreementTemplates(oneTimeTemplates);
+
+          const defaultTemplate = oneTimeTemplates.find((tpl) => tpl.is_default);
+          setAgreementTemplateId(defaultTemplate?.id || "");
+        },
+        {
+          message: "customer_job_create_page_load_failed",
+          code: "customer_job_create_page_load_failed",
+          source: "frontend",
+          area: "customer",
+          path: "/customer/jobs/new",
+          role: "customer",
+        }
       );
-
-      setAgreementTemplates(oneTimeTemplates);
-
-      const defaultTemplate = oneTimeTemplates.find((tpl) => tpl.is_default);
-      setAgreementTemplateId(defaultTemplate?.id || "");
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch {
+      setErr("Unable to load the job creation form. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -205,7 +229,9 @@ export default function CustomerJobsNewPage() {
 
   function toggleScope(scopeId: string) {
     setSelectedScopeIds((prev) => {
-      if (prev.includes(scopeId)) return prev.filter((x) => x !== scopeId);
+      if (prev.includes(scopeId)) {
+        return prev.filter((x) => x !== scopeId);
+      }
       return [...prev, scopeId];
     });
   }
@@ -215,6 +241,7 @@ export default function CustomerJobsNewPage() {
       setSelectedFiles([]);
       return;
     }
+
     setSelectedFiles(Array.from(files));
   }
 
@@ -225,8 +252,10 @@ export default function CustomerJobsNewPage() {
   function parseBudgetToNumber(value: string): number | null {
     const cleaned = value.replace(/[^0-9.]/g, "");
     if (!cleaned) return null;
+
     const n = Number(cleaned);
     if (!Number.isFinite(n) || n <= 0) return null;
+
     return n;
   }
 
@@ -235,73 +264,149 @@ export default function CustomerJobsNewPage() {
     setSaving(true);
 
     try {
-      if (!customerId) {
-        throw new Error("Customer org not found. Go to /customer/settings.");
-      }
-      if (!title.trim()) throw new Error("Title is required.");
-      if (!deadline) throw new Error("Deadline is required.");
-      if (selectedScopeIds.length === 0) {
-        throw new Error("Select at least one scope.");
-      }
+      await withErrorLogging(
+        async () => {
+          if (!customerId) {
+            throw new Error("Customer org not found. Go to /customer/settings.");
+          }
 
-      const budgetNum = parseBudgetToNumber(budget);
-      if (budgetNum === null) {
-        throw new Error("Budget is required (enter a positive number).");
-      }
+          if (!title.trim()) {
+            throw new Error("Title is required.");
+          }
 
-      if (requiresOneTimeContract && !agreementTemplateId) {
-        throw new Error("Select a one-time agreement template.");
-      }
+          if (!deadline) {
+            throw new Error("Deadline is required.");
+          }
 
-      const { data: userData, error: userErr } = await supabase.auth.getSession();
-      if (userErr) throw userErr;
-      if (!userData.session?.user) throw new Error("Not logged in");
+          if (selectedScopeIds.length === 0) {
+            throw new Error("Select at least one scope.");
+          }
 
-      const { data: job, error } = await supabase
-        .from("jobs")
-        .insert({
-          customer_user_id: userData.session.user.id,
-          customer_id: customerId,
-          title: title.trim(),
-          description: description.trim() || null,
-          location: location.trim() || null,
-          status: "open",
-          deadline_date: deadline,
-          budget_min: budgetNum,
-          budget_max: budgetNum,
-          visibility_mode: visibilityMode,
-          requires_one_time_contract: requiresOneTimeContract,
-          agreement_template_id: requiresOneTimeContract
-            ? agreementTemplateId
-            : null,
-        })
-        .select("id")
-        .single();
+          const budgetNum = parseBudgetToNumber(budget);
+          if (budgetNum === null) {
+            throw new Error("Budget is required (enter a positive number).");
+          }
 
-      if (error) throw error;
+          if (requiresOneTimeContract && !agreementTemplateId) {
+            throw new Error("Select a one-time agreement template.");
+          }
 
-      await setJobScopes(job.id, selectedScopeIds);
+          const sessionResult = await supabase.auth.getSession();
 
-      if (selectedFiles.length > 0) {
-        for (const f of selectedFiles) {
-          await uploadJobFile(job.id, f);
-        }
-      }
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
 
-      await track("customer_create_job_submitted", {
-        role: "customer",
-        meta: {
-          jobId: job.id,
-          visibilityMode,
-          scopeCount: selectedScopeIds.length,
-          fileCount: selectedFiles.length,
-          requiresOneTimeContract,
+          const sessionUser = sessionResult.data.session?.user;
+          if (!sessionUser) {
+            throw new Error("Not logged in");
+          }
+
+          const insertResult = await supabase
+            .from("jobs")
+            .insert({
+              customer_user_id: sessionUser.id,
+              customer_id: customerId,
+              title: title.trim(),
+              description: description.trim() || null,
+              location: location.trim() || null,
+              status: "open",
+              deadline_date: deadline,
+              budget_min: budgetNum,
+              budget_max: budgetNum,
+              visibility_mode: visibilityMode,
+              requires_one_time_contract: requiresOneTimeContract,
+              agreement_template_id: requiresOneTimeContract
+                ? agreementTemplateId
+                : null,
+            })
+            .select("id")
+            .single();
+
+          const job = unwrapSupabase(insertResult, "create_job_failed");
+
+          await withErrorLogging(
+            () => setJobScopes(job.id, selectedScopeIds),
+            {
+              message: "set_job_scopes_failed",
+              code: "set_job_scopes_failed",
+              source: "frontend",
+              area: "jobs",
+              path: "/customer/jobs/new",
+              role: "customer",
+              details: {
+                jobId: job.id,
+                scopeIds: selectedScopeIds,
+              },
+            }
+          );
+
+          if (selectedFiles.length > 0) {
+            for (const f of selectedFiles) {
+              await withErrorLogging(
+                () => uploadJobFile(job.id, f),
+                {
+                  message: "upload_job_file_failed",
+                  code: "upload_job_file_failed",
+                  source: "frontend",
+                  area: "jobs",
+                  path: "/customer/jobs/new",
+                  role: "customer",
+                  details: {
+                    jobId: job.id,
+                    fileName: f.name,
+                    fileSize: f.size,
+                    fileType: f.type || null,
+                  },
+                }
+              );
+            }
+          }
+
+          await track("customer_create_job_submitted", {
+            role: "customer",
+            meta: {
+              jobId: job.id,
+              visibilityMode,
+              scopeCount: selectedScopeIds.length,
+              fileCount: selectedFiles.length,
+              requiresOneTimeContract,
+            },
+          });
+
+          router.push("/customer/jobs/active");
         },
-      });
-
-      router.push("/customer/jobs/active");
+        {
+          message: "create_customer_job_failed",
+          code: "create_customer_job_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/new",
+          role: "customer",
+          details: {
+            visibilityMode,
+            scopeCount: selectedScopeIds.length,
+            fileCount: selectedFiles.length,
+            requiresOneTimeContract,
+          },
+        }
+      );
     } catch (e: any) {
-      setErr(e.message ?? "Create job error");
+      const message =
+        typeof e?.message === "string" ? e.message : "Create job error";
+
+      if (
+        message === "Title is required." ||
+        message === "Deadline is required." ||
+        message === "Select at least one scope." ||
+        message === "Budget is required (enter a positive number)." ||
+        message === "Select a one-time agreement template." ||
+        message === "Customer org not found. Go to /customer/settings."
+      ) {
+        setErr(message);
+      } else {
+        setErr("Unable to create the job. Please try again.");
+      }
     } finally {
       setSaving(false);
     }
@@ -509,6 +614,7 @@ export default function CustomerJobsNewPage() {
               onChange={(e) => {
                 const checked = e.target.checked;
                 setRequiresOneTimeContract(checked);
+
                 if (!checked) {
                   setAgreementTemplateId("");
                 } else {
@@ -704,7 +810,7 @@ export default function CustomerJobsNewPage() {
             className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white transition ${
               saving ? "bg-[#9CA3AF]" : "bg-[#1F6FB5] hover:bg-[#0A2E5C]"
             }`}
-            onClick={createJob}
+            onClick={() => void createJob()}
             disabled={saving}
           >
             {saving ? "Creating..." : "Create Job"}

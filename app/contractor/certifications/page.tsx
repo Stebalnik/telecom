@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 import {
   getMyCompany,
   listTeams,
@@ -86,19 +87,47 @@ export default function ContractorCertificationsPage() {
   const [file, setFile] = useState<File | null>(null);
 
   async function loadTeamMembersWithCerts(teamId: string) {
-    const members = await listMembers(teamId);
+    const members = await withErrorLogging(
+      () => listMembers(teamId),
+      {
+        message: "load_team_members_failed",
+        code: "load_team_members_failed",
+        source: "frontend",
+        area: "contractor",
+        path: "/contractor/certifications",
+        role: "contractor",
+        details: {
+          teamId,
+        },
+      }
+    );
+
     setTeamMembers(members);
 
     const certMap: Record<string, DocumentRow[]> = {};
+
     for (const member of members) {
-      certMap[member.id] = await listMemberCerts(member.id);
+      certMap[member.id] = await withErrorLogging(
+        () => listMemberCerts(member.id),
+        {
+          message: "load_member_certifications_failed",
+          code: "load_member_certifications_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+          details: {
+            teamId,
+            memberId: member.id,
+          },
+        }
+      );
     }
+
     setMemberCerts(certMap);
 
     setSelectedMemberId((prev) =>
-      prev && members.some((m) => m.id === prev)
-        ? prev
-        : members[0]?.id || ""
+      prev && members.some((m) => m.id === prev) ? prev : members[0]?.id || ""
     );
   }
 
@@ -107,60 +136,72 @@ export default function ContractorCertificationsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      await withErrorLogging(
+        async () => {
+          const { data } = await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
-      }
+          if (!data.session?.user) {
+            router.replace("/login");
+            return;
+          }
 
-      const profile = await getMyProfile();
+          const profile = await getMyProfile();
 
-      if (!profile || profile.role !== "contractor") {
-        router.replace("/dashboard");
-        return;
-      }
+          if (!profile || profile.role !== "contractor") {
+            router.replace("/dashboard");
+            return;
+          }
 
-      const currentCompany = await getMyCompany();
+          const currentCompany = await getMyCompany();
 
-      if (!currentCompany || currentCompany.onboarding_status === "draft") {
-        router.replace("/contractor/onboarding/company");
-        return;
-      }
+          if (!currentCompany || currentCompany.onboarding_status === "draft") {
+            router.replace("/contractor/onboarding/company");
+            return;
+          }
 
-      setCompany(currentCompany);
+          setCompany(currentCompany);
 
-      const [companyTeams, certificationTypes] = await Promise.all([
-        listTeams(currentCompany.id),
-        listCertTypes(),
-      ]);
+          const [companyTeams, certificationTypes] = await Promise.all([
+            listTeams(currentCompany.id),
+            listCertTypes(),
+          ]);
 
-      setTeams(companyTeams);
-      setCertTypes(certificationTypes);
+          setTeams(companyTeams);
+          setCertTypes(certificationTypes);
 
-      if (companyTeams.length > 0) {
-        const nextTeamId =
-          selectedTeamId && companyTeams.some((t) => t.id === selectedTeamId)
-            ? selectedTeamId
-            : companyTeams[0].id;
+          if (companyTeams.length > 0) {
+            const nextTeamId =
+              selectedTeamId && companyTeams.some((t) => t.id === selectedTeamId)
+                ? selectedTeamId
+                : companyTeams[0].id;
 
-        setSelectedTeamId(nextTeamId);
-        await loadTeamMembersWithCerts(nextTeamId);
-      } else {
-        setSelectedTeamId("");
-        setTeamMembers([]);
-        setMemberCerts({});
-        setSelectedMemberId("");
-      }
-    } catch (e: any) {
-      setErr(e?.message || "Failed to load certifications.");
+            setSelectedTeamId(nextTeamId);
+            await loadTeamMembersWithCerts(nextTeamId);
+          } else {
+            setSelectedTeamId("");
+            setTeamMembers([]);
+            setMemberCerts({});
+            setSelectedMemberId("");
+          }
+        },
+        {
+          message: "contractor_certifications_load_failed",
+          code: "contractor_certifications_load_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+        }
+      );
+    } catch {
+      setErr("Unable to load certifications. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -169,9 +210,23 @@ export default function ContractorCertificationsPage() {
       setBusy(true);
       setErr(null);
       setSelectedTeamId(teamId);
-      await loadTeamMembersWithCerts(teamId);
-    } catch (e: any) {
-      setErr(e?.message || "Failed to load selected team.");
+
+      await withErrorLogging(
+        () => loadTeamMembersWithCerts(teamId),
+        {
+          message: "contractor_certifications_team_change_failed",
+          code: "contractor_certifications_team_change_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+          details: {
+            teamId,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to load the selected team. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -203,20 +258,54 @@ export default function ContractorCertificationsPage() {
       setBusy(true);
       setErr(null);
 
-      await createCertDocument({
-        memberId: selectedMemberId,
-        certTypeId,
-        expiresAt,
-        file,
-      });
+      await withErrorLogging(
+        () =>
+          createCertDocument({
+            memberId: selectedMemberId,
+            certTypeId,
+            expiresAt,
+            file,
+          }),
+        {
+          message: "contractor_certificate_upload_failed",
+          code: "contractor_certificate_upload_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+          details: {
+            teamId: selectedTeamId,
+            memberId: selectedMemberId,
+            certTypeId,
+            expiresAt,
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+          },
+        }
+      );
 
       setCertTypeId("");
       setExpiresAt("");
       setFile(null);
 
-      await loadTeamMembersWithCerts(selectedTeamId);
-    } catch (e: any) {
-      setErr(e?.message || "Upload certificate error.");
+      await withErrorLogging(
+        () => loadTeamMembersWithCerts(selectedTeamId),
+        {
+          message: "contractor_certifications_reload_after_upload_failed",
+          code: "contractor_certifications_reload_after_upload_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+          details: {
+            teamId: selectedTeamId,
+            memberId: selectedMemberId,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to upload the certificate. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -227,16 +316,47 @@ export default function ContractorCertificationsPage() {
       setBusy(true);
       setErr(null);
 
-      await deleteDocument({
-        id: doc.id,
-        file_path: doc.file_path,
-      });
+      await withErrorLogging(
+        () =>
+          deleteDocument({
+            id: doc.id,
+            file_path: doc.file_path,
+          }),
+        {
+          message: "contractor_certificate_delete_failed",
+          code: "contractor_certificate_delete_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/certifications",
+          role: "contractor",
+          details: {
+            documentId: doc.id,
+            filePath: doc.file_path,
+            memberId: doc.team_member_id ?? null,
+            certTypeId: doc.cert_type_id ?? null,
+          },
+        }
+      );
 
       if (selectedTeamId) {
-        await loadTeamMembersWithCerts(selectedTeamId);
+        await withErrorLogging(
+          () => loadTeamMembersWithCerts(selectedTeamId),
+          {
+            message: "contractor_certifications_reload_after_delete_failed",
+            code: "contractor_certifications_reload_after_delete_failed",
+            source: "frontend",
+            area: "documents",
+            path: "/contractor/certifications",
+            role: "contractor",
+            details: {
+              teamId: selectedTeamId,
+              documentId: doc.id,
+            },
+          }
+        );
       }
-    } catch (e: any) {
-      setErr(e?.message || "Delete certificate error.");
+    } catch {
+      setErr("Unable to delete the certificate. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -367,7 +487,7 @@ export default function ContractorCertificationsPage() {
           <select
             className="mt-1 w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#2EA3FF] focus:ring-2 focus:ring-[#8FC8FF]"
             value={selectedTeamId}
-            onChange={(e) => handleTeamChange(e.target.value)}
+            onChange={(e) => void handleTeamChange(e.target.value)}
             disabled={busy || teams.length === 0}
           >
             <option value="">Select team</option>
@@ -456,7 +576,7 @@ export default function ContractorCertificationsPage() {
 
             <div className="pt-1">
               <button
-                onClick={handleUpload}
+                onClick={() => void handleUpload()}
                 disabled={busy || teamMembers.length === 0}
                 className="inline-flex items-center justify-center rounded-xl bg-[#2EA3FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -543,7 +663,7 @@ export default function ContractorCertificationsPage() {
                               </a>
 
                               <button
-                                onClick={() => handleDelete(doc)}
+                                onClick={() => void handleDelete(doc)}
                                 disabled={busy}
                                 className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                               >

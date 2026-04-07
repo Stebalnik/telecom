@@ -1,5 +1,8 @@
 import { normalizeError } from "./errors/normalizeError";
-import { unwrapSupabase } from "./errors/unwrapSupabase";
+import {
+  unwrapSupabase,
+  unwrapSupabaseNullable,
+} from "./errors/unwrapSupabase";
 import { supabase } from "./supabaseClient";
 
 export type UserRole = "customer" | "contractor" | "admin";
@@ -76,7 +79,7 @@ export async function getMyProfile(): Promise<Profile | null> {
   }
 
   try {
-    const data = unwrapSupabase<Profile | null>(
+    const data = unwrapSupabaseNullable(
       await supabase
         .from("profiles")
         .select("id, role, created_at")
@@ -85,7 +88,7 @@ export async function getMyProfile(): Promise<Profile | null> {
       "get_profile_failed"
     );
 
-    return data;
+    return data as Profile | null;
   } catch (error) {
     throw normalizeProfileError(
       error,

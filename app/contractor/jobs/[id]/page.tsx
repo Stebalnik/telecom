@@ -3,24 +3,26 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase/browser";
+import { normalizeError } from "../../../../lib/errors/normalizeError";
+import { unwrapSupabase } from "../../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
 import { getMyProfile } from "../../../../lib/profile";
-import { track } from "../../../../lib/track";
-import { logError } from "../../../../lib/logError";
+import { supabase } from "../../../../lib/supabase/browser";
 import {
+  approvalRowByCustomerId,
   listCompanyTeams,
   listMyCompanies,
   listMyCustomerApprovalRows,
-  approvalRowByCustomerId,
   requestCustomerApproval,
   type CustomerApprovalRow,
 } from "../../../../lib/contractor";
+import { businessDaysBetweenInclusive } from "../../../../lib/dateUtils";
 import {
   listJobFiles,
   openJobFileSigned,
-  JobFileRow,
+  type JobFileRow,
 } from "../../../../lib/jobFiles";
-import { businessDaysBetweenInclusive } from "../../../../lib/dateUtils";
+import { track } from "../../../../lib/track";
 
 type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
 
@@ -80,6 +82,29 @@ function visibilityLabel(mode: JobVisibilityMode) {
   if (mode === "approved_only") return "Approved contractors only";
   if (mode === "qualified_only") return "Qualified contractors only";
   return "All contractors";
+}
+
+function getSafeSubmitBidMessage(error: unknown) {
+  const normalized = normalizeError(error);
+  const message = normalized.message || "";
+
+  if (
+    message === "Job not loaded" ||
+    message === "Customer approval is required before bidding." ||
+    message === "Select company" ||
+    message === "Select team" ||
+    message === "Enter bid price" ||
+    message === "Pick planned start date" ||
+    message === "Pick planned end date" ||
+    message === "End date must be after start date" ||
+    message.includes("job deadline") ||
+    message.includes("Work days") ||
+    message.includes("business days")
+  ) {
+    return message;
+  }
+
+  return "Unable to submit bid. Please try again.";
 }
 
 function StatusBadge({ status }: { status?: string | null }) {
@@ -191,7 +216,9 @@ export default function ContractorJobBidPage() {
 
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [approvalMap, setApprovalMap] = useState<Record<string, CustomerApprovalRow>>({});
+  const [approvalMap, setApprovalMap] = useState<
+    Record<string, CustomerApprovalRow>
+  >({});
 
   const maxBusinessDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
@@ -212,7 +239,18 @@ export default function ContractorJobBidPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
+      const profile = await withErrorLogging(
+        () => getMyProfile(),
+        {
+          message: "contractor_job_profile_load_failed",
+          code: "contractor_job_profile_load_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: { jobId },
+        }
+      );
 
       if (!profile) {
         router.replace("/login");
@@ -224,47 +262,91 @@ export default function ContractorJobBidPage() {
         return;
       }
 
-      const [jobResult, comps, approvals] = await Promise.all([
-        supabase
-          .from("jobs")
-          .select(
-            `
-            id,
-            title,
-            description,
-            location,
-            status,
-            deadline_date,
-            customer_id,
-            visibility_mode,
-            customers (
-              id,
-              name,
-              description
-            )
-          `
-          )
-          .eq("id", jobId)
-          .single(),
-        listMyCompanies(),
-        listMyCustomerApprovalRows(),
-      ]);
+      const [jobResult, comps, approvals] = await withErrorLogging(
+        async () =>
+          Promise.all([
+            supabase
+              .from("jobs")
+              .select(
+                `
+                id,
+                title,
+                description,
+                location,
+                status,
+                deadline_date,
+                customer_id,
+                visibility_mode,
+                customers (
+                  id,
+                  name,
+                  description
+                )
+              `
+              )
+              .eq("id", jobId)
+              .single(),
+            listMyCompanies(),
+            listMyCustomerApprovalRows(),
+          ]),
+        {
+          message: "contractor_job_page_load_failed",
+          code: "contractor_job_page_load_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: { jobId },
+        }
+      );
 
-      if (jobResult.error) throw jobResult.error;
+      const loadedJob = unwrapSupabase(
+        jobResult,
+        "contractor_job_load_failed",
+        "Unable to load job details."
+      ) as JobRow;
 
-      const loadedJob = jobResult.data as JobRow;
       setJob(loadedJob);
       setApprovalMap(approvalRowByCustomerId(approvals));
-
-      const f = await listJobFiles(jobId);
-      setFiles(f);
-
       setCompanies(comps as CompanyOption[]);
+
+      const loadedFiles = await withErrorLogging(
+        () => listJobFiles(jobId),
+        {
+          message: "contractor_job_files_load_failed",
+          code: "contractor_job_files_load_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: { jobId },
+        }
+      );
+
+      setFiles(loadedFiles);
 
       if (comps?.[0]?.id) {
         setCompanyId(comps[0].id);
-        const ts = (await listCompanyTeams(comps[0].id)) as TeamOption[];
-        setTeams(ts);
+
+        const companyTeams = await withErrorLogging(
+          () => listCompanyTeams(comps[0].id),
+          {
+            message: "contractor_job_teams_load_failed",
+            code: "contractor_job_teams_load_failed",
+            source: "frontend",
+            area: "contractor_job_page",
+            role: "contractor",
+            path: `/contractor/jobs/${jobId}`,
+            details: {
+              jobId,
+              companyId: comps[0].id,
+            },
+          }
+        );
+
+        setTeams(companyTeams as TeamOption[]);
+      } else {
+        setTeams([]);
       }
 
       await track("job_opened", {
@@ -276,18 +358,8 @@ export default function ContractorJobBidPage() {
           status: loadedJob.status,
         },
       });
-    } catch (e: any) {
+    } catch {
       setErr("Something went wrong. Please try again.");
-
-      await logError("contractor_job_page_load_failed", {
-        source: "frontend",
-        area: "contractor_job_page",
-        role: "contractor",
-        details: {
-          jobId,
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
     } finally {
       setLoading(false);
     }
@@ -299,30 +371,41 @@ export default function ContractorJobBidPage() {
   }, [jobId]);
 
   useEffect(() => {
-    (async () => {
+    async function loadTeams() {
       try {
         if (!companyId) return;
-        const ts = (await listCompanyTeams(companyId)) as TeamOption[];
-        setTeams(ts);
+
+        const companyTeams = await withErrorLogging(
+          () => listCompanyTeams(companyId),
+          {
+            message: "contractor_job_teams_load_failed",
+            code: "contractor_job_teams_load_failed",
+            source: "frontend",
+            area: "contractor_job_page",
+            role: "contractor",
+            path: `/contractor/jobs/${jobId}`,
+            details: {
+              jobId,
+              companyId,
+            },
+          }
+        );
+
+        setTeams(companyTeams as TeamOption[]);
         setTeamId("");
-      } catch (e: any) {
-        await logError("contractor_job_teams_load_failed", {
-          source: "frontend",
-          area: "contractor_job_page",
-          role: "contractor",
-          details: {
-            jobId,
-            companyId,
-            errorMessage: e?.message ?? "Unknown error",
-          },
-        });
+      } catch {
+        setErr("Unable to load teams. Please try again.");
       }
-    })();
+    }
+
+    void loadTeams();
   }, [companyId, jobId]);
 
   function validateBid() {
     if (!job) throw new Error("Job not loaded");
-    if (!isApproved) throw new Error("Customer approval is required before bidding.");
+    if (!isApproved) {
+      throw new Error("Customer approval is required before bidding.");
+    }
     if (!companyId) throw new Error("Select company");
     if (!teamId) throw new Error("Select team");
     if (!price || Number(price) <= 0) throw new Error("Enter bid price");
@@ -366,7 +449,22 @@ export default function ContractorJobBidPage() {
     setRequestingApproval(true);
 
     try {
-      const result = await requestCustomerApproval(job.customer_id, companyId);
+      const result = await withErrorLogging(
+        () => requestCustomerApproval(job.customer_id!, companyId),
+        {
+          message: "customer_approval_request_failed",
+          code: "customer_approval_request_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: {
+            jobId,
+            customerId: job.customer_id,
+            companyId,
+          },
+        }
+      );
 
       if (!result.ok) {
         if (result.cooldown_until) {
@@ -378,19 +476,6 @@ export default function ContractorJobBidPage() {
         } else {
           setErr(result.message || "Approval request failed.");
         }
-
-        await logError("customer_approval_request_failed", {
-          source: "frontend",
-          area: "contractor_job_page",
-          role: "contractor",
-          details: {
-            jobId,
-            customerId: job.customer_id,
-            companyId,
-            resultMessage: result.message ?? null,
-            cooldownUntil: result.cooldown_until ?? null,
-          },
-        });
 
         return;
       }
@@ -405,22 +490,32 @@ export default function ContractorJobBidPage() {
       });
 
       await load();
-    } catch (e: any) {
+    } catch {
       setErr("Approval request failed.");
-
-      await logError("customer_approval_request_exception", {
-        source: "frontend",
-        area: "contractor_job_page",
-        role: "contractor",
-        details: {
-          jobId,
-          customerId: job.customer_id,
-          companyId,
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
     } finally {
       setRequestingApproval(false);
+    }
+  }
+
+  async function handleOpenJobFile(filePath: string) {
+    try {
+      await withErrorLogging(
+        () => openJobFileSigned(filePath),
+        {
+          message: "contractor_job_file_open_failed",
+          code: "contractor_job_file_open_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: {
+            jobId,
+            filePath,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to open project file. Please try again.");
     }
   }
 
@@ -431,18 +526,42 @@ export default function ContractorJobBidPage() {
     try {
       validateBid();
 
-      const { error } = await supabase.from("bids").insert({
-        job_id: jobId,
-        company_id: companyId,
-        team_id: teamId,
-        price: Number(price),
-        planned_start_date: startDate,
-        planned_end_date: endDate,
-        work_days: Number(workDays),
-        status: "submitted",
-      });
-
-      if (error) throw error;
+      await withErrorLogging(
+        async () => {
+          unwrapSupabase(
+            await supabase.from("bids").insert({
+              job_id: jobId,
+              company_id: companyId,
+              team_id: teamId,
+              price: Number(price),
+              planned_start_date: startDate,
+              planned_end_date: endDate,
+              work_days: Number(workDays),
+              status: "submitted",
+            }),
+            "submit_bid_failed",
+            "Unable to submit bid."
+          );
+        },
+        {
+          message: "submit_bid_failed",
+          code: "submit_bid_failed",
+          source: "frontend",
+          area: "contractor_job_page",
+          role: "contractor",
+          path: `/contractor/jobs/${jobId}`,
+          details: {
+            jobId,
+            companyId,
+            teamId,
+            customerId: job?.customer_id ?? null,
+            price,
+            startDate,
+            endDate,
+            workDays,
+          },
+        }
+      );
 
       await track("submit_bid", {
         role: "contractor",
@@ -459,40 +578,8 @@ export default function ContractorJobBidPage() {
       });
 
       router.push("/contractor/jobs");
-    } catch (e: any) {
-      const safeMessage =
-        e?.message === "Job not loaded" ||
-        e?.message === "Customer approval is required before bidding." ||
-        e?.message === "Select company" ||
-        e?.message === "Select team" ||
-        e?.message === "Enter bid price" ||
-        e?.message === "Pick planned start date" ||
-        e?.message === "Pick planned end date" ||
-        e?.message === "End date must be after start date" ||
-        String(e?.message || "").includes("job deadline") ||
-        String(e?.message || "").includes("Work days") ||
-        String(e?.message || "").includes("business days")
-          ? e.message
-          : "Bid error";
-
-      setErr(safeMessage);
-
-      await logError("submit_bid_failed", {
-        source: "frontend",
-        area: "contractor_job_page",
-        role: "contractor",
-        details: {
-          jobId,
-          companyId,
-          teamId,
-          customerId: job?.customer_id ?? null,
-          price,
-          startDate,
-          endDate,
-          workDays,
-          errorMessage: e?.message ?? "Unknown error",
-        },
-      });
+    } catch (error) {
+      setErr(getSafeSubmitBidMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -640,7 +727,7 @@ export default function ContractorJobBidPage() {
                 <button
                   type="button"
                   className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                  onClick={() => openJobFileSigned(f.file_path)}
+                  onClick={() => void handleOpenJobFile(f.file_path)}
                 >
                   Download
                 </button>
@@ -666,7 +753,9 @@ export default function ContractorJobBidPage() {
           </div>
         ) : null}
 
-        <div className={`grid gap-4 md:grid-cols-2 ${!isApproved ? "opacity-60" : ""}`}>
+        <div
+          className={`grid gap-4 md:grid-cols-2 ${!isApproved ? "opacity-60" : ""}`}
+        >
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
               Company

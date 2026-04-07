@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase/browser";
 import { getMyProfile } from "../../../lib/profile";
-import { logError } from "../../../lib/logError";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 type ErrorLogLevel = "info" | "warning" | "error" | "critical";
 
@@ -164,7 +164,11 @@ export default function AdminErrorsPage() {
   const [resolved, setResolved] = useState("false");
 
   async function ensureAdminAccess() {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
 
     if (!data.session?.user) {
       router.replace("/login");
@@ -206,32 +210,61 @@ export default function AdminErrorsPage() {
     setErr(null);
 
     try {
-      const ok = await ensureAdminAccess();
+      const ok = await withErrorLogging(
+        () => ensureAdminAccess(),
+        {
+          message: "admin_errors_access_check_failed",
+          code: "admin_errors_access_check_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+        }
+      );
+
       if (!ok) return;
 
-      const res = await fetch(`/api/admin/errors?${buildQueryString({ offset: nextOffset })}`, {
-        cache: "no-store",
-      });
+      const res = await withErrorLogging(
+        () =>
+          fetch(`/api/admin/errors?${buildQueryString({ offset: nextOffset })}`, {
+            cache: "no-store",
+          }),
+        {
+          message: "admin_errors_request_failed",
+          code: "admin_errors_request_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+          details: {
+            offset: nextOffset ?? pagination.offset,
+            limit: pagination.limit,
+            level,
+            source,
+            area,
+            resolved,
+            search,
+          },
+        }
+      );
 
-      const json = await res.json();
+      const json = await withErrorLogging(
+        () => res.json(),
+        {
+          message: "admin_errors_response_parse_failed",
+          code: "admin_errors_response_parse_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+        }
+      );
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to load errors.");
+        throw new Error(json?.error || "admin_errors_load_failed");
       }
 
       setRows(json.rows || []);
       setPagination(json.pagination || { limit: 50, offset: 0, total: 0 });
-    } catch (e: any) {
-      setErr(e?.message || "Failed to load errors.");
-      await logError("admin_errors_load_failed", {
-        source: "admin",
-        area: "admin",
-        path: "/admin/errors",
-        code: "admin_errors_load_failed",
-        details: {
-          message: e?.message || "Unknown error",
-        },
-      });
+    } catch {
+      setErr("Unable to load errors. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -241,30 +274,58 @@ export default function AdminErrorsPage() {
     setSummaryLoading(true);
 
     try {
-      const ok = await ensureAdminAccess();
+      const ok = await withErrorLogging(
+        () => ensureAdminAccess(),
+        {
+          message: "admin_errors_summary_access_check_failed",
+          code: "admin_errors_summary_access_check_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+        }
+      );
+
       if (!ok) return;
 
-      const res = await fetch(`/api/admin/errors?${buildQueryString({ summary: true })}`, {
-        cache: "no-store",
-      });
+      const res = await withErrorLogging(
+        () =>
+          fetch(`/api/admin/errors?${buildQueryString({ summary: true })}`, {
+            cache: "no-store",
+          }),
+        {
+          message: "admin_errors_summary_request_failed",
+          code: "admin_errors_summary_request_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+          details: {
+            level,
+            source,
+            area,
+            resolved,
+            search,
+          },
+        }
+      );
 
-      const json = await res.json();
+      const json = await withErrorLogging(
+        () => res.json(),
+        {
+          message: "admin_errors_summary_response_parse_failed",
+          code: "admin_errors_summary_response_parse_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+        }
+      );
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to load error summary.");
+        throw new Error(json?.error || "admin_errors_summary_load_failed");
       }
 
       setSummary(json.summary || null);
-    } catch (e: any) {
-      await logError("admin_errors_summary_load_failed", {
-        source: "admin",
-        area: "admin",
-        path: "/admin/errors",
-        code: "admin_errors_summary_load_failed",
-        details: {
-          message: e?.message || "Unknown error",
-        },
-      });
+    } catch {
+      setSummary(null);
     } finally {
       setSummaryLoading(false);
     }
@@ -284,34 +345,50 @@ export default function AdminErrorsPage() {
     setErr(null);
 
     try {
-      const res = await fetch("/api/admin/errors", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: row.id,
-          resolved: !row.resolved_at,
-        }),
-      });
+      const res = await withErrorLogging(
+        () =>
+          fetch("/api/admin/errors", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: row.id,
+              resolved: !row.resolved_at,
+            }),
+          }),
+        {
+          message: "admin_error_resolve_request_failed",
+          code: "admin_error_resolve_request_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+          details: {
+            errorId: row.id,
+            resolved: !row.resolved_at,
+          },
+        }
+      );
 
-      const json = await res.json();
+      const json = await withErrorLogging(
+        () => res.json(),
+        {
+          message: "admin_error_resolve_response_parse_failed",
+          code: "admin_error_resolve_response_parse_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/errors",
+          details: {
+            errorId: row.id,
+          },
+        }
+      );
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to update error state.");
+        throw new Error(json?.error || "admin_error_resolve_failed");
       }
 
       await loadPage(pagination.offset);
-    } catch (e: any) {
-      setErr(e?.message || "Failed to update error.");
-      await logError("admin_error_resolve_failed", {
-        source: "admin",
-        area: "admin",
-        path: "/admin/errors",
-        code: "admin_error_resolve_failed",
-        details: {
-          errorId: row.id,
-          message: e?.message || "Unknown error",
-        },
-      });
+    } catch {
+      setErr("Unable to update the error state. Please try again.");
     } finally {
       setBusyId(null);
     }
@@ -373,7 +450,9 @@ export default function AdminErrorsPage() {
           hint={
             summaryLoading
               ? undefined
-              : topAreas[0] ? `${topAreas[0][1]} logs` : "No data"
+              : topAreas[0]
+                ? `${topAreas[0][1]} logs`
+                : "No data"
           }
         />
       </section>
@@ -604,7 +683,7 @@ export default function AdminErrorsPage() {
                       <button
                         type="button"
                         disabled={busyId === row.id}
-                        onClick={() => toggleResolved(row)}
+                        onClick={() => void toggleResolved(row)}
                         className={`rounded-xl px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
                           row.resolved_at
                             ? "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
@@ -614,8 +693,8 @@ export default function AdminErrorsPage() {
                         {busyId === row.id
                           ? "Saving..."
                           : row.resolved_at
-                          ? "Mark unresolved"
-                          : "Mark resolved"}
+                            ? "Mark unresolved"
+                            : "Mark resolved"}
                       </button>
                     </div>
                   </div>

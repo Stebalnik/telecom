@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
-import { getMyProfile } from "../../../lib/profile";
+import { useEffect, useMemo, useState } from "react";
 import {
   getMyCompany,
   listMyTeamChangeRequestsDetailed,
   type TeamChangeRequestListRow,
 } from "../../../lib/contractor";
+import { normalizeError } from "../../../lib/errors/normalizeError";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { getMyProfile } from "../../../lib/profile";
+import { supabase } from "../../../lib/supabaseClient";
 
 type CompanyChangeRequestRow = {
   id: string;
@@ -50,13 +53,28 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleString();
 }
 
-function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }) {
+function getSafeErrorMessage(error: unknown) {
+  const normalized = normalizeError(error);
+  const code = String(normalized.code || "").toLowerCase();
+
+  if (code.includes("not_logged_in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  return "Unable to load requests. Please try again.";
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: "pending" | "approved" | "rejected";
+}) {
   const styles =
     status === "approved"
       ? "border-green-200 bg-green-50 text-green-700"
       : status === "rejected"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : "border-amber-200 bg-amber-50 text-amber-700";
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-amber-200 bg-amber-50 text-amber-700";
 
   return (
     <span
@@ -72,29 +90,70 @@ export default function ContractorRequestsPage() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [companyRequests, setCompanyRequests] = useState<CompanyChangeRequestRow[]>([]);
-  const [teamRequests, setTeamRequests] = useState<TeamChangeRequestListRow[]>([]);
+  const [companyRequests, setCompanyRequests] = useState<
+    CompanyChangeRequestRow[]
+  >([]);
+  const [teamRequests, setTeamRequests] = useState<TeamChangeRequestListRow[]>(
+    []
+  );
 
   async function loadPage() {
     setLoading(true);
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const sessionResult = await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.getSession();
 
-      if (!data.session?.user) {
+          if (result.error) {
+            throw result.error;
+          }
+
+          return result;
+        },
+        {
+          message: "contractor_requests_load_failed",
+          code: "contractor_requests_load_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/requests",
+        }
+      );
+
+      if (!sessionResult.data.session?.user) {
         router.replace("/login");
         return;
       }
 
-      const profile = await getMyProfile();
+      const profile = await withErrorLogging(
+        () => getMyProfile(),
+        {
+          message: "contractor_requests_get_profile_failed",
+          code: "contractor_requests_get_profile_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/requests",
+        }
+      );
 
       if (!profile || profile.role !== "contractor") {
         router.replace("/dashboard");
         return;
       }
 
-      const company = await getMyCompany();
+      const company = await withErrorLogging(
+        () => getMyCompany(),
+        {
+          message: "contractor_requests_get_company_failed",
+          code: "contractor_requests_get_company_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/requests",
+          role: "contractor",
+        }
+      );
+
       if (!company) {
         setCompanyRequests([]);
         setTeamRequests([]);
@@ -102,46 +161,73 @@ export default function ContractorRequestsPage() {
       }
 
       const [companyResult, teamResult] = await Promise.all([
-        supabase
-          .from("company_change_requests")
-          .select(`
-            id,
-            company_id,
-            status,
-            created_at,
-            reviewed_at,
-            admin_comment,
-            comment,
-            proposed_legal_name,
-            proposed_dba_name
-          `)
-          .eq("company_id", company.id)
-          .order("created_at", { ascending: false }),
-        listMyTeamChangeRequestsDetailed(),
+        withErrorLogging(
+          async () => {
+            const result = await supabase
+              .from("company_change_requests")
+              .select(`
+                id,
+                company_id,
+                status,
+                created_at,
+                reviewed_at,
+                admin_comment,
+                comment,
+                proposed_legal_name,
+                proposed_dba_name
+              `)
+              .eq("company_id", company.id)
+              .order("created_at", { ascending: false });
+
+            return unwrapSupabase(
+              result,
+              "contractor_requests_company_requests_failed",
+              "Unable to load company change requests."
+            ) as CompanyChangeRequestRow[];
+          },
+          {
+            message: "contractor_requests_company_requests_failed",
+            code: "contractor_requests_company_requests_failed",
+            source: "frontend",
+            area: "contractor",
+            path: "/contractor/requests",
+            role: "contractor",
+            details: {
+              companyId: company.id,
+            },
+          }
+        ),
+        withErrorLogging(
+          () => listMyTeamChangeRequestsDetailed(),
+          {
+            message: "contractor_requests_team_requests_failed",
+            code: "contractor_requests_team_requests_failed",
+            source: "frontend",
+            area: "contractor",
+            path: "/contractor/requests",
+            role: "contractor",
+          }
+        ),
       ]);
 
-      if (companyResult.error) {
-        throw new Error(companyResult.error.message);
-      }
-
-      setCompanyRequests((companyResult.data || []) as CompanyChangeRequestRow[]);
-      setTeamRequests(teamResult);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      setCompanyRequests(companyResult || []);
+      setTeamRequests(teamResult || []);
+    } catch (error) {
+      setErr(getSafeErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        loadPage();
+        void loadPage();
       }, 300);
     };
 
@@ -165,8 +251,8 @@ export default function ContractorRequestsPage() {
 
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
-      supabase.removeChannel(companyChannel);
-      supabase.removeChannel(teamChannel);
+      void supabase.removeChannel(companyChannel);
+      void supabase.removeChannel(teamChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,7 +267,10 @@ export default function ContractorRequestsPage() {
       admin_note: row.admin_comment,
       title: "Company change request",
       subtitle:
-        row.proposed_legal_name || row.proposed_dba_name || row.comment || "Company data update",
+        row.proposed_legal_name ||
+        row.proposed_dba_name ||
+        row.comment ||
+        "Company data update",
     }));
 
     const teamRows: UnifiedRow[] = teamRequests.map((row) => ({
@@ -196,7 +285,8 @@ export default function ContractorRequestsPage() {
     }));
 
     return [...companyRows, ...teamRows].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }, [companyRequests, teamRequests]);
 
@@ -209,7 +299,8 @@ export default function ContractorRequestsPage() {
               Change Requests
             </h1>
             <p className="mt-2 text-sm text-[#4B5563]">
-              View all company and team change requests from your company, with statuses and admin comments.
+              View all company and team change requests from your company, with
+              statuses and admin comments.
             </p>
           </div>
 
@@ -265,7 +356,7 @@ export default function ContractorRequestsPage() {
                     <div className="mt-1 text-sm font-medium text-[#111827]">
                       {row.title}
                     </div>
-                    <div className="mt-1 text-xs text-[#6B7280] break-all">
+                    <div className="mt-1 break-all text-xs text-[#6B7280]">
                       ID: {row.id}
                     </div>
                   </div>

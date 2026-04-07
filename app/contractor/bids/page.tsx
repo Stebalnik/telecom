@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
+import { useEffect, useMemo, useState } from "react";
+import { normalizeError } from "../../../lib/errors/normalizeError";
+import { unwrapSupabase, unwrapSupabaseNullable } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 import { getMyProfile } from "../../../lib/profile";
+import { supabase } from "../../../lib/supabaseClient";
 
 type ContractorCompanyRow = {
   id: string;
@@ -70,7 +73,6 @@ type BidRow = {
   planned_end_date: string | null;
   work_days: number | null;
   reviewed_at: string | null;
-
   job_title: string | null;
   job_location: string | null;
   job_deadline_date: string | null;
@@ -91,6 +93,17 @@ function formatMoney(v: number | null | undefined) {
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString();
+}
+
+function getSafeLoadErrorMessage(error: unknown) {
+  const normalized = normalizeError(error);
+  const code = String(normalized.code || "");
+
+  if (code.includes("not_logged_in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  return "Unable to load bids. Please try again.";
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -152,98 +165,164 @@ export default function ContractorBidsPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
+      const profile = await withErrorLogging(() => getMyProfile(), {
+        message: "contractor_bids_load_profile_failed",
+        code: "contractor_bids_load_profile_failed",
+        source: "frontend",
+        area: "bids",
+        path: "/contractor/bids",
+      });
+
       if (!profile) {
         router.replace("/login");
         return;
       }
+
       if (profile.role !== "contractor") {
         router.replace("/dashboard");
         return;
       }
 
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
+      const sessionResult = await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.getSession();
 
-      const userId = sessionData.session?.user?.id;
+          if (result.error) {
+            throw result.error;
+          }
+
+          return result;
+        },
+        {
+          message: "contractor_bids_get_session_failed",
+          code: "contractor_bids_get_session_failed",
+          source: "frontend",
+          area: "bids",
+          path: "/contractor/bids",
+        }
+      );
+
+      const userId = sessionResult.data.session?.user?.id;
+
       if (!userId) {
         router.replace("/login");
         return;
       }
 
-      const { data: companyRow, error: companyErr } = await supabase
-        .from("contractor_companies")
-        .select("id,legal_name,dba_name")
-        .eq("owner_user_id", userId)
-        .maybeSingle();
+      const companyResult = await withErrorLogging(
+        async () =>
+          unwrapSupabaseNullable(
+            await supabase
+              .from("contractor_companies")
+              .select("id,legal_name,dba_name")
+              .eq("owner_user_id", userId)
+              .maybeSingle(),
+            "contractor_bids_get_company_failed",
+            "Unable to load contractor company."
+          ),
+        {
+          message: "contractor_bids_get_company_failed",
+          code: "contractor_bids_get_company_failed",
+          source: "frontend",
+          area: "bids",
+          path: "/contractor/bids",
+        }
+      );
 
-      if (companyErr) throw companyErr;
-      if (!companyRow) {
+      if (!companyResult) {
         setErr("Contractor company not found. Complete company onboarding first.");
-        setLoading(false);
         return;
       }
 
-      setCompany(companyRow as ContractorCompanyRow);
+      const contractorCompany = companyResult as ContractorCompanyRow;
+      setCompany(contractorCompany);
 
-      const { data: bidRows, error: bidsErr } = await supabase
-        .from("bids")
-        .select(`
-          id,
-          job_id,
-          company_id,
-          team_id,
-          price,
-          message,
-          review_notes,
-          status,
-          created_at,
-          updated_at,
-          planned_start_date,
-          planned_end_date,
-          work_days,
-          reviewed_at,
-          reviewed_by,
-          jobs!inner (
-            title,
-            location,
-            deadline_date,
-            customer_id
+      const rawBidRows = await withErrorLogging(
+        async () =>
+          unwrapSupabase(
+            await supabase
+              .from("bids")
+              .select(`
+                id,
+                job_id,
+                company_id,
+                team_id,
+                price,
+                message,
+                review_notes,
+                status,
+                created_at,
+                updated_at,
+                planned_start_date,
+                planned_end_date,
+                work_days,
+                reviewed_at,
+                reviewed_by,
+                jobs!inner (
+                  title,
+                  location,
+                  deadline_date,
+                  customer_id
+                ),
+                teams (
+                  name
+                )
+              `)
+              .eq("company_id", contractorCompany.id)
+              .order("created_at", { ascending: false }),
+            "contractor_bids_load_failed",
+            "Unable to load bids."
           ),
-          teams (
-            name
-          )
-        `)
-        .eq("company_id", companyRow.id)
-        .order("created_at", { ascending: false });
+        {
+          message: "contractor_bids_load_failed",
+          code: "contractor_bids_load_failed",
+          source: "frontend",
+          area: "bids",
+          path: "/contractor/bids",
+        }
+      );
 
-      if (bidsErr) throw bidsErr;
-
-      const raw = (bidRows || []) as BidRowDb[];
+      const raw = (rawBidRows || []) as BidRowDb[];
 
       const customerIds = Array.from(
         new Set(
           raw
             .map((row) => normalizeJoinObject(row.jobs)?.customer_id || null)
-            .filter(Boolean)
+            .filter((value): value is string => Boolean(value))
         )
-      ) as string[];
+      );
 
       let customerNameById: Record<string, string> = {};
-      if (customerIds.length > 0) {
-        const { data: customerRows, error: customersErr } = await supabase
-          .from("customers")
-          .select("id,name")
-          .in("id", customerIds);
 
-        if (customersErr) throw customersErr;
+      if (customerIds.length > 0) {
+        const customerRows = await withErrorLogging(
+          async () =>
+            unwrapSupabase(
+              await supabase
+                .from("customers")
+                .select("id,name")
+                .in("id", customerIds),
+              "contractor_bids_load_customers_failed",
+              "Unable to load customers."
+            ),
+          {
+            message: "contractor_bids_load_customers_failed",
+            code: "contractor_bids_load_customers_failed",
+            source: "frontend",
+            area: "bids",
+            path: "/contractor/bids",
+          }
+        );
 
         customerNameById = Object.fromEntries(
-          ((customerRows || []) as CustomerRow[]).map((c) => [c.id, c.name])
+          ((customerRows || []) as CustomerRow[]).map((customer) => [
+            customer.id,
+            customer.name,
+          ])
         );
       }
 
-      const normalized: BidRow[] = raw.map((row) => {
+      const normalizedRows: BidRow[] = raw.map((row) => {
         const job = normalizeJoinObject(row.jobs);
         const team = normalizeJoinObject(row.teams);
 
@@ -264,28 +343,30 @@ export default function ContractorBidsPage() {
           job_location: job?.location || null,
           job_deadline_date: job?.deadline_date || null,
           customer_id: job?.customer_id || null,
-          customer_name: job?.customer_id ? customerNameById[job.customer_id] || null : null,
+          customer_name: job?.customer_id
+            ? customerNameById[job.customer_id] || null
+            : null,
           team_name: team?.name || null,
         };
       });
 
-      setRows(normalized);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      setRows(normalizedRows);
+    } catch (error) {
+      setErr(getSafeLoadErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stats = useMemo(() => {
-    const submitted = rows.filter((r) => r.status === "submitted").length;
-    const accepted = rows.filter((r) => r.status === "accepted").length;
-    const rejected = rows.filter((r) => r.status === "rejected").length;
+    const submitted = rows.filter((row) => row.status === "submitted").length;
+    const accepted = rows.filter((row) => row.status === "accepted").length;
+    const rejected = rows.filter((row) => row.status === "rejected").length;
 
     return {
       total: rows.length,

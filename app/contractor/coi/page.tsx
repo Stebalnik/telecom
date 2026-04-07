@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
-import { getMyProfile } from "../../../lib/profile";
-import { getMyCompany } from "../../../lib/contractor";
+import { useEffect, useMemo, useState } from "react";
 import {
   addCOISupportingFile,
+  COIHistoryRow,
+  COIPolicyRow,
+  COIRow,
+  COISupportingFileRow,
   createOrUpdateMyCOI,
   deleteCOIPolicy,
+  EndorsementTypeRow,
   getMyCOI,
+  InsuranceTypeRow,
   listCOIEndorsements,
   listCOIHistory,
   listCOIPolicies,
@@ -19,13 +22,12 @@ import {
   listInsuranceTypes,
   saveCOIEndorsements,
   upsertCOIPolicy,
-  COIHistoryRow,
-  COIPolicyRow,
-  COIRow,
-  COISupportingFileRow,
-  EndorsementTypeRow,
-  InsuranceTypeRow,
 } from "../../../lib/coi";
+import { getMyCompany } from "../../../lib/contractor";
+import { normalizeError } from "../../../lib/errors/normalizeError";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { getMyProfile } from "../../../lib/profile";
+import { supabase } from "../../../lib/supabaseClient";
 
 function iso(d?: string | null) {
   return d || "";
@@ -39,25 +41,40 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function parseLimitSchemaKeys(limit_schema: any): { key: string; label: string }[] {
+function parseLimitSchemaKeys(
+  limit_schema: unknown
+): { key: string; label: string }[] {
   if (!limit_schema) return [];
+
   try {
     if (Array.isArray(limit_schema)) {
       return limit_schema.map((k) => ({ key: String(k), label: String(k) }));
     }
-    if (typeof limit_schema === "object" && Array.isArray(limit_schema.fields)) {
-      return limit_schema.fields.map((f: any) => ({
-        key: String(f.key),
-        label: String(f.label ?? f.key),
-      }));
+
+    if (
+      typeof limit_schema === "object" &&
+      limit_schema !== null &&
+      "fields" in limit_schema &&
+      Array.isArray((limit_schema as { fields?: unknown[] }).fields)
+    ) {
+      return ((limit_schema as { fields: Array<{ key?: unknown; label?: unknown }> }).fields).map(
+        (f) => ({
+          key: String(f.key),
+          label: String(f.label ?? f.key),
+        })
+      );
     }
-    if (typeof limit_schema === "object") {
-      return Object.keys(limit_schema).map((k) => ({
+
+    if (typeof limit_schema === "object" && limit_schema !== null) {
+      return Object.keys(limit_schema as Record<string, unknown>).map((k) => ({
         key: k,
-        label: String((limit_schema as any)[k] ?? k),
+        label: String((limit_schema as Record<string, unknown>)[k] ?? k),
       }));
     }
-  } catch {}
+  } catch {
+    return [];
+  }
+
   return [];
 }
 
@@ -68,10 +85,10 @@ function StatusBadge({ status }: { status?: string | null }) {
     normalized === "approved" || normalized === "active"
       ? "border-green-200 bg-green-50 text-green-700"
       : normalized === "pending"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : normalized === "rejected" || normalized === "expired"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : "border-blue-200 bg-blue-50 text-blue-700";
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : normalized === "rejected" || normalized === "expired"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
     <span
@@ -116,7 +133,7 @@ function Field({
       <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
         {label}
       </div>
-      <div className="mt-1 text-sm font-medium text-[#111827] whitespace-pre-wrap break-words">
+      <div className="mt-1 whitespace-pre-wrap break-words text-sm font-medium text-[#111827]">
         {value || "—"}
       </div>
     </div>
@@ -126,6 +143,22 @@ function Field({
 function formatDate(value?: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString();
+}
+
+function getSafeErrorMessage(error: unknown, fallback: string) {
+  const normalized = normalizeError(error);
+  const code = String(normalized.code || "").toLowerCase();
+  const message = String(normalized.message || "").toLowerCase();
+
+  if (code.includes("not_logged_in") || message.includes("not authenticated")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (code.includes("permission") || message.includes("access denied")) {
+    return "You do not have access to this COI workspace.";
+  }
+
+  return fallback;
 }
 
 export default function ContractorCOIPage() {
@@ -152,25 +185,32 @@ export default function ContractorCOIPage() {
   const [brokerEmail, setBrokerEmail] = useState<string>("");
   const [certificateHolder, setCertificateHolder] = useState<string>("");
   const [operationsDescription, setOperationsDescription] = useState<string>("");
-  const [additionalInsuredText, setAdditionalInsuredText] = useState<string>("");
+  const [additionalInsuredText, setAdditionalInsuredText] =
+    useState<string>("");
   const [waiverText, setWaiverText] = useState<string>("");
-  const [primaryNonContribText, setPrimaryNonContribText] = useState<string>("");
+  const [primaryNonContribText, setPrimaryNonContribText] =
+    useState<string>("");
   const [includedEntitiesText, setIncludedEntitiesText] = useState<string>("");
 
   const [file, setFile] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<FileList | null>(null);
 
   const [insuranceTypes, setInsuranceTypes] = useState<InsuranceTypeRow[]>([]);
-  const [endorsementTypes, setEndorsementTypes] = useState<EndorsementTypeRow[]>([]);
+  const [endorsementTypes, setEndorsementTypes] = useState<EndorsementTypeRow[]>(
+    []
+  );
 
   const [policies, setPolicies] = useState<COIPolicyRow[]>([]);
   const [endorsementCodes, setEndorsementCodes] = useState<string[]>([]);
   const [noticeDays, setNoticeDays] = useState<number>(30);
 
-  const [supportingFileRows, setSupportingFileRows] = useState<COISupportingFileRow[]>([]);
+  const [supportingFileRows, setSupportingFileRows] = useState<
+    COISupportingFileRow[]
+  >([]);
   const [historyRows, setHistoryRows] = useState<COIHistoryRow[]>([]);
 
-  const [selectedInsuranceTypeId, setSelectedInsuranceTypeId] = useState<string>("");
+  const [selectedInsuranceTypeId, setSelectedInsuranceTypeId] =
+    useState<string>("");
   const [policyIssue, setPolicyIssue] = useState<string>(todayISO());
   const [policyExp, setPolicyExp] = useState<string>("");
   const [policyNumber, setPolicyNumber] = useState<string>("");
@@ -187,77 +227,186 @@ export default function ContractorCOIPage() {
 
   const insuranceNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    insuranceTypes.forEach((x) => (m[x.id] = x.name));
+    insuranceTypes.forEach((x) => {
+      m[x.id] = x.name;
+    });
     return m;
   }, [insuranceTypes]);
 
   async function uploadCurrentCOI(company_id: string): Promise<string | null> {
     if (!file) return null;
 
-    const { data: sessData, error: sessErr } = await supabase.auth.getSession();
-    if (sessErr) throw sessErr;
+    const sessionResult = await withErrorLogging(
+      async () => {
+        const result = await supabase.auth.getSession();
 
-    const accessToken = sessData.session?.access_token;
-    if (!accessToken) throw new Error("No session token. Please login again.");
+        if (result.error) {
+          throw result.error;
+        }
 
-    const res = await fetch("/api/coi/signed-upload", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+        return result;
       },
-      body: JSON.stringify({
-        companyId: company_id,
-        filename: file.name,
-        contentType: file.type || "application/pdf",
-      }),
-    });
+      {
+        message: "contractor_coi_get_session_failed",
+        code: "contractor_coi_get_session_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          companyId: company_id,
+        },
+      }
+    );
 
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Failed to create signed upload");
+    const accessToken = sessionResult.data.session?.access_token;
+    if (!accessToken) {
+      throw new Error("No session token. Please login again.");
+    }
+
+    const json = await withErrorLogging(
+      async () => {
+        const res = await fetch("/api/coi/signed-upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            companyId: company_id,
+            filename: file.name,
+            contentType: file.type || "application/pdf",
+          }),
+        });
+
+        const body = await res.json();
+
+        if (!res.ok) {
+          throw new Error(body?.error || "Failed to create signed upload");
+        }
+
+        return body as { path: string; token: string };
+      },
+      {
+        message: "contractor_coi_create_signed_upload_failed",
+        code: "contractor_coi_create_signed_upload_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          companyId: company_id,
+          fileName: file.name,
+        },
+      }
+    );
 
     const bucketName = "coi-files";
-    const path = json.path as string;
-    const token = json.token as string;
 
-    const { error: upErr } = await supabase.storage
-      .from(bucketName)
-      .uploadToSignedUrl(path, token, file, {
-        contentType: file.type || "application/pdf",
-        upsert: false,
-      });
+    await withErrorLogging(
+      async () => {
+        const { error: uploadError } = await supabase.storage
+          .from(bucketName)
+          .uploadToSignedUrl(json.path, json.token, file, {
+            contentType: file.type || "application/pdf",
+            upsert: false,
+          });
 
-    if (upErr) throw upErr;
+        if (uploadError) {
+          throw uploadError;
+        }
+      },
+      {
+        message: "contractor_coi_upload_file_failed",
+        code: "contractor_coi_upload_file_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          companyId: company_id,
+          fileName: file.name,
+        },
+      }
+    );
 
-    return path;
+    return json.path;
   }
 
   async function uploadSupportingFiles(currentCoiId: string, company_id: string) {
     if (!supportingFiles || supportingFiles.length === 0) return;
 
-    const { data: sessData, error: sessErr } = await supabase.auth.getSession();
-    if (sessErr) throw sessErr;
+    const sessionResult = await withErrorLogging(
+      async () => {
+        const result = await supabase.auth.getSession();
 
-    const userId = sessData.session?.user?.id || null;
+        if (result.error) {
+          throw result.error;
+        }
+
+        return result;
+      },
+      {
+        message: "contractor_coi_get_supporting_session_failed",
+        code: "contractor_coi_get_supporting_session_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          companyId: company_id,
+          coiId: currentCoiId,
+        },
+      }
+    );
+
+    const userId = sessionResult.data.session?.user?.id || null;
 
     for (const f of Array.from(supportingFiles)) {
       const ext = f.name.includes(".") ? f.name.split(".").pop() : "bin";
       const path = `${company_id}/${currentCoiId}/supporting/${crypto.randomUUID()}.${ext}`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from("coi-files")
-        .upload(path, f, { upsert: false });
+      await withErrorLogging(
+        async () => {
+          const { error: uploadError } = await supabase.storage
+            .from("coi-files")
+            .upload(path, f, { upsert: false });
 
-      if (uploadErr) {
-        throw new Error(uploadErr.message);
-      }
+          if (uploadError) {
+            throw uploadError;
+          }
+        },
+        {
+          message: "contractor_coi_upload_supporting_file_failed",
+          code: "contractor_coi_upload_supporting_file_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            companyId: company_id,
+            coiId: currentCoiId,
+            fileName: f.name,
+          },
+        }
+      );
 
-      await addCOISupportingFile({
-        coi_id: currentCoiId,
-        uploaded_by: userId,
-        file_name: f.name,
-        file_path: path,
-      });
+      await withErrorLogging(
+        () =>
+          addCOISupportingFile({
+            coi_id: currentCoiId,
+            uploaded_by: userId,
+            file_name: f.name,
+            file_path: path,
+          }),
+        {
+          message: "contractor_coi_save_supporting_file_failed",
+          code: "contractor_coi_save_supporting_file_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            companyId: company_id,
+            coiId: currentCoiId,
+            fileName: f.name,
+          },
+        }
+      );
     }
   }
 
@@ -267,17 +416,38 @@ export default function ContractorCOIPage() {
     setOk(null);
 
     try {
-      const profile = await getMyProfile();
+      const profile = await withErrorLogging(
+        () => getMyProfile(),
+        {
+          message: "contractor_coi_load_profile_failed",
+          code: "contractor_coi_load_profile_failed",
+          source: "frontend",
+          area: "auth",
+          path: "/contractor/coi",
+        }
+      );
+
       if (!profile) {
         router.replace("/login");
         return;
       }
+
       if (profile.role !== "contractor") {
         router.replace("/dashboard");
         return;
       }
 
-      const myCompany = await getMyCompany();
+      const myCompany = await withErrorLogging(
+        () => getMyCompany(),
+        {
+          message: "contractor_coi_load_company_failed",
+          code: "contractor_coi_load_company_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/coi",
+        }
+      );
+
       if (!myCompany) {
         setErr("Create your company first in Contractor portal.");
         setLoading(false);
@@ -287,9 +457,30 @@ export default function ContractorCOIPage() {
       setCompanyId(myCompany.id);
 
       const [it, et, coi0] = await Promise.all([
-        listInsuranceTypes(),
-        listEndorsementTypes(),
-        getMyCOI(myCompany.id),
+        withErrorLogging(() => listInsuranceTypes(), {
+          message: "contractor_coi_list_insurance_types_failed",
+          code: "contractor_coi_list_insurance_types_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+        }),
+        withErrorLogging(() => listEndorsementTypes(), {
+          message: "contractor_coi_list_endorsement_types_failed",
+          code: "contractor_coi_list_endorsement_types_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+        }),
+        withErrorLogging(() => getMyCOI(myCompany.id), {
+          message: "contractor_coi_get_current_failed",
+          code: "contractor_coi_get_current_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            companyId: myCompany.id,
+          },
+        }),
       ]);
 
       setInsuranceTypes(it);
@@ -316,10 +507,46 @@ export default function ContractorCOIPage() {
         setIncludedEntitiesText(coi0.included_entities_text ?? "");
 
         const [p, e, supportingRows, history] = await Promise.all([
-          listCOIPolicies(coi0.id),
-          listCOIEndorsements(coi0.id),
-          listCOISupportingFiles(coi0.id),
-          listCOIHistory(myCompany.id),
+          withErrorLogging(() => listCOIPolicies(coi0.id), {
+            message: "contractor_coi_list_policies_failed",
+            code: "contractor_coi_list_policies_failed",
+            source: "frontend",
+            area: "documents",
+            path: "/contractor/coi",
+            details: {
+              coiId: coi0.id,
+            },
+          }),
+          withErrorLogging(() => listCOIEndorsements(coi0.id), {
+            message: "contractor_coi_list_endorsements_failed",
+            code: "contractor_coi_list_endorsements_failed",
+            source: "frontend",
+            area: "documents",
+            path: "/contractor/coi",
+            details: {
+              coiId: coi0.id,
+            },
+          }),
+          withErrorLogging(() => listCOISupportingFiles(coi0.id), {
+            message: "contractor_coi_list_supporting_files_failed",
+            code: "contractor_coi_list_supporting_files_failed",
+            source: "frontend",
+            area: "documents",
+            path: "/contractor/coi",
+            details: {
+              coiId: coi0.id,
+            },
+          }),
+          withErrorLogging(() => listCOIHistory(myCompany.id), {
+            message: "contractor_coi_list_history_failed",
+            code: "contractor_coi_list_history_failed",
+            source: "frontend",
+            area: "documents",
+            path: "/contractor/coi",
+            details: {
+              companyId: myCompany.id,
+            },
+          }),
         ]);
 
         setPolicies(p);
@@ -335,15 +562,17 @@ export default function ContractorCOIPage() {
         setSupportingFileRows([]);
         setHistoryRows([]);
       }
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (error) {
+      setErr(
+        getSafeErrorMessage(error, "Unable to load the COI workspace. Please try again.")
+      );
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -364,34 +593,76 @@ export default function ContractorCOIPage() {
     try {
       const filePath = await uploadCurrentCOI(companyId);
 
-      const saved = await createOrUpdateMyCOI({
-        company_id: companyId,
-        issue_date: issueDate || null,
-        expiration_date: expDate || null,
-        carrier_name: carrierName || null,
-        am_best_rating: amBest || null,
-        admitted_carrier: admitted,
-        file_path: filePath ?? coi?.file_path ?? null,
-
-        insured_name: insuredName || null,
-        broker_name: brokerName || null,
-        broker_phone: brokerPhone || null,
-        broker_email: brokerEmail || null,
-        certificate_holder: certificateHolder || null,
-        description_of_operations: operationsDescription || null,
-        additional_insured_text: additionalInsuredText || null,
-        waiver_of_subrogation_text: waiverText || null,
-        primary_non_contributory_text: primaryNonContribText || null,
-        included_entities_text: includedEntitiesText || null,
-      });
+      const saved = await withErrorLogging(
+        () =>
+          createOrUpdateMyCOI({
+            company_id: companyId,
+            issue_date: issueDate || null,
+            expiration_date: expDate || null,
+            carrier_name: carrierName || null,
+            am_best_rating: amBest || null,
+            admitted_carrier: admitted,
+            file_path: filePath ?? coi?.file_path ?? null,
+            insured_name: insuredName || null,
+            broker_name: brokerName || null,
+            broker_phone: brokerPhone || null,
+            broker_email: brokerEmail || null,
+            certificate_holder: certificateHolder || null,
+            description_of_operations: operationsDescription || null,
+            additional_insured_text: additionalInsuredText || null,
+            waiver_of_subrogation_text: waiverText || null,
+            primary_non_contributory_text: primaryNonContribText || null,
+            included_entities_text: includedEntitiesText || null,
+          }),
+        {
+          message: "contractor_coi_save_failed",
+          code: "contractor_coi_save_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            companyId,
+          },
+        }
+      );
 
       setCoi(saved);
 
-      await saveCOIEndorsements(saved.id, endorsementCodes, noticeDays);
+      await withErrorLogging(
+        () => saveCOIEndorsements(saved.id, endorsementCodes, noticeDays),
+        {
+          message: "contractor_coi_save_endorsements_failed",
+          code: "contractor_coi_save_endorsements_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: saved.id,
+          },
+        }
+      );
 
       const [p, e] = await Promise.all([
-        listCOIPolicies(saved.id),
-        listCOIEndorsements(saved.id),
+        withErrorLogging(() => listCOIPolicies(saved.id), {
+          message: "contractor_coi_reload_policies_failed",
+          code: "contractor_coi_reload_policies_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: saved.id,
+          },
+        }),
+        withErrorLogging(() => listCOIEndorsements(saved.id), {
+          message: "contractor_coi_reload_endorsements_failed",
+          code: "contractor_coi_reload_endorsements_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: saved.id,
+          },
+        }),
       ]);
 
       setPolicies(p);
@@ -401,8 +672,26 @@ export default function ContractorCOIPage() {
       await uploadSupportingFiles(saved.id, companyId);
 
       const [supportingRows, history] = await Promise.all([
-        listCOISupportingFiles(saved.id),
-        listCOIHistory(companyId),
+        withErrorLogging(() => listCOISupportingFiles(saved.id), {
+          message: "contractor_coi_reload_supporting_files_failed",
+          code: "contractor_coi_reload_supporting_files_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: saved.id,
+          },
+        }),
+        withErrorLogging(() => listCOIHistory(companyId), {
+          message: "contractor_coi_reload_history_failed",
+          code: "contractor_coi_reload_history_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            companyId,
+          },
+        }),
       ]);
 
       setSupportingFileRows(supportingRows);
@@ -411,8 +700,8 @@ export default function ContractorCOIPage() {
       setOk("COI saved successfully.");
       setFile(null);
       setSupportingFiles(null);
-    } catch (e: any) {
-      setErr(e.message ?? "Save COI error");
+    } catch (error) {
+      setErr(getSafeErrorMessage(error, "Unable to save COI. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -424,59 +713,139 @@ export default function ContractorCOIPage() {
     setErr(null);
 
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const accessToken = sess.session?.access_token;
-      if (!accessToken) throw new Error("Not authenticated");
+      const sessionResult = await withErrorLogging(
+        async () => {
+          const result = await supabase.auth.getSession();
 
-      const res = await fetch(`/api/coi/signed-url?coiId=${encodeURIComponent(coi.id)}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+          if (result.error) {
+            throw result.error;
+          }
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Failed to get signed URL");
+          return result;
+        },
+        {
+          message: "contractor_coi_download_session_failed",
+          code: "contractor_coi_download_session_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: coi.id,
+          },
+        }
+      );
 
-      const url = json.url as string;
-      window.open(url, "_blank");
-    } catch (e: any) {
-      setErr(e.message ?? "Download error");
+      const accessToken = sessionResult.data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const json = await withErrorLogging(
+        async () => {
+          const res = await fetch(
+            `/api/coi/signed-url?coiId=${encodeURIComponent(coi.id)}`,
+            {
+              method: "GET",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+
+          const body = await res.json();
+
+          if (!res.ok) {
+            throw new Error(body?.error || "Failed to get signed URL");
+          }
+
+          return body as { url: string };
+        },
+        {
+          message: "contractor_coi_download_url_failed",
+          code: "contractor_coi_download_url_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: coi.id,
+          },
+        }
+      );
+
+      window.open(json.url, "_blank");
+    } catch (error) {
+      setErr(
+        getSafeErrorMessage(error, "Unable to download the current COI.")
+      );
     }
   }
 
   async function addPolicy() {
-    if (!coi?.id) return setErr("Save COI first.");
-    if (!selectedInsuranceTypeId) return setErr("Select insurance type.");
-    if (!policyExp) return setErr("Policy expiration date is required.");
+    if (!coi?.id) {
+      setErr("Save COI first.");
+      return;
+    }
+
+    if (!selectedInsuranceTypeId) {
+      setErr("Select insurance type.");
+      return;
+    }
+
+    if (!policyExp) {
+      setErr("Policy expiration date is required.");
+      return;
+    }
 
     setErr(null);
 
     try {
-      const limitsJson: Record<string, any> = {};
+      const limitsJson: Record<string, unknown> = {};
 
       Object.entries(limits).forEach(([k, v]) => {
         const num = v.replace(/[^0-9]/g, "");
         limitsJson[k] = num ? Number(num) : v;
       });
 
-      await upsertCOIPolicy({
-        coi_id: coi.id,
-        insurance_type_id: selectedInsuranceTypeId,
-        issue_date: policyIssue || null,
-        expiration_date: policyExp || null,
-        policy_number: policyNumber || null,
-        limits: limitsJson,
+      await withErrorLogging(
+        () =>
+          upsertCOIPolicy({
+            coi_id: coi.id,
+            insurance_type_id: selectedInsuranceTypeId,
+            issue_date: policyIssue || null,
+            expiration_date: policyExp || null,
+            policy_number: policyNumber || null,
+            limits: limitsJson,
+          }),
+        {
+          message: "contractor_coi_add_policy_failed",
+          code: "contractor_coi_add_policy_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: coi.id,
+            insuranceTypeId: selectedInsuranceTypeId,
+          },
+        }
+      );
+
+      const p = await withErrorLogging(() => listCOIPolicies(coi.id), {
+        message: "contractor_coi_reload_policies_after_add_failed",
+        code: "contractor_coi_reload_policies_after_add_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          coiId: coi.id,
+        },
       });
 
-      const p = await listCOIPolicies(coi.id);
       setPolicies(p);
-
       setSelectedInsuranceTypeId("");
       setPolicyIssue(todayISO());
       setPolicyExp("");
       setPolicyNumber("");
       setLimits({});
-    } catch (e: any) {
-      setErr(e.message ?? "Add policy error");
+    } catch (error) {
+      setErr(getSafeErrorMessage(error, "Unable to add policy."));
     }
   }
 
@@ -486,11 +855,35 @@ export default function ContractorCOIPage() {
     setErr(null);
 
     try {
-      await deleteCOIPolicy(id);
-      const p = await listCOIPolicies(coi.id);
+      await withErrorLogging(
+        () => deleteCOIPolicy(id),
+        {
+          message: "contractor_coi_delete_policy_failed",
+          code: "contractor_coi_delete_policy_failed",
+          source: "frontend",
+          area: "documents",
+          path: "/contractor/coi",
+          details: {
+            coiId: coi.id,
+            policyId: id,
+          },
+        }
+      );
+
+      const p = await withErrorLogging(() => listCOIPolicies(coi.id), {
+        message: "contractor_coi_reload_policies_after_delete_failed",
+        code: "contractor_coi_reload_policies_after_delete_failed",
+        source: "frontend",
+        area: "documents",
+        path: "/contractor/coi",
+        details: {
+          coiId: coi.id,
+        },
+      });
+
       setPolicies(p);
-    } catch (e: any) {
-      setErr(e.message ?? "Delete policy error");
+    } catch (error) {
+      setErr(getSafeErrorMessage(error, "Unable to delete policy."));
     }
   }
 
@@ -503,8 +896,9 @@ export default function ContractorCOIPage() {
               Certificate of Insurance
             </h1>
             <p className="mt-2 text-sm text-[#4B5563]">
-              Upload and manage the current COI, structured policy information, endorsements,
-              and compliance details. Only one current COI should be active at a time.
+              Upload and manage the current COI, structured policy information,
+              endorsements, and compliance details. Only one current COI should
+              be active at a time.
             </p>
           </div>
 
@@ -561,7 +955,7 @@ export default function ContractorCOIPage() {
               <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
                 Active file path
               </div>
-              <div className="mt-1 text-sm font-medium text-[#111827] break-all">
+              <div className="mt-1 break-all text-sm font-medium text-[#111827]">
                 {coi?.file_path || "No active file uploaded"}
               </div>
             </div>
@@ -579,7 +973,7 @@ export default function ContractorCOIPage() {
 
             <button
               type="button"
-              onClick={load}
+              onClick={() => void load()}
               className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
             >
               Refresh data
@@ -767,7 +1161,7 @@ export default function ContractorCOIPage() {
                   <button
                     type="button"
                     className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                    onClick={() => removePolicy(p.id)}
+                    onClick={() => void removePolicy(p.id)}
                   >
                     Delete
                   </button>
@@ -780,8 +1174,10 @@ export default function ContractorCOIPage() {
             ))
           )}
 
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-5 space-y-4">
-            <div className="text-base font-semibold text-[#111827]">Add a policy</div>
+          <div className="space-y-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-5">
+            <div className="text-base font-semibold text-[#111827]">
+              Add a policy
+            </div>
 
             <select
               className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
@@ -839,7 +1235,9 @@ export default function ContractorCOIPage() {
 
             {selectedInsuranceTypeId ? (
               <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4">
-                <div className="mb-3 text-sm font-semibold text-[#111827]">Limits</div>
+                <div className="mb-3 text-sm font-semibold text-[#111827]">
+                  Limits
+                </div>
 
                 {limitFields.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2">
@@ -852,7 +1250,10 @@ export default function ContractorCOIPage() {
                           className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
                           value={limits[f.key] ?? ""}
                           onChange={(e) =>
-                            setLimits((prev) => ({ ...prev, [f.key]: e.target.value }))
+                            setLimits((prev) => ({
+                              ...prev,
+                              [f.key]: e.target.value,
+                            }))
                           }
                           placeholder="e.g. 1000000"
                         />
@@ -885,7 +1286,10 @@ export default function ContractorCOIPage() {
                               className="w-full rounded-xl border border-[#D9E2EC] p-3 text-sm"
                               value={limits[k] ?? ""}
                               onChange={(e) =>
-                                setLimits((prev) => ({ ...prev, [k]: e.target.value }))
+                                setLimits((prev) => ({
+                                  ...prev,
+                                  [k]: e.target.value,
+                                }))
                               }
                             />
                           </div>
@@ -900,7 +1304,7 @@ export default function ContractorCOIPage() {
             <button
               type="button"
               className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
-              onClick={addPolicy}
+              onClick={() => void addPolicy()}
             >
               Add policy
             </button>
@@ -1021,7 +1425,7 @@ export default function ContractorCOIPage() {
                 <div className="text-sm font-medium text-[#111827]">
                   {row.file_name || row.file_path}
                 </div>
-                <div className="mt-1 text-xs text-[#6B7280] break-all">
+                <div className="mt-1 break-all text-xs text-[#6B7280]">
                   {row.file_path}
                 </div>
                 <div className="mt-1 text-xs text-[#6B7280]">
@@ -1098,7 +1502,7 @@ export default function ContractorCOIPage() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={saveCOI}
+          onClick={() => void saveCOI()}
           disabled={saving || loading}
           className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -1107,7 +1511,7 @@ export default function ContractorCOIPage() {
 
         <button
           type="button"
-          onClick={load}
+          onClick={() => void load()}
           disabled={saving}
           className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
         >

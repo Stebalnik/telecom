@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 type ContractorApprovalRow = {
   id: string;
@@ -78,61 +80,82 @@ export default function AdminContractorApprovalsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const nextRows = await withErrorLogging(
+        async () => {
+          const sessionResult = await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
+
+          if (!sessionResult.data.session?.user) {
+            router.replace("/login");
+            return null;
+          }
+
+          const profile = await getMyProfile();
+
+          if (!profile || profile.role !== "admin") {
+            router.replace("/dashboard");
+            return null;
+          }
+
+          const companiesResult = await supabase
+            .from("contractor_companies")
+            .select(`
+              id,
+              legal_name,
+              dba_name,
+              status,
+              onboarding_status,
+              created_at,
+              owner_user_id,
+              block_reason,
+              public_profile:contractor_public_profiles (
+                company_id,
+                is_listed,
+                headline,
+                home_market,
+                markets
+              )
+            `)
+            .eq("onboarding_status", "submitted")
+            .order("created_at", { ascending: false });
+
+          return unwrapSupabase(
+            companiesResult,
+            "admin_contractor_approvals_load_failed"
+          ) as ContractorApprovalRow[];
+        },
+        {
+          message: "admin_contractor_approvals_load_failed",
+          code: "admin_contractor_approvals_load_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/contractor-approvals",
+          role: "admin",
+        }
+      );
+
+      if (nextRows) {
+        setRows(nextRows);
       }
-
-      const profile = await getMyProfile();
-
-      if (!profile || profile.role !== "admin") {
-        router.replace("/dashboard");
-        return;
-      }
-
-      const { data: companies, error } = await supabase
-        .from("contractor_companies")
-        .select(`
-          id,
-          legal_name,
-          dba_name,
-          status,
-          onboarding_status,
-          created_at,
-          owner_user_id,
-          block_reason,
-          public_profile:contractor_public_profiles (
-            company_id,
-            is_listed,
-            headline,
-            home_market,
-            markets
-          )
-        `)
-        .eq("onboarding_status", "submitted")
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      setRows((companies || []) as ContractorApprovalRow[]);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch {
+      setErr("Unable to load contractor approvals.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        loadPage();
+        void loadPage();
       }, 300);
     };
 
@@ -156,8 +179,8 @@ export default function AdminContractorApprovalsPage() {
 
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
-      supabase.removeChannel(companiesChannel);
-      supabase.removeChannel(profileChannel);
+      void supabase.removeChannel(companiesChannel);
+      void supabase.removeChannel(profileChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -167,29 +190,51 @@ export default function AdminContractorApprovalsPage() {
     setErr(null);
 
     try {
-      const { error: companyErr } = await supabase
-        .from("contractor_companies")
-        .update({
-          onboarding_status: "approved",
-        })
-        .eq("id", companyId);
+      await withErrorLogging(
+        async () => {
+          const companyUpdateResult = await supabase
+            .from("contractor_companies")
+            .update({
+              onboarding_status: "approved",
+            })
+            .eq("id", companyId);
 
-      if (companyErr) throw new Error(companyErr.message);
+          unwrapSupabase(
+            companyUpdateResult,
+            "admin_contractor_approval_update_failed"
+          );
 
-      if (hasPublicProfile) {
-        const { error: profileErr } = await supabase
-          .from("contractor_public_profiles")
-          .update({
-            is_listed: true,
-          })
-          .eq("company_id", companyId);
+          if (hasPublicProfile) {
+            const profileUpdateResult = await supabase
+              .from("contractor_public_profiles")
+              .update({
+                is_listed: true,
+              })
+              .eq("company_id", companyId);
 
-        if (profileErr) throw new Error(profileErr.message);
-      }
+            unwrapSupabase(
+              profileUpdateResult,
+              "admin_contractor_public_profile_update_failed"
+            );
+          }
 
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Approve error");
+          await loadPage();
+        },
+        {
+          message: "admin_contractor_approve_failed",
+          code: "admin_contractor_approve_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/contractor-approvals",
+          role: "admin",
+          details: {
+            companyId,
+            hasPublicProfile,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to approve contractor.");
     } finally {
       setBusyId(null);
     }
@@ -200,18 +245,32 @@ export default function AdminContractorApprovalsPage() {
     setErr(null);
 
     try {
-      const { error } = await supabase
-        .from("contractor_companies")
-        .update({
-          onboarding_status: "draft",
-        })
-        .eq("id", companyId);
+      await withErrorLogging(
+        async () => {
+          const updateResult = await supabase
+            .from("contractor_companies")
+            .update({
+              onboarding_status: "draft",
+            })
+            .eq("id", companyId);
 
-      if (error) throw new Error(error.message);
-
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Reject error");
+          unwrapSupabase(updateResult, "admin_contractor_reject_failed");
+          await loadPage();
+        },
+        {
+          message: "admin_contractor_reject_failed",
+          code: "admin_contractor_reject_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/contractor-approvals",
+          role: "admin",
+          details: {
+            companyId,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to return contractor to draft.");
     } finally {
       setBusyId(null);
     }
@@ -227,7 +286,8 @@ export default function AdminContractorApprovalsPage() {
                 Contractor approvals
               </h1>
               <p className="mt-2 text-sm text-[#4B5563]">
-                Review submitted contractor onboardings and approve them for marketplace visibility.
+                Review submitted contractor onboardings and approve them for
+                marketplace visibility.
               </p>
             </div>
 
@@ -244,7 +304,9 @@ export default function AdminContractorApprovalsPage() {
 
         {loading ? (
           <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#4B5563]">Loading contractor approvals...</p>
+            <p className="text-sm text-[#4B5563]">
+              Loading contractor approvals...
+            </p>
           </section>
         ) : null}
 
@@ -256,7 +318,9 @@ export default function AdminContractorApprovalsPage() {
 
         {!loading && rows.length === 0 ? (
           <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#4B5563]">No submitted contractors waiting for approval.</p>
+            <p className="text-sm text-[#4B5563]">
+              No submitted contractors waiting for approval.
+            </p>
           </section>
         ) : null}
 
@@ -292,8 +356,12 @@ export default function AdminContractorApprovalsPage() {
                         />
 
                         <StatusBadge
-                          status={publicProfile?.is_listed ? "listed" : "not listed"}
-                          tone={publicProfile?.is_listed ? "success" : "neutral"}
+                          status={
+                            publicProfile?.is_listed ? "listed" : "not listed"
+                          }
+                          tone={
+                            publicProfile?.is_listed ? "success" : "neutral"
+                          }
                         />
                       </div>
 
@@ -352,7 +420,9 @@ export default function AdminContractorApprovalsPage() {
                       <button
                         type="button"
                         disabled={isBusy}
-                        onClick={() => approveCompany(row.id, !!publicProfile)}
+                        onClick={() =>
+                          void approveCompany(row.id, !!publicProfile)
+                        }
                         className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isBusy ? "Processing..." : "Approve"}
@@ -361,7 +431,7 @@ export default function AdminContractorApprovalsPage() {
                       <button
                         type="button"
                         disabled={isBusy}
-                        onClick={() => rejectCompany(row.id)}
+                        onClick={() => void rejectCompany(row.id)}
                         className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Return to draft

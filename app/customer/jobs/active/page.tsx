@@ -12,6 +12,7 @@ import {
   deleteJobFile,
   JobFileRow,
 } from "../../../../lib/jobFiles";
+import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
 
 type JobRow = {
   id: string;
@@ -55,35 +56,64 @@ export default function CustomerJobsActivePage() {
     setLoading(true);
     setErr(null);
 
-    const profile = await getMyProfile();
-    if (!profile) return router.replace("/login");
-    if (profile.role !== "customer") return router.replace("/dashboard");
-
-    const org = await getMyCustomerOrg();
-    if (!org) return router.replace("/customer/settings");
-
     try {
-      setCustomerId(org.id);
+      await withErrorLogging(
+        async () => {
+          const profile = await getMyProfile();
 
-      const jobsArr = (await listCustomerJobsByStatus(org.id, "open")) as JobRow[];
-      setJobs(jobsArr);
+          if (!profile) {
+            router.replace("/login");
+            return;
+          }
 
-      const allFiles = await listJobFilesForJobs(jobsArr.map((x) => x.id));
-      const map: Record<string, JobFileRow[]> = {};
-      for (const f of allFiles) {
-        if (!map[f.job_id]) map[f.job_id] = [];
-        map[f.job_id].push(f);
-      }
-      setFilesByJob(map);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+          if (profile.role !== "customer") {
+            router.replace("/dashboard");
+            return;
+          }
+
+          const org = await getMyCustomerOrg();
+
+          if (!org) {
+            router.replace("/customer/settings");
+            return;
+          }
+
+          setCustomerId(org.id);
+
+          const jobsArr = (await listCustomerJobsByStatus(
+            org.id,
+            "open"
+          )) as JobRow[];
+          setJobs(jobsArr);
+
+          const allFiles = await listJobFilesForJobs(jobsArr.map((x) => x.id));
+          const map: Record<string, JobFileRow[]> = {};
+
+          for (const f of allFiles) {
+            if (!map[f.job_id]) map[f.job_id] = [];
+            map[f.job_id].push(f);
+          }
+
+          setFilesByJob(map);
+        },
+        {
+          message: "customer_active_jobs_load_failed",
+          code: "customer_active_jobs_load_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/active",
+          role: "customer",
+        }
+      );
+    } catch {
+      setErr("Unable to load active jobs. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -92,12 +122,30 @@ export default function CustomerJobsActivePage() {
     setErr(null);
 
     try {
-      for (const f of Array.from(files)) {
-        await uploadJobFile(jobId, f);
-      }
-      await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Upload error");
+      await withErrorLogging(
+        async () => {
+          for (const f of Array.from(files)) {
+            await uploadJobFile(jobId, f);
+          }
+
+          await load();
+        },
+        {
+          message: "customer_job_file_upload_failed",
+          code: "customer_job_file_upload_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/active",
+          role: "customer",
+          details: {
+            jobId,
+            fileCount: files.length,
+            fileNames: Array.from(files).map((file) => file.name),
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to upload files. Please try again.");
     }
   }
 
@@ -106,10 +154,29 @@ export default function CustomerJobsActivePage() {
 
     try {
       if (!confirm(`Delete file "${f.file_name}"?`)) return;
-      await deleteJobFile(f);
-      await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Delete file error");
+
+      await withErrorLogging(
+        async () => {
+          await deleteJobFile(f);
+          await load();
+        },
+        {
+          message: "customer_job_file_delete_failed",
+          code: "customer_job_file_delete_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/active",
+          role: "customer",
+          details: {
+            jobId: f.job_id,
+            fileId: f.id,
+            fileName: f.file_name,
+            filePath: f.file_path,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to delete the file. Please try again.");
     }
   }
 
@@ -118,10 +185,54 @@ export default function CustomerJobsActivePage() {
 
     try {
       if (!confirm("Move this job to Archive?")) return;
-      await updateJobStatus(jobId, "closed");
-      await load();
-    } catch (e: any) {
-      setErr(e.message ?? "Archive error");
+
+      await withErrorLogging(
+        async () => {
+          await updateJobStatus(jobId, "closed");
+          await load();
+        },
+        {
+          message: "customer_job_archive_failed",
+          code: "customer_job_archive_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/active",
+          role: "customer",
+          details: {
+            jobId,
+            nextStatus: "closed",
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to archive the job. Please try again.");
+    }
+  }
+
+  async function onDownloadFile(filePath: string, jobId: string, fileId: string) {
+    setErr(null);
+
+    try {
+      await withErrorLogging(
+        async () => {
+          await openJobFileSigned(filePath);
+        },
+        {
+          message: "customer_job_file_open_failed",
+          code: "customer_job_file_open_failed",
+          source: "frontend",
+          area: "jobs",
+          path: "/customer/jobs/active",
+          role: "customer",
+          details: {
+            jobId,
+            fileId,
+            filePath,
+          },
+        }
+      );
+    } catch {
+      setErr("Unable to open the file. Please try again.");
     }
   }
 
@@ -204,7 +315,7 @@ export default function CustomerJobsActivePage() {
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                    onClick={() => archiveJob(j.id)}
+                    onClick={() => void archiveJob(j.id)}
                   >
                     Archive
                   </button>
@@ -235,7 +346,7 @@ export default function CustomerJobsActivePage() {
                       type="file"
                       className="hidden"
                       multiple
-                      onChange={(e) => onUpload(j.id, e.target.files)}
+                      onChange={(e) => void onUpload(j.id, e.target.files)}
                     />
                   </label>
                 </div>
@@ -263,14 +374,16 @@ export default function CustomerJobsActivePage() {
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
-                            onClick={() => openJobFileSigned(f.file_path)}
+                            onClick={() =>
+                              void onDownloadFile(f.file_path, f.job_id, f.id)
+                            }
                           >
                             Download
                           </button>
 
                           <button
                             className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                            onClick={() => onDeleteFile(f)}
+                            onClick={() => void onDeleteFile(f)}
                           >
                             Delete
                           </button>

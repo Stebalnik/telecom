@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { unwrapSupabase } from "@/lib/errors/unwrapSupabase";
+import { withServerErrorLogging } from "@/lib/errors/withServerErrorLogging";
 import { createClient } from "@/lib/supabase/server";
 
 type TrackBody = {
@@ -10,53 +12,61 @@ type TrackBody = {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as TrackBody;
+    return await withServerErrorLogging(
+      async () => {
+        const body = (await req.json()) as TrackBody;
 
-    const event = body.event?.trim();
-    const path = body.path?.trim() || null;
-    const role = body.role?.trim() || null;
-    const meta = body.meta ?? {};
+        const event = body.event?.trim();
+        const path = body.path?.trim() || null;
+        const role = body.role?.trim() || null;
+        const meta = body.meta ?? {};
 
-    if (!event) {
-      return NextResponse.json(
-        { error: "event is required" },
-        { status: 400 }
-      );
-    }
+        if (!event) {
+          return NextResponse.json(
+            { error: "event is required" },
+            { status: 400 }
+          );
+        }
 
-    const supabase = await createClient();
+        const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: userErr,
+        } = await supabase.auth.getUser();
 
-    if (userErr) {
-      return NextResponse.json(
-        { error: userErr.message },
-        { status: 401 }
-      );
-    }
+        if (userErr) {
+          return NextResponse.json(
+            { error: "Unable to verify user." },
+            { status: 401 }
+          );
+        }
 
-    const { error } = await supabase.from("analytics_events").insert({
-      user_id: user?.id ?? null,
-      event,
-      path,
-      role,
-      meta,
-    });
+        unwrapSupabase(
+          await supabase.from("analytics_events").insert({
+            user_id: user?.id ?? null,
+            event,
+            path,
+            role,
+            meta,
+          }),
+          "analytics_track_failed",
+          "Unable to track analytics event."
+        );
 
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
+        return NextResponse.json({ ok: true });
+      },
+      {
+        message: "analytics_track_failed",
+        code: "analytics_track_failed",
+        source: "api",
+        area: "analytics",
+        path: "/api/analytics/track",
+      }
+    );
+  } catch {
     return NextResponse.json(
-      { error: e?.message || "Unexpected analytics error" },
+      { error: "Unable to track analytics event." },
       { status: 500 }
     );
   }

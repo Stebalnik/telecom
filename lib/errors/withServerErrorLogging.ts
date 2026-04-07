@@ -12,6 +12,7 @@ type WithServerErrorLoggingOptions = {
   role?: string | null;
   path?: string;
   level?: ServerLogLevel;
+  statusCode?: number;
   details?: Record<string, unknown>;
 };
 
@@ -28,7 +29,7 @@ export async function withServerErrorLogging<T>(
       options.message || "Unexpected server error"
     );
 
-    await logServerError({
+    void logServerError({
       message: options.message,
       code: normalized.code ?? options.code,
       source: options.source ?? "server",
@@ -36,14 +37,14 @@ export async function withServerErrorLogging<T>(
       role: options.role ?? null,
       path: options.path ?? null,
       level: options.level ?? "error",
-      statusCode: normalized.statusCode,
+      statusCode: options.statusCode ?? normalized.statusCode,
       details: {
         ...(options.details ?? {}),
         message: normalized.message,
         originalCode: normalized.code ?? null,
         originalDetails: normalized.details ?? null,
       },
-    });
+    }).catch(() => undefined);
 
     throw normalized;
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 type FeedbackItem = {
   id: string;
@@ -32,6 +33,12 @@ type FeedbackSummary = {
   publicCount?: number;
   highPriorityCount?: number;
   attentionCount?: number;
+};
+
+type AdminFeedbackResponse = {
+  items?: FeedbackItem[];
+  summary?: FeedbackSummary;
+  error?: string;
 };
 
 function formatDate(value?: string | null) {
@@ -78,27 +85,42 @@ export default function AdminFeedbackPage() {
     setErr(null);
 
     try {
-      const res = await fetch("/api/admin/feedback", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const data = await res.json();
+      const data = await withErrorLogging(
+        async () => {
+          const res = await fetch("/api/admin/feedback", {
+            method: "GET",
+            cache: "no-store",
+          });
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Unable to load feedback.");
-      }
+          const json = (await res.json().catch(() => ({}))) as AdminFeedbackResponse;
+
+          if (!res.ok) {
+            throw new Error(json?.error || "admin_feedback_load_failed");
+          }
+
+          return json;
+        },
+        {
+          message: "admin_feedback_load_failed",
+          code: "admin_feedback_load_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/feedback",
+          role: "admin",
+        }
+      );
 
       setItems(data.items || []);
       setSummary(data.summary || {});
-    } catch (e: any) {
-      setErr(e?.message || "Unable to load feedback.");
+    } catch {
+      setErr("Unable to load feedback. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const filtered = useMemo(() => {

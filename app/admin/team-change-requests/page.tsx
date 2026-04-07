@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMyProfile } from "../../../lib/profile";
 import { supabase } from "../../../lib/supabaseClient";
-import { listAdminTeamChangeRequests, type TeamChangeRequest } from "../../../lib/contractor";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { type TeamChangeRequest } from "../../../lib/contractor";
 
 type TeamChangeRequestRow = TeamChangeRequest & {
   company?: {
@@ -13,6 +15,21 @@ type TeamChangeRequestRow = TeamChangeRequest & {
     legal_name: string | null;
     dba_name: string | null;
   } | null;
+};
+
+type TeamChangeRequestRowDb = Omit<TeamChangeRequestRow, "company"> & {
+  company?:
+    | {
+        id: string;
+        legal_name: string | null;
+        dba_name: string | null;
+      }
+    | {
+        id: string;
+        legal_name: string | null;
+        dba_name: string | null;
+      }[]
+    | null;
 };
 
 function formatDate(value: string) {
@@ -36,6 +53,13 @@ function StatusBadge({ status }: { status: "pending" | "approved" | "rejected" }
   );
 }
 
+function normalizeTeamChangeRequestRow(row: TeamChangeRequestRowDb): TeamChangeRequestRow {
+  return {
+    ...row,
+    company: Array.isArray(row.company) ? row.company[0] ?? null : row.company,
+  };
+}
+
 export default function AdminTeamChangeRequestsPage() {
   const router = useRouter();
 
@@ -48,64 +72,82 @@ export default function AdminTeamChangeRequestsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const nextRows = await withErrorLogging(
+        async () => {
+          const sessionResult = await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
+
+          if (!sessionResult.data.session?.user) {
+            router.replace("/login");
+            return null;
+          }
+
+          const profile = await getMyProfile();
+
+          if (!profile || profile.role !== "admin") {
+            router.replace("/dashboard");
+            return null;
+          }
+
+          const requestRowsResult = await supabase
+            .from("team_change_requests")
+            .select(`
+              id,
+              company_id,
+              team_id,
+              requested_by,
+              reason,
+              status,
+              admin_note,
+              created_at,
+              updated_at,
+              company:contractor_companies (
+                id,
+                legal_name,
+                dba_name
+              )
+            `)
+            .order("created_at", { ascending: false });
+
+          const requestRows = unwrapSupabase(
+            requestRowsResult,
+            "admin_team_change_requests_load_failed"
+          ) as TeamChangeRequestRowDb[];
+
+          return requestRows.map(normalizeTeamChangeRequestRow);
+        },
+        {
+          message: "admin_team_change_requests_load_failed",
+          code: "admin_team_change_requests_load_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/team-change-requests",
+          role: "admin",
+        }
+      );
+
+      if (nextRows) {
+        setRows(nextRows);
       }
-
-      const profile = await getMyProfile();
-
-      if (!profile || profile.role !== "admin") {
-        router.replace("/dashboard");
-        return;
-      }
-
-      const { data: requestRows, error } = await supabase
-        .from("team_change_requests")
-        .select(`
-          id,
-          company_id,
-          team_id,
-          requested_by,
-          reason,
-          status,
-          admin_note,
-          created_at,
-          updated_at,
-          company:contractor_companies (
-            id,
-            legal_name,
-            dba_name
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const normalized = (requestRows || []).map((row: any) => ({
-        ...row,
-        company: Array.isArray(row.company) ? row.company[0] ?? null : row.company,
-      }));
-
-      setRows(normalized as TeamChangeRequestRow[]);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch {
+      setErr("Unable to load team change requests. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        load();
+        void load();
       }, 300);
     };
 

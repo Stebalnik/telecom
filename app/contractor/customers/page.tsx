@@ -2,10 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
-import { getMyProfile } from "../../../lib/profile";
+import { useEffect, useMemo, useState } from "react";
 import {
   applyToCustomer,
   listCustomerRequirementSummaries,
@@ -13,9 +11,32 @@ import {
   normalizeCustomerRelation,
   searchCustomers,
   type CustomerMini,
-  type MyCustomerApplicationRow,
   type CustomerRequirementSummary,
+  type MyCustomerApplicationRow,
 } from "../../../lib/contractor";
+import { normalizeError } from "../../../lib/errors/normalizeError";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { getMyProfile } from "../../../lib/profile";
+import { supabase } from "../../../lib/supabaseClient";
+
+function getSafeCustomersErrorMessage(
+  error: unknown,
+  fallback: string
+): string {
+  const normalized = normalizeError(error);
+  const code = String(normalized.code || "").toLowerCase();
+  const message = String(normalized.message || "").toLowerCase();
+
+  if (code.includes("not_logged_in") || message.includes("not authenticated")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (code.includes("duplicate")) {
+    return "This request already exists.";
+  }
+
+  return fallback;
+}
 
 function StatusBadge({
   status,
@@ -90,12 +111,33 @@ export default function ContractorCustomersPage() {
   );
 
   async function refreshApplications() {
-    const rows = await listMyCustomerApplications();
+    const rows = await withErrorLogging(
+      () => listMyCustomerApplications(),
+      {
+        message: "contractor_customers_load_applications_failed",
+        code: "contractor_customers_load_applications_failed",
+        source: "frontend",
+        area: "contractor",
+        path: "/contractor/customers",
+      }
+    );
+
     setApps(rows);
 
-    const summaries = await listCustomerRequirementSummaries(
-      rows.map((row) => row.customer_id)
+    const summaries = await withErrorLogging(
+      () => listCustomerRequirementSummaries(rows.map((row) => row.customer_id)),
+      {
+        message: "contractor_customers_load_requirement_summaries_failed",
+        code: "contractor_customers_load_requirement_summaries_failed",
+        source: "frontend",
+        area: "contractor",
+        path: "/contractor/customers",
+        details: {
+          customerCount: rows.length,
+        },
+      }
     );
+
     setRequirementsByCustomerId(summaries);
   }
 
@@ -107,14 +149,37 @@ export default function ContractorCustomersPage() {
       setErr(null);
 
       try {
-        const { data } = await supabase.auth.getSession();
+        const sessionResult = await withErrorLogging(
+          async () => {
+            const result = await supabase.auth.getSession();
 
-        if (!data.session?.user) {
+            if (result.error) {
+              throw result.error;
+            }
+
+            return result;
+          },
+          {
+            message: "contractor_customers_session_check_failed",
+            code: "contractor_customers_session_check_failed",
+            source: "frontend",
+            area: "auth",
+            path: "/contractor/customers",
+          }
+        );
+
+        if (!sessionResult.data.session?.user) {
           router.replace("/login");
           return;
         }
 
-        const profile = await getMyProfile();
+        const profile = await withErrorLogging(() => getMyProfile(), {
+          message: "contractor_customers_get_profile_failed",
+          code: "contractor_customers_get_profile_failed",
+          source: "frontend",
+          area: "auth",
+          path: "/contractor/customers",
+        });
 
         if (!profile || profile.role !== "contractor") {
           router.replace("/dashboard");
@@ -123,24 +188,21 @@ export default function ContractorCustomersPage() {
 
         if (!active) return;
         await refreshApplications();
-      } catch (e: unknown) {
+      } catch (error) {
         if (!active) return;
 
-        const message =
-          e instanceof Error
-            ? e.message
-            : typeof e === "string"
-            ? e
-            : JSON.stringify(e);
-
-        console.error("[DEBUG_CONTRACTOR_CUSTOMERS_LOAD]", e);
-        setErr(message || "Failed to load page.");
+        setErr(
+          getSafeCustomersErrorMessage(
+            error,
+            "Unable to load this page. Please try again."
+          )
+        );
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    load();
+    void load();
 
     return () => {
       active = false;
@@ -159,18 +221,22 @@ export default function ContractorCustomersPage() {
     setSearching(true);
 
     try {
-      const found = await searchCustomers(trimmed);
-      setResults(found);
-    } catch (e: unknown) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : typeof e === "string"
-          ? e
-          : JSON.stringify(e);
+      const found = await withErrorLogging(() => searchCustomers(trimmed), {
+        message: "contractor_customers_search_failed",
+        code: "contractor_customers_search_failed",
+        source: "frontend",
+        area: "contractor",
+        path: "/contractor/customers",
+        details: {
+          query: trimmed,
+        },
+      });
 
-      console.error("[DEBUG_CONTRACTOR_CUSTOMERS_SEARCH]", e);
-      setErr(message || "Search failed.");
+      setResults(found);
+    } catch (error) {
+      setErr(
+        getSafeCustomersErrorMessage(error, "Unable to search customers.")
+      );
     } finally {
       setSearching(false);
     }
@@ -181,18 +247,25 @@ export default function ContractorCustomersPage() {
     setApplyingCustomerId(customerId);
 
     try {
-      await applyToCustomer(customerId);
-      await refreshApplications();
-    } catch (e: unknown) {
-      const message =
-        e instanceof Error
-          ? e.message
-          : typeof e === "string"
-          ? e
-          : JSON.stringify(e);
+      await withErrorLogging(() => applyToCustomer(customerId), {
+        message: "contractor_customers_apply_failed",
+        code: "contractor_customers_apply_failed",
+        source: "frontend",
+        area: "contractor",
+        path: "/contractor/customers",
+        details: {
+          customerId,
+        },
+      });
 
-      console.error("[DEBUG_CONTRACTOR_CUSTOMERS_APPLY]", e);
-      setErr(message || "Application failed.");
+      await refreshApplications();
+    } catch (error) {
+      setErr(
+        getSafeCustomersErrorMessage(
+          error,
+          "Unable to submit your application. Please try again."
+        )
+      );
     } finally {
       setApplyingCustomerId(null);
     }
@@ -326,7 +399,7 @@ export default function ContractorCustomersPage() {
 
             <button
               type="button"
-              onClick={runSearch}
+              onClick={() => void runSearch()}
               disabled={!q.trim() || searching}
               className="inline-flex items-center justify-center rounded-xl bg-[#2EA3FF] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -369,7 +442,7 @@ export default function ContractorCustomersPage() {
                             </div>
                           ) : null}
 
-                          <div className="mt-3 text-xs text-[#6B7280] break-all">
+                          <div className="mt-3 break-all text-xs text-[#6B7280]">
                             Customer ID: {customer.id}
                           </div>
                         </div>
@@ -379,7 +452,7 @@ export default function ContractorCustomersPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleApply(customer.id)}
+                            onClick={() => void handleApply(customer.id)}
                             disabled={isDisabled}
                             className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                               isDisabled
@@ -462,7 +535,7 @@ export default function ContractorCustomersPage() {
                             ) : null}
                           </div>
 
-                          <div className="mt-3 text-xs text-[#6B7280] break-all">
+                          <div className="mt-3 break-all text-xs text-[#6B7280]">
                             Customer ID: {app.customer_id}
                           </div>
 

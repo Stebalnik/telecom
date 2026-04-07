@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getMyProfile } from "../../../lib/profile";
 import { getMyCustomerOrg } from "../../../lib/customers";
 import { listCustomerBidJobs, CustomerBidJobSummary } from "../../../lib/bids";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 function formatMoney(v: number | null) {
   if (v === null) return "—";
@@ -28,31 +29,60 @@ export default function CustomerBidsPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
-      if (!profile) return router.replace("/login");
-      if (profile.role !== "customer") return router.replace("/dashboard");
+      const data = await withErrorLogging(
+        async () => {
+          const profile = await getMyProfile();
 
-      const org = await getMyCustomerOrg();
-      if (!org) return router.replace("/customer/settings");
+          if (!profile) {
+            router.replace("/login");
+            return null;
+          }
 
-      const data = await listCustomerBidJobs(org.id);
-      setRows(data);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+          if (profile.role !== "customer") {
+            router.replace("/dashboard");
+            return null;
+          }
+
+          const org = await getMyCustomerOrg();
+
+          if (!org) {
+            router.replace("/customer/settings");
+            return null;
+          }
+
+          return await listCustomerBidJobs(org.id);
+        },
+        {
+          message: "customer_bids_load_failed",
+          code: "customer_bids_load_failed",
+          source: "frontend",
+          area: "bids",
+          path: "/customer/bids",
+          role: "customer",
+        }
+      );
+
+      if (data) {
+        setRows(data);
+      }
+    } catch {
+      setErr("Unable to load bids. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <main className="space-y-6">
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">Bids</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-[#0A2E5C]">
+          Bids
+        </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
           Review all jobs that already have bids. Open any job to compare
           contractor offers, pricing, schedule, and vendor readiness.
@@ -85,9 +115,12 @@ export default function CustomerBidsPage() {
           >
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <h2 className="text-xl font-semibold text-[#111827]">{row.job_title}</h2>
+                <h2 className="text-xl font-semibold text-[#111827]">
+                  {row.job_title}
+                </h2>
                 <div className="mt-2 text-sm text-[#4B5563]">
-                  {row.job_location || "No location"} {row.job_market ? `• ${row.job_market}` : ""}
+                  {row.job_location || "No location"}{" "}
+                  {row.job_market ? `• ${row.job_market}` : ""}
                 </div>
                 <div className="mt-2 text-xs text-[#6B7280]">
                   Job ID: {row.job_id}
@@ -104,28 +137,48 @@ export default function CustomerBidsPage() {
 
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">Bids</div>
-                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{row.bid_count}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                  Bids
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">
+                  {row.bid_count}
+                </div>
               </div>
 
               <div className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">Lowest Bid</div>
-                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{formatMoney(row.lowest_bid)}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                  Lowest Bid
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">
+                  {formatMoney(row.lowest_bid)}
+                </div>
               </div>
 
               <div className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">Highest Bid</div>
-                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{formatMoney(row.highest_bid)}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                  Highest Bid
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">
+                  {formatMoney(row.highest_bid)}
+                </div>
               </div>
 
               <div className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">Job Status</div>
-                <div className="mt-2 text-lg font-semibold text-[#111827] capitalize">{row.job_status}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                  Job Status
+                </div>
+                <div className="mt-2 text-lg font-semibold text-[#111827] capitalize">
+                  {row.job_status}
+                </div>
               </div>
 
               <div className="rounded-xl border border-[#D9E2EC] bg-[#FBFDFF] p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">Deadline</div>
-                <div className="mt-2 text-lg font-semibold text-[#111827]">{row.deadline_date || "—"}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-[#4B5563]">
+                  Deadline
+                </div>
+                <div className="mt-2 text-lg font-semibold text-[#111827]">
+                  {row.deadline_date || "—"}
+                </div>
               </div>
             </div>
           </section>

@@ -33,17 +33,21 @@ function normalizeAuthError(
 }
 
 export async function getMySessionUser() {
-  const { data, error } = await supabase.auth.getSession();
+  try {
+    const { data, error } = await supabase.auth.getSession();
 
-  if (error) {
+    if (error) {
+      throw error;
+    }
+
+    return data.session?.user ?? null;
+  } catch (error) {
     throw normalizeAuthError(
       error,
       "auth_get_session_failed",
       "Unable to get current session."
     );
   }
-
-  return data.session?.user ?? null;
 }
 
 export async function getMyUserId(): Promise<string> {

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 type RequestRow = {
   id: string;
@@ -92,56 +94,78 @@ export default function AdminCompanyChangeRequestsPage() {
     setErr(null);
 
     try {
-      const { data } = await supabase.auth.getSession();
+      const nextRows = await withErrorLogging(
+        async () => {
+          const sessionResult = await supabase.auth.getSession();
 
-      if (!data.session?.user) {
-        router.replace("/login");
-        return;
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
+
+          if (!sessionResult.data.session?.user) {
+            router.replace("/login");
+            return null;
+          }
+
+          const profile = await getMyProfile();
+
+          if (!profile || profile.role !== "admin") {
+            router.replace("/dashboard");
+            return null;
+          }
+
+          const requestsResult = await supabase
+            .from("company_change_requests")
+            .select(`
+              id,
+              company_id,
+              requested_by,
+              status,
+              created_at,
+              reviewed_at,
+              company:contractor_companies (
+                legal_name,
+                dba_name
+              )
+            `)
+            .order("created_at", { ascending: false });
+
+          const requests = unwrapSupabase(
+            requestsResult,
+            "admin_company_change_requests_load_failed"
+          ) as RequestRowDb[];
+
+          return requests.map(mapRequestRow);
+        },
+        {
+          message: "admin_company_change_requests_load_failed",
+          code: "admin_company_change_requests_load_failed",
+          source: "frontend",
+          area: "admin",
+          path: "/admin/company-change-requests",
+          role: "admin",
+        }
+      );
+
+      if (nextRows) {
+        setRows(nextRows);
       }
-
-      const profile = await getMyProfile();
-
-      if (!profile || profile.role !== "admin") {
-        router.replace("/dashboard");
-        return;
-      }
-
-      const { data: requests, error } = await supabase
-        .from("company_change_requests")
-        .select(`
-          id,
-          company_id,
-          requested_by,
-          status,
-          created_at,
-          reviewed_at,
-          company:contractor_companies (
-            legal_name,
-            dba_name
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw new Error(error.message);
-
-      const normalized = ((requests ?? []) as RequestRowDb[]).map(mapRequestRow);
-      setRows(normalized);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch {
+      setErr("Unable to load requests. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        loadPage();
+        void loadPage();
       }, 300);
     };
 
@@ -156,7 +180,7 @@ export default function AdminCompanyChangeRequestsPage() {
 
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
-      supabase.removeChannel(requestsChannel);
+      void supabase.removeChannel(requestsChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

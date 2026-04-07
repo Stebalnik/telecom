@@ -5,21 +5,26 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
+import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 
 type ApprovedCustomerRow = {
   customer_id: string;
   contractor_company_id: string;
   status: string;
   approval_requested_at: string | null;
-  customer: {
-    id: string;
-    legal_name: string | null;
-    dba_name: string | null;
-  } | {
-    id: string;
-    legal_name: string | null;
-    dba_name: string | null;
-  }[] | null;
+  customer:
+    | {
+        id: string;
+        legal_name: string | null;
+        dba_name: string | null;
+      }
+    | {
+        id: string;
+        legal_name: string | null;
+        dba_name: string | null;
+      }[]
+    | null;
 };
 
 type ContractorResourceRow = {
@@ -104,41 +109,61 @@ export default function ContractorResourcesPage() {
   const [category, setCategory] = useState("all");
   const [customerFilter, setCustomerFilter] = useState("all");
 
+  async function getAccessToken() {
+    const sessionResult = await supabase.auth.getSession();
+
+    if (sessionResult.error) {
+      throw sessionResult.error;
+    }
+
+    return sessionResult.data.session?.access_token ?? null;
+  }
+
   async function openResource(resourceId: string) {
     setErr(null);
     setOpeningId(resourceId);
 
     try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
+      await withErrorLogging(
+        async () => {
+          const accessToken = await getAccessToken();
 
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Not logged in.");
+          if (!accessToken) {
+            router.replace("/login");
+            return;
+          }
 
-      const res = await fetch(
-        `/api/customer/resources/file-url?resourceId=${encodeURIComponent(resourceId)}`,
+          const res = await fetch(
+            `/api/customer/resources/file-url?resourceId=${encodeURIComponent(resourceId)}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          const json = await res.json().catch(() => null);
+
+          if (!res.ok || !json?.url) {
+            throw new Error("contractor_resource_open_failed");
+          }
+
+          window.open(json.url, "_blank", "noopener,noreferrer");
+          await loadPage();
+        },
         {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          message: "contractor_resource_open_failed",
+          code: "contractor_resource_open_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/resources",
+          role: "contractor",
+          details: { resourceId },
         }
       );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Failed to open resource.");
-      }
-
-      if (!json?.url) {
-        throw new Error("Signed URL was not returned.");
-      }
-
-      window.open(json.url, "_blank", "noopener,noreferrer");
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Open error");
+    } catch {
+      setErr("Unable to open the resource. Please try again.");
     } finally {
       setOpeningId(null);
     }
@@ -149,30 +174,44 @@ export default function ContractorResourcesPage() {
     setAckId(resourceId);
 
     try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
+      await withErrorLogging(
+        async () => {
+          const accessToken = await getAccessToken();
 
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Not logged in.");
+          if (!accessToken) {
+            router.replace("/login");
+            return;
+          }
 
-      const res = await fetch("/api/customer/resources/acknowledge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          const res = await fetch("/api/customer/resources/acknowledge", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ resourceId }),
+          });
+
+          const json = await res.json().catch(() => null);
+
+          if (!res.ok || !json) {
+            throw new Error("contractor_resource_acknowledge_failed");
+          }
+
+          await loadPage();
         },
-        body: JSON.stringify({ resourceId }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Failed to acknowledge resource.");
-      }
-
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Acknowledge error");
+        {
+          message: "contractor_resource_acknowledge_failed",
+          code: "contractor_resource_acknowledge_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/resources",
+          role: "contractor",
+          details: { resourceId },
+        }
+      );
+    } catch {
+      setErr("Unable to acknowledge the resource. Please try again.");
     } finally {
       setAckId(null);
     }
@@ -183,84 +222,106 @@ export default function ContractorResourcesPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
+      const nextResources = await withErrorLogging(
+        async () => {
+          const profile = await getMyProfile();
 
-      if (!profile) {
-        router.replace("/login");
-        return;
-      }
+          if (!profile) {
+            router.replace("/login");
+            return null;
+          }
 
-      if (profile.role !== "contractor") {
-        router.replace("/dashboard");
-        return;
-      }
+          if (profile.role !== "contractor") {
+            router.replace("/dashboard");
+            return null;
+          }
 
-      const { data: companyRow, error: companyErr } = await supabase
-        .from("contractor_companies")
-        .select("id")
-        .eq("owner_user_id", profile.id)
-        .single();
+          const companyResult = await supabase
+            .from("contractor_companies")
+            .select("id")
+            .eq("owner_user_id", profile.id)
+            .single();
 
-      if (companyErr) throw companyErr;
-
-      const { data: approvedCustomers, error: approvedErr } = await supabase
-        .from("customer_contractors")
-        .select(`
-          customer_id,
-          contractor_company_id,
-          status,
-          approval_requested_at,
-          customer:customers (
-            id,
-            legal_name,
-            dba_name
-          )
-        `)
-        .eq("contractor_company_id", companyRow.id)
-        .eq("status", "approved")
-        .order("approval_requested_at", { ascending: false });
-
-      if (approvedErr) throw approvedErr;
-
-      const rows = (approvedCustomers ?? []) as ApprovedCustomerRow[];
-
-      if (rows.length === 0) {
-        setResources([]);
-        return;
-      }
-
-      const results = await Promise.all(
-        rows.map(async (row) => {
-          const customer = normalizeCustomer(row.customer);
-          const customerName =
-            customer?.dba_name || customer?.legal_name || "Customer";
-
-          const { data, error } = await supabase.rpc(
-            "list_customer_resources_for_contractor",
-            {
-              p_customer_id: row.customer_id,
-            }
+          const companyRow = unwrapSupabase(
+            companyResult,
+            "contractor_company_load_failed"
           );
 
-          if (error) throw error;
+          const approvedCustomersResult = await supabase
+            .from("customer_contractors")
+            .select(`
+              customer_id,
+              contractor_company_id,
+              status,
+              approval_requested_at,
+              customer:customers (
+                id,
+                legal_name,
+                dba_name
+              )
+            `)
+            .eq("contractor_company_id", companyRow.id)
+            .eq("status", "approved")
+            .order("approval_requested_at", { ascending: false });
 
-          return ((data ?? []) as ContractorResourceRow[]).map((resource) => ({
-            ...resource,
-            customer_name: customerName,
-          }));
-        })
+          const rows = unwrapSupabase(
+            approvedCustomersResult,
+            "contractor_approved_customers_load_failed"
+          ) as ApprovedCustomerRow[];
+
+          if (rows.length === 0) {
+            return [];
+          }
+
+          const results = await Promise.all(
+            rows.map(async (row) => {
+              const customer = normalizeCustomer(row.customer);
+              const customerName =
+                customer?.dba_name || customer?.legal_name || "Customer";
+
+              const rpcResult = await supabase.rpc(
+                "list_customer_resources_for_contractor",
+                {
+                  p_customer_id: row.customer_id,
+                }
+              );
+
+              const data = unwrapSupabase(
+                rpcResult,
+                "contractor_resources_load_failed"
+              ) as ContractorResourceRow[];
+
+              return data.map((resource) => ({
+                ...resource,
+                customer_name: customerName,
+              }));
+            })
+          );
+
+          return results.flat();
+        },
+        {
+          message: "contractor_resources_page_load_failed",
+          code: "contractor_resources_page_load_failed",
+          source: "frontend",
+          area: "contractor",
+          path: "/contractor/resources",
+          role: "contractor",
+        }
       );
 
-      setResources(results.flat());
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      if (nextResources) {
+        setResources(nextResources);
+      }
+    } catch {
+      setErr("Unable to load resources. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -379,8 +440,12 @@ export default function ContractorResourcesPage() {
                     </h2>
                     <Badge tone="info">{row.category}</Badge>
                     <Badge>{row.customer_name}</Badge>
-                    {row.is_required ? <Badge tone="warning">required</Badge> : null}
-                    {row.is_acknowledged ? <Badge tone="success">acknowledged</Badge> : null}
+                    {row.is_required ? (
+                      <Badge tone="warning">required</Badge>
+                    ) : null}
+                    {row.is_acknowledged ? (
+                      <Badge tone="success">acknowledged</Badge>
+                    ) : null}
                   </div>
 
                   {row.description ? (
@@ -431,7 +496,7 @@ export default function ContractorResourcesPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => openResource(row.id)}
+                    onClick={() => void openResource(row.id)}
                     disabled={openingId === row.id}
                     className="rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -441,7 +506,7 @@ export default function ContractorResourcesPage() {
                   {row.is_required && !row.is_acknowledged ? (
                     <button
                       type="button"
-                      onClick={() => acknowledge(row.id)}
+                      onClick={() => void acknowledge(row.id)}
                       disabled={ackId === row.id}
                       className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
                     >

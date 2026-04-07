@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { unwrapSupabase } from "@/lib/errors/unwrapSupabase";
+import { withServerErrorLogging } from "@/lib/errors/withServerErrorLogging";
 import { createClient } from "@/lib/supabase/server";
 
 type ErrorLogLevel = "info" | "warning" | "error" | "critical";
@@ -38,6 +40,7 @@ function normalizeLevel(value: unknown): ErrorLogLevel {
   if (typeof value === "string" && ALLOWED_LEVELS.includes(value as ErrorLogLevel)) {
     return value as ErrorLogLevel;
   }
+
   return "error";
 }
 
@@ -45,6 +48,7 @@ function normalizeSource(value: unknown): ErrorLogSource {
   if (typeof value === "string" && ALLOWED_SOURCES.includes(value as ErrorLogSource)) {
     return value as ErrorLogSource;
   }
+
   return "frontend";
 }
 
@@ -55,10 +59,7 @@ function sanitizeValue(value: unknown): unknown {
     return value.slice(0, 3000);
   }
 
-  if (
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
+  if (typeof value === "number" || typeof value === "boolean") {
     return value;
   }
 
@@ -124,72 +125,89 @@ function fingerprintOf(params: {
 
 export async function POST(req: Request) {
   try {
-    const rawBody = await req.json().catch(() => null);
+    const result = await withServerErrorLogging(
+      async () => {
+        const rawBody = await req.json().catch(() => null);
 
-    if (!rawBody || typeof rawBody !== "object") {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-    }
+        if (!rawBody || typeof rawBody !== "object") {
+          return NextResponse.json(
+            { error: "Invalid request body" },
+            { status: 400 }
+          );
+        }
 
-    const body = rawBody as ErrorLogBody;
+        const body = rawBody as ErrorLogBody;
 
-    const message = safeTrim(body.message, 2000);
-    if (!message) {
-      return NextResponse.json({ error: "message is required" }, { status: 400 });
-    }
+        const message = safeTrim(body.message, 2000);
+        if (!message) {
+          return NextResponse.json(
+            { error: "message is required" },
+            { status: 400 }
+          );
+        }
 
-    const source = normalizeSource(body.source);
-    const level = normalizeLevel(body.level);
-    const area = safeTrim(body.area, 200) ?? null;
-    const path = safeTrim(body.path, 1000) ?? null;
-    const role = safeTrim(body.role, 100) ?? null;
-    const code = safeTrim(body.code, 200) ?? null;
-    const userAgent =
-      safeTrim(body.userAgent, 1000) ??
-      safeTrim(req.headers.get("user-agent"), 1000) ??
-      null;
+        const source = normalizeSource(body.source);
+        const level = normalizeLevel(body.level);
+        const area = safeTrim(body.area, 200) ?? null;
+        const path = safeTrim(body.path, 1000) ?? null;
+        const role = safeTrim(body.role, 100) ?? null;
+        const code = safeTrim(body.code, 200) ?? null;
+        const userAgent =
+          safeTrim(body.userAgent, 1000) ??
+          safeTrim(req.headers.get("user-agent"), 1000) ??
+          null;
 
-    const statusCode =
-      typeof body.statusCode === "number" && Number.isFinite(body.statusCode)
-        ? body.statusCode
-        : null;
+        const statusCode =
+          typeof body.statusCode === "number" && Number.isFinite(body.statusCode)
+            ? body.statusCode
+            : null;
 
-    const details = sanitizeDetails(body.details);
+        const details = sanitizeDetails(body.details);
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+        const supabase = await createClient();
 
-    const fingerprint = fingerprintOf({
-      code,
-      source,
-      area,
-      message,
-    });
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from("error_logs").insert({
-      user_id: user?.id ?? null,
-      role,
-      source,
-      area,
-      message,
-      details,
-      path,
-      user_agent: userAgent,
-      level,
-      code,
-      status_code: statusCode,
-      fingerprint,
-    });
+        const fingerprint = fingerprintOf({
+          code,
+          source,
+          area,
+          message,
+        });
 
-    if (error) {
-      return NextResponse.json(
-        { error: "Unable to write error log" },
-        { status: 500 }
-      );
-    }
+        unwrapSupabase(
+          await supabase.from("error_logs").insert({
+            user_id: user?.id ?? null,
+            role,
+            source,
+            area,
+            message,
+            details,
+            path,
+            user_agent: userAgent,
+            level,
+            code,
+            status_code: statusCode,
+            fingerprint,
+          }),
+          "write_error_log_failed",
+          "Unable to write error log."
+        );
 
-    return NextResponse.json({ ok: true });
+        return NextResponse.json({ ok: true });
+      },
+      {
+        message: "error_log_route_failed",
+        code: "error_log_route_failed",
+        source: "api",
+        area: "admin",
+        path: "/api/errors/log",
+      }
+    );
+
+    return result;
   } catch {
     return NextResponse.json(
       { error: "Unexpected error logging failure" },

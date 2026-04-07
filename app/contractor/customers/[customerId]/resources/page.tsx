@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabaseClient";
+import { useEffect, useState } from "react";
+import { withErrorLogging } from "../../../../../lib/errors/withErrorLogging";
+import { normalizeError } from "../../../../../lib/errors/normalizeError";
 import { getMyProfile } from "../../../../../lib/profile";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 type ContractorResourceRow = {
   id: string;
@@ -29,6 +31,26 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleDateString();
 }
 
+function getSafePageErrorMessage(error: unknown, fallback: string) {
+  const normalized = normalizeError(error);
+  const code = String(normalized.code || "");
+  const message = String(normalized.message || "").toLowerCase();
+
+  if (code.includes("not_logged_in") || message.includes("not logged in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (message.includes("not authenticated")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (message.includes("access denied")) {
+    return "You do not have access to this resource.";
+  }
+
+  return fallback;
+}
+
 function Badge({
   children,
   tone = "neutral",
@@ -46,7 +68,9 @@ function Badge({
       : "border-[#D9E2EC] bg-[#F8FAFC] text-[#4B5563]";
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${styles}`}>
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${styles}`}
+    >
       {children}
     </span>
   );
@@ -63,74 +87,20 @@ export default function ContractorCustomerResourcesPage() {
   const [ackId, setAckId] = useState<string | null>(null);
   const [rows, setRows] = useState<ContractorResourceRow[]>([]);
 
-  async function openResource(resourceId: string) {
-    setErr(null);
-    setOpeningId(resourceId);
+  async function getAccessToken() {
+    const sessionResult = await supabase.auth.getSession();
 
-    try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
-
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Not logged in.");
-
-      const res = await fetch(
-        `/api/customer/resources/file-url?resourceId=${encodeURIComponent(resourceId)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Failed to open resource.");
-      }
-
-      window.open(json.url, "_blank", "noopener,noreferrer");
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Open error");
-    } finally {
-      setOpeningId(null);
+    if (sessionResult.error) {
+      throw sessionResult.error;
     }
-  }
 
-  async function acknowledge(resourceId: string) {
-    setErr(null);
-    setAckId(resourceId);
+    const accessToken = sessionResult.data.session?.access_token;
 
-    try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw sessionErr;
-
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Not logged in.");
-
-      const res = await fetch("/api/customer/resources/acknowledge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ resourceId }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Failed to acknowledge resource.");
-      }
-
-      await loadPage();
-    } catch (e: any) {
-      setErr(e.message ?? "Acknowledge error");
-    } finally {
-      setAckId(null);
+    if (!accessToken) {
+      throw new Error("Not logged in.");
     }
+
+    return accessToken;
   }
 
   async function loadPage() {
@@ -138,7 +108,19 @@ export default function ContractorCustomerResourcesPage() {
     setErr(null);
 
     try {
-      const profile = await getMyProfile();
+      const profile = await withErrorLogging(
+        () => getMyProfile(),
+        {
+          message: "contractor_customer_resources_load_profile_failed",
+          code: "contractor_customer_resources_load_profile_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+          },
+        }
+      );
 
       if (!profile) {
         router.replace("/login");
@@ -150,22 +132,186 @@ export default function ContractorCustomerResourcesPage() {
         return;
       }
 
-      const { data, error } = await supabase.rpc("list_customer_resources_for_contractor", {
-        p_customer_id: customerId,
-      });
+      const data = await withErrorLogging(
+        async () => {
+          const result = await supabase.rpc(
+            "list_customer_resources_for_contractor",
+            {
+              p_customer_id: customerId,
+            }
+          );
 
-      if (error) throw error;
+          if (result.error) {
+            throw result.error;
+          }
 
-      setRows((data ?? []) as ContractorResourceRow[]);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+          return (result.data ?? []) as ContractorResourceRow[];
+        },
+        {
+          message: "contractor_customer_resources_load_failed",
+          code: "contractor_customer_resources_load_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+          },
+        }
+      );
+
+      setRows(data);
+    } catch (error) {
+      setErr(
+        getSafePageErrorMessage(
+          error,
+          "Unable to load resources. Please try again."
+        )
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  async function openResource(resourceId: string) {
+    setErr(null);
+    setOpeningId(resourceId);
+
+    try {
+      const accessToken = await withErrorLogging(
+        () => getAccessToken(),
+        {
+          message: "contractor_customer_resource_session_failed",
+          code: "contractor_customer_resource_session_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+            resourceId,
+            action: "open",
+          },
+        }
+      );
+
+      const json = await withErrorLogging(
+        async () => {
+          const res = await fetch(
+            `/api/customer/resources/file-url?resourceId=${encodeURIComponent(resourceId)}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          const payload = await res.json();
+
+          if (!res.ok) {
+            throw new Error(payload?.error || "Failed to open resource.");
+          }
+
+          if (!payload?.url) {
+            throw new Error("Resource URL was not returned.");
+          }
+
+          return payload as { url: string };
+        },
+        {
+          message: "contractor_customer_resource_open_failed",
+          code: "contractor_customer_resource_open_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+            resourceId,
+          },
+        }
+      );
+
+      window.open(json.url, "_blank", "noopener,noreferrer");
+      await loadPage();
+    } catch (error) {
+      setErr(
+        getSafePageErrorMessage(
+          error,
+          "Unable to open resource. Please try again."
+        )
+      );
+    } finally {
+      setOpeningId(null);
+    }
+  }
+
+  async function acknowledge(resourceId: string) {
+    setErr(null);
+    setAckId(resourceId);
+
+    try {
+      const accessToken = await withErrorLogging(
+        () => getAccessToken(),
+        {
+          message: "contractor_customer_resource_ack_session_failed",
+          code: "contractor_customer_resource_ack_session_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+            resourceId,
+            action: "acknowledge",
+          },
+        }
+      );
+
+      await withErrorLogging(
+        async () => {
+          const res = await fetch("/api/customer/resources/acknowledge", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ resourceId }),
+          });
+
+          const payload = await res.json();
+
+          if (!res.ok) {
+            throw new Error(payload?.error || "Failed to acknowledge resource.");
+          }
+
+          return payload;
+        },
+        {
+          message: "contractor_customer_resource_acknowledge_failed",
+          code: "contractor_customer_resource_acknowledge_failed",
+          source: "frontend",
+          area: "contractor",
+          path: `/contractor/customers/${customerId}/resources`,
+          details: {
+            customerId,
+            resourceId,
+          },
+        }
+      );
+
+      await loadPage();
+    } catch (error) {
+      setErr(
+        getSafePageErrorMessage(
+          error,
+          "Unable to acknowledge resource. Please try again."
+        )
+      );
+    } finally {
+      setAckId(null);
+    }
+  }
+
   useEffect(() => {
-    loadPage();
+    void loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
 
@@ -224,38 +370,56 @@ export default function ContractorCustomerResourcesPage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-semibold text-[#111827]">{row.title}</h2>
+                    <h2 className="text-lg font-semibold text-[#111827]">
+                      {row.title}
+                    </h2>
                     <Badge tone="info">{row.category}</Badge>
-                    {row.is_required ? <Badge tone="warning">required</Badge> : null}
-                    {row.is_acknowledged ? <Badge tone="success">acknowledged</Badge> : null}
+                    {row.is_required ? (
+                      <Badge tone="warning">required</Badge>
+                    ) : null}
+                    {row.is_acknowledged ? (
+                      <Badge tone="success">acknowledged</Badge>
+                    ) : null}
                   </div>
 
                   {row.description ? (
-                    <p className="mt-2 text-sm leading-6 text-[#4B5563]">{row.description}</p>
+                    <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                      {row.description}
+                    </p>
                   ) : null}
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div>
-                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">File</div>
-                      <div className="mt-1 text-sm font-medium text-[#111827]">{row.file_name}</div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        File
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-[#111827]">
+                        {row.file_name}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">Revision</div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Revision
+                      </div>
                       <div className="mt-1 text-sm font-medium text-[#111827]">
                         {row.revision_label || "—"}
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">Effective date</div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Effective date
+                      </div>
                       <div className="mt-1 text-sm font-medium text-[#111827]">
                         {formatDate(row.effective_date)}
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">Expiration date</div>
+                      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                        Expiration date
+                      </div>
                       <div className="mt-1 text-sm font-medium text-[#111827]">
                         {formatDate(row.expires_at)}
                       </div>
