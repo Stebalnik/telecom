@@ -66,7 +66,7 @@ export default function MissionPage() {
       setLoading(false);
 
       await logError("start_donation_checkout_failed", {
-        source: "client",
+        source: "frontend",
         area: "mission",
         details: {
           amount: finalAmount,

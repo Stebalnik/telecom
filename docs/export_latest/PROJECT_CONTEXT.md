@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Sun Apr  5 13:29:18 EDT 2026
+Generated: Mon Apr  6 21:49:34 EDT 2026
 
-Export folder: docs/export_files/2026-04-05_13-29-18
+Export folder: docs/export_files/2026-04-06_21-49-34
 
 ## 1. Directory tree
 ```
@@ -10,14 +10,27 @@ app
 app/(app)
 app/admin
 app/admin/analytics
+app/admin/analytics/admin-actions
+app/admin/analytics/contractors
+app/admin/analytics/customers
 app/admin/company-change-requests
 app/admin/company-change-requests/[id]
 app/admin/contractor-approvals
+app/admin/errors
+app/admin/feedback
+app/admin/feedback/[id]
 app/admin/team-change-requests
 app/admin/team-change-requests/[id]
 app/api
 app/api/admin
 app/api/admin/analytics
+app/api/admin/analytics/breakdown
+app/api/admin/errors
+app/api/admin/feedback
+app/api/admin/feedback/[id]
+app/api/admin/feedback/[id]/messages
+app/api/analytics
+app/api/analytics/track
 app/api/auth
 app/api/auth/forgot-password
 app/api/checkout
@@ -30,6 +43,11 @@ app/api/customer-approvals
 app/api/customer-approvals/request
 app/api/customer/resources
 app/api/customer/resources/acknowledge
+app/api/errors
+app/api/errors/log
+app/api/feedback
+app/api/feedback/[id]
+app/api/feedback/[id]/messages
 app/contractor
 app/contractor-agreement
 app/contractor/agreements
@@ -79,6 +97,7 @@ app/customer/settings
 app/customer/settings/certs-per-scope
 app/customer/settings/insurance
 app/dashboard
+app/feedback
 app/forgot-password
 app/login
 app/logout
@@ -91,6 +110,7 @@ components
 components/analytics
 lib
 lib/analytics
+lib/server
 lib/supabase
 public
 supabase
@@ -99,25 +119,48 @@ supabase/.temp
 
 ## 2. File list
 ```
+app/.DS_Store
 app/(app)/layout.tsx
 app/admin/.DS_Store
+app/admin/analytics/.DS_Store
+app/admin/analytics/admin-actions/page.tsx
+app/admin/analytics/contractors/page.tsx
+app/admin/analytics/customers/page.tsx
 app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/errors/page.tsx
+app/admin/feedback/[id]/page.tsx
+app/admin/feedback/page.tsx
 app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/.DS_Store
 app/api/admin/.DS_Store
+app/api/admin/analytics/.DS_Store
+app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/errors/route.ts
+app/api/admin/feedback/.DS_Store
+app/api/admin/feedback/[id]/.DS_Store
+app/api/admin/feedback/[id]/messages/route.ts
+app/api/admin/feedback/[id]/route.ts
+app/api/admin/feedback/route.ts
+app/api/analytics/.DS_Store
+app/api/analytics/track/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
+app/api/errors/.DS_Store
+app/api/errors/log/route.ts
+app/api/feedback/[id]/messages/route.ts
+app/api/feedback/[id]/route.ts
+app/api/feedback/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -168,6 +211,7 @@ app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
 app/dashboard/page.tsx
 app/favicon.ico
+app/feedback/page.tsx
 app/forgot-password/page.tsx
 app/globals.css
 app/layout.tsx
@@ -183,6 +227,8 @@ components/.DS_Store
 components/AdminSidebar.tsx
 components/analytics/TrackPageView.tsx
 components/AppChrome.tsx
+components/ContractorSidebar.tsx
+components/CustomerSidebar.tsx
 components/LegalPage.tsx
 components/LogoutButton.tsx
 lib/.DS_Store
@@ -204,7 +250,10 @@ lib/documents.ts
 lib/eligibility.ts
 lib/jobFiles.ts
 lib/jobs.ts
+lib/logError.ts
 lib/profile.ts
+lib/server/logServerError.ts
+lib/supabase/browser.ts
 lib/supabase/server.ts
 lib/supabaseClient.ts
 lib/track.ts
@@ -227,21 +276,37 @@ supabase/.temp/storage-version
 ## 3. Routes
 ```
 app/(app)/layout.tsx
+app/admin/analytics/admin-actions/page.tsx
+app/admin/analytics/contractors/page.tsx
+app/admin/analytics/customers/page.tsx
 app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/errors/page.tsx
+app/admin/feedback/[id]/page.tsx
+app/admin/feedback/page.tsx
 app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
+app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/errors/route.ts
+app/api/admin/feedback/[id]/messages/route.ts
+app/api/admin/feedback/[id]/route.ts
+app/api/admin/feedback/route.ts
+app/api/analytics/track/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
+app/api/errors/log/route.ts
+app/api/feedback/[id]/messages/route.ts
+app/api/feedback/[id]/route.ts
+app/api/feedback/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -291,6 +356,7 @@ app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
 app/dashboard/page.tsx
+app/feedback/page.tsx
 app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx
@@ -350,227 +416,3 @@ next.config.ts
 .gitignore
 ```
 
-## 6. AI Context
-
-# AI_CONTEXT.md
-
-This file describes the full context of the project so AI assistants can understand the architecture and help safely modify the codebase.
-
----
-
-# Project
-
-Telecom Marketplace
-
-A SaaS marketplace connecting telecom customers with verified telecom contractors.
-
-Built by LEOTEOR LLC.
-
----
-
-# Core Idea
-
-The platform connects two sides:
-
-CUSTOMERS  
-Companies that need telecom work done.
-
-CONTRACTORS  
-Telecom crews and companies that perform work.
-
-The platform manages:
-
-• contractor verification  
-• insurance compliance (COI)  
-• certifications  
-• job postings  
-• contractor approvals  
-• project communication
-
----
-
-# User Roles
-
-There are three roles.
-
-## customer
-
-Can:
-
-• create jobs  
-• view contractors  
-• approve contractors  
-• set insurance requirements  
-• manage projects  
-
-Dashboard:
-
-/customer
-
----
-
-## contractor
-
-Can:
-
-• create company profile  
-• upload COI  
-• upload certifications  
-• manage team members  
-• apply for jobs
-
-Dashboard:
-
-/contractor
-
-Important:
-
-Company data becomes **read-only after submission** and changes require admin approval.
-
----
-
-## admin
-
-Can:
-
-• review contractor verification  
-• approve/reject insurance  
-• approve/reject certifications  
-• manage platform settings  
-• review change requests
-
-Dashboard:
-
-/admin
-
----
-
-# Tech Stack
-
-Frontend  
-Next.js (App Router)
-
-Backend  
-Next.js API routes
-
-Database  
-Supabase (PostgreSQL)
-
-Auth  
-Supabase Auth
-
-Storage  
-Supabase Storage
-
-Deployment
-
-DigitalOcean Droplet
-
-Process manager  
-PM2
-
-Reverse proxy  
-NGINX
-
----
-
-# Git Workflow
-
-Branches
-
-main  
-production branch
-
-dev  
-general development
-
-customer  
-customer features
-
-contractor  
-contractor features
-
-admin  
-admin features
-
-All production deployments come from **main**.
-
----
-
-# Deployment
-
-Local development runs on Mac.
-
-Production server runs on DigitalOcean.
-
-Deploy process:
-
-1 push code to github  
-2 pull on server  
-3 build  
-4 restart pm2
-
----
-
-# Security
-
-Never expose:
-
-SUPABASE_SERVICE_ROLE_KEY  
-database credentials  
-private tokens
-
-Service role keys must only be used in server code.
-
----
-
-# Important AI Rules
-
-When generating code:
-
-1 always follow existing project structure
-2 never break authentication flow
-3 do not remove role checks
-4 do not expose secrets
-5 respect Supabase row level security
-6 do not modify production database structure without migration
-
----
-
-# Project Status
-
-Current stage
-
-MVP development
-
-Features implemented:
-
-• authentication  
-• role routing  
-• dashboards  
-• contractor onboarding
-
-Next features:
-
-• contractor verification
-• insurance validation
-• job marketplace
-• subscription for contractors
-
----
-
-# Instructions for AI
-
-When suggesting commands always specify where they should run:
-
-Example:
-
-Terminal (local machine)
-
-Terminal (production server)
-
-Code file location
-
-Example:
-
-app/api/jobs/route.ts

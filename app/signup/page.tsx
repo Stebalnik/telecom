@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
+import { logError } from "../../lib/logError";
 
 function getErrorMessage(message: string) {
   const normalized = message.toLowerCase();
@@ -17,7 +18,7 @@ function getErrorMessage(message: string) {
     return "Password must be at least 6 characters.";
   }
 
-  return message;
+  return "Unable to create account. Please try again.";
 }
 
 export default function SignupPage() {
@@ -57,35 +58,63 @@ export default function SignupPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+      });
 
-    setLoading(false);
+      if (error) {
+        await logError("signup_failed", {
+          source: "frontend",
+          area: "auth",
+          path: "/signup",
+          code: "signup_failed",
+          details: {
+            message: error.message,
+            email: normalizedEmail,
+          },
+        });
 
-    if (error) {
-      setError(getErrorMessage(error.message));
-      return;
+        setError(getErrorMessage(error.message));
+        setLoading(false);
+        return;
+      }
+
+      await track("signup", {
+        meta: {
+          userId: data.user?.id ?? null,
+        },
+      });
+
+      setMessage(
+        "Account created successfully. Check your email if confirmation is required, then log in."
+      );
+
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+
+      setLoading(false);
+
+      setTimeout(() => {
+        router.push("/login");
+      }, 1200);
+    } catch (e: any) {
+      await logError("signup_exception", {
+        source: "frontend",
+        area: "auth",
+        path: "/signup",
+        code: "signup_exception",
+        details: {
+          message: e?.message || "Unknown error",
+          email: normalizedEmail,
+        },
+      });
+
+      setError("Unable to create account. Please try again.");
+      setLoading(false);
     }
-
-    await track("signup", {
-      meta: {
-        userId: data.user?.id ?? null,
-      },
-    });
-
-    setMessage(
-      "Account created successfully. Check your email if confirmation is required, then log in."
-    );
-
-    setEmail("");
-    setPassword("");
-    setConfirmPassword("");
-
-    setTimeout(() => {
-      router.push("/login");
-    }, 1200);
   }
 
   return (

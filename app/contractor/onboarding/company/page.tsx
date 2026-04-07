@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabaseClient";
 import { getMyProfile } from "../../../../lib/profile";
 import { track } from "../../../../lib/track";
+import { logError } from "../../../../lib/logError";
 
 type Company = {
   id: string;
@@ -56,6 +57,11 @@ type ContractorPublicProfile = {
   home_market: string | null;
   markets: string[] | null;
   is_listed: boolean | null;
+};
+
+type AppLikeError = Error & {
+  code?: string;
+  details?: Record<string, unknown>;
 };
 
 const US_STATES = [
@@ -118,6 +124,21 @@ function uniq(values: string[]) {
 function last4(value: string) {
   const digits = value.replace(/\D/g, "");
   return digits.slice(-4);
+}
+
+function getSafeErrorMessage(error: AppLikeError, fallback: string) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || "").toLowerCase();
+
+  if (code.includes("duplicate") || message.includes("duplicate key")) {
+    return "This company record already exists. Please refresh and try again.";
+  }
+
+  if (code.includes("not_logged_in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  return fallback;
 }
 
 function SectionCard({
@@ -327,7 +348,10 @@ export default function ContractorCompanyOnboardingPage() {
       .eq("owner_user_id", userId)
       .maybeSingle();
 
-    if (selErr) throw new Error(selErr.message);
+    if (selErr) {
+      throw new Error(selErr.message);
+    }
+
     if (existing) return existing as Company;
 
     const { data: created, error: insErr } = await supabase
@@ -376,18 +400,26 @@ export default function ContractorCompanyOnboardingPage() {
       `)
       .single();
 
-    if (insErr) throw new Error(insErr.message);
+    if (insErr) {
+      throw new Error(insErr.message);
+    }
+
     return created as Company;
   }
 
-  async function getPublicProfile(companyId: string): Promise<ContractorPublicProfile | null> {
+  async function getPublicProfile(
+    companyId: string
+  ): Promise<ContractorPublicProfile | null> {
     const { data, error } = await supabase
       .from("contractor_public_profiles")
       .select("company_id, home_market, markets, is_listed")
       .eq("company_id", companyId)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      throw new Error(error.message);
+    }
+
     return (data ?? null) as ContractorPublicProfile | null;
   }
 
@@ -404,6 +436,7 @@ export default function ContractorCompanyOnboardingPage() {
       }
 
       const profile = await getMyProfile();
+
       if (!profile || profile.role !== "contractor") {
         router.replace("/dashboard");
         return;
@@ -426,14 +459,29 @@ export default function ContractorCompanyOnboardingPage() {
         },
       });
     } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      await logError("contractor_onboarding_load_failed", {
+        source: "frontend",
+        area: "contractor",
+        role: "contractor",
+        path: "/contractor/onboarding/company",
+        code: "contractor_onboarding_load_failed",
+        details: {
+          message: e?.message || "Unknown error",
+          originalCode: e?.code || null,
+          originalDetails: e?.details || null,
+        },
+      });
+
+      setErr(
+        getSafeErrorMessage(e, "Unable to load onboarding. Please try again.")
+      );
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -443,6 +491,15 @@ export default function ContractorCompanyOnboardingPage() {
 
     try {
       if (!company) {
+        await logError("contractor_onboarding_missing_company", {
+          source: "frontend",
+          area: "contractor",
+          role: "contractor",
+          path: "/contractor/onboarding/company",
+          code: "contractor_onboarding_missing_company",
+          details: {},
+        });
+
         setErr("Company draft was not created.");
         return;
       }
@@ -475,11 +532,15 @@ export default function ContractorCompanyOnboardingPage() {
       let nextBillingExpMonth: number | null = null;
       let nextBillingExpYear: number | null = null;
 
-      if (billingMethodType === "credit_card" || billingMethodType === "debit_card") {
+      if (
+        billingMethodType === "credit_card" ||
+        billingMethodType === "debit_card"
+      ) {
         if (!billingCardNumber.trim()) {
           setErr("Card number is required for card billing.");
           return;
         }
+
         if (!billingCardExpMonth.trim() || !billingCardExpYear.trim()) {
           setErr("Card expiration date is required.");
           return;
@@ -494,7 +555,9 @@ export default function ContractorCompanyOnboardingPage() {
 
         nextBillingAccountLabel =
           nextBillingAccountLabel ||
-          `${billingMethodType === "credit_card" ? "Credit card" : "Debit card"} ending ${masked}`;
+          `${
+            billingMethodType === "credit_card" ? "Credit card" : "Debit card"
+          } ending ${masked}`;
 
         nextBillingExternalRef = `ending ${masked}`;
       }
@@ -504,6 +567,7 @@ export default function ContractorCompanyOnboardingPage() {
           setErr("PayPal email is required.");
           return;
         }
+
         nextBillingContactEmail = billingPaypalEmail.trim();
         nextBillingAccountLabel = nextBillingAccountLabel || "PayPal";
         nextBillingExternalRef = billingPaypalEmail.trim();
@@ -514,6 +578,7 @@ export default function ContractorCompanyOnboardingPage() {
           setErr("Stripe account ID is required.");
           return;
         }
+
         nextBillingProvider = "stripe";
         nextBillingAccountLabel = nextBillingAccountLabel || "Stripe Connect";
         nextBillingExternalRef = billingStripeAccountId.trim();
@@ -580,7 +645,9 @@ export default function ContractorCompanyOnboardingPage() {
         .update(companyPayload)
         .eq("id", company.id);
 
-      if (companyError) throw new Error(companyError.message);
+      if (companyError) {
+        throw new Error(companyError.message);
+      }
 
       const profilePayload = {
         company_id: company.id,
@@ -594,7 +661,9 @@ export default function ContractorCompanyOnboardingPage() {
         .from("contractor_public_profiles")
         .upsert(profilePayload, { onConflict: "company_id" });
 
-      if (profileError) throw new Error(profileError.message);
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
 
       await track("contractor_onboarding_submitted", {
         role: "contractor",
@@ -605,7 +674,23 @@ export default function ContractorCompanyOnboardingPage() {
 
       router.replace("/contractor");
     } catch (e: any) {
-      setErr(e.message ?? "Submit error");
+      await logError("contractor_onboarding_submit_failed", {
+        source: "frontend",
+        area: "contractor",
+        role: "contractor",
+        path: "/contractor/onboarding/company",
+        code: "contractor_onboarding_submit_failed",
+        details: {
+          message: e?.message || "Unknown error",
+          companyId: company?.id ?? null,
+          originalCode: e?.code || null,
+          originalDetails: e?.details || null,
+        },
+      });
+
+      setErr(
+        getSafeErrorMessage(e, "Unable to submit onboarding. Please try again.")
+      );
     } finally {
       setSaving(false);
     }
@@ -643,8 +728,8 @@ export default function ContractorCompanyOnboardingPage() {
           </h1>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
-            Fill in your company details. After submit, the company data will be locked.
-            Changes will require an admin request.
+            Fill in your company details. After submit, the company data will be
+            locked. Changes will require an admin request.
           </p>
 
           {err ? (

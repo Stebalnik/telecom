@@ -15,6 +15,7 @@ import {
   listAdminTeamChangeRequests,
   type TeamChangeRequest,
 } from "../../lib/contractor";
+import { logError } from "../../lib/logError";
 
 type AdminFilter =
   | "all"
@@ -80,6 +81,19 @@ type ContractorApprovalRow = {
         markets: string[] | null;
       }[]
     | null;
+};
+
+type ErrorSummary = {
+  total?: number;
+  unresolvedCount?: number;
+  criticalCount?: number;
+  byLevel?: Record<string, number>;
+  bySource?: Record<string, number>;
+  byArea?: Record<string, number>;
+  topFingerprints?: Array<{
+    fingerprint: string;
+    total: number;
+  }>;
 };
 
 function mapRequestRow(row: RequestRowDb): RequestRow {
@@ -192,6 +206,7 @@ export default function AdminPage() {
   const [contractorApprovals, setContractorApprovals] = useState<
     ContractorApprovalRow[]
   >([]);
+  const [errorSummary, setErrorSummary] = useState<ErrorSummary>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
@@ -222,6 +237,7 @@ export default function AdminPage() {
         requestsResult,
         teamRequestsResult,
         contractorApprovalsResult,
+        errorSummaryResponse,
       ] = await Promise.all([
         listPendingDocs(),
         supabase
@@ -262,6 +278,10 @@ export default function AdminPage() {
           `)
           .eq("onboarding_status", "submitted")
           .order("created_at", { ascending: false }),
+        fetch("/api/admin/errors?summary=true&resolved=false", {
+          method: "GET",
+          cache: "no-store",
+        }),
       ]);
 
       setDocs(docsResult);
@@ -274,6 +294,14 @@ export default function AdminPage() {
         throw new Error(contractorApprovalsResult.error.message);
       }
 
+      const errorSummaryJson = await errorSummaryResponse.json().catch(() => ({}));
+
+      if (!errorSummaryResponse.ok) {
+        throw new Error(
+          errorSummaryJson?.error || "Unable to load error summary"
+        );
+      }
+
       const normalizedCompanyRequests = (
         (requestsResult.data ?? []) as RequestRowDb[]
       ).map(mapRequestRow);
@@ -283,22 +311,33 @@ export default function AdminPage() {
       setContractorApprovals(
         (contractorApprovalsResult.data ?? []) as ContractorApprovalRow[]
       );
+      setErrorSummary(errorSummaryJson.summary || {});
     } catch (e: any) {
-      setErr(e.message ?? "Load error");
+      await logError("admin_review_center_load_failed", {
+        source: "admin",
+        area: "admin",
+        path: "/admin",
+        code: "admin_review_center_load_failed",
+        details: {
+          message: e?.message || "Unknown error",
+        },
+      });
+
+      setErr("Unable to load review center. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    void load();
 
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReload = () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => {
-        load();
+        void load();
       }, 300);
     };
 
@@ -366,7 +405,18 @@ export default function AdminPage() {
       await approveDoc(id);
       await load();
     } catch (e: any) {
-      setErr(e.message ?? "Approve error");
+      await logError("admin_doc_approve_failed", {
+        source: "admin",
+        area: "documents",
+        path: "/admin",
+        code: "admin_doc_approve_failed",
+        details: {
+          documentId: id,
+          message: e?.message || "Unknown error",
+        },
+      });
+
+      setErr("Unable to approve document. Please try again.");
     } finally {
       setBusyDocId(null);
     }
@@ -380,7 +430,19 @@ export default function AdminPage() {
       await rejectDoc(id, rejectNote[id] || "Rejected");
       await load();
     } catch (e: any) {
-      setErr(e.message ?? "Reject error");
+      await logError("admin_doc_reject_failed", {
+        source: "admin",
+        area: "documents",
+        path: "/admin",
+        code: "admin_doc_reject_failed",
+        details: {
+          documentId: id,
+          rejectReason: rejectNote[id] || "Rejected",
+          message: e?.message || "Unknown error",
+        },
+      });
+
+      setErr("Unable to reject document. Please try again.");
     } finally {
       setBusyDocId(null);
     }
@@ -421,15 +483,35 @@ export default function AdminPage() {
           </h1>
           <p className="mt-2 text-sm text-[#4B5563]">
             Review pending documents, contractor approvals, contractor company
-            change requests, and team change requests.
+            change requests, team change requests, and operational errors.
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-8">
           <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
             <div className="text-sm text-[#4B5563]">Total pending</div>
             <div className="mt-2 text-2xl font-semibold text-[#111827]">
               {counts.total}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+            <div className="text-sm text-red-600">Unresolved errors</div>
+            <div className="mt-2 text-2xl font-semibold text-red-700">
+              {errorSummary.unresolvedCount ?? 0}
+            </div>
+            <Link
+              href="/admin/errors"
+              className="mt-2 inline-block text-xs font-medium text-red-700 hover:underline"
+            >
+              View errors →
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="text-sm text-amber-700">Critical errors</div>
+            <div className="mt-2 text-2xl font-semibold text-amber-800">
+              {errorSummary.criticalCount ?? 0}
             </div>
           </div>
 

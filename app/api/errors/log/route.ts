@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+type ErrorLogLevel = "info" | "warning" | "error" | "critical";
+type ErrorLogSource = "frontend" | "api" | "db" | "auth" | "server" | "admin";
+
 type ErrorLogBody = {
   source?: string;
   area?: string | null;
@@ -9,41 +12,160 @@ type ErrorLogBody = {
   path?: string | null;
   role?: string | null;
   userAgent?: string | null;
+  level?: string;
+  code?: string | null;
+  statusCode?: number | null;
 };
+
+const ALLOWED_LEVELS: ErrorLogLevel[] = ["info", "warning", "error", "critical"];
+const ALLOWED_SOURCES: ErrorLogSource[] = [
+  "frontend",
+  "api",
+  "db",
+  "auth",
+  "server",
+  "admin",
+];
+
+function safeTrim(value: unknown, max = 1000) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, max);
+}
+
+function normalizeLevel(value: unknown): ErrorLogLevel {
+  if (typeof value === "string" && ALLOWED_LEVELS.includes(value as ErrorLogLevel)) {
+    return value as ErrorLogLevel;
+  }
+  return "error";
+}
+
+function normalizeSource(value: unknown): ErrorLogSource {
+  if (typeof value === "string" && ALLOWED_SOURCES.includes(value as ErrorLogSource)) {
+    return value as ErrorLogSource;
+  }
+  return "frontend";
+}
+
+function sanitizeValue(value: unknown): unknown {
+  if (value == null) return value;
+
+  if (typeof value === "string") {
+    return value.slice(0, 3000);
+  }
+
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map((item) => sanitizeValue(item));
+  }
+
+  if (typeof value === "object") {
+    const input = value as Record<string, unknown>;
+    const output: Record<string, unknown> = {};
+
+    for (const [key, nestedValue] of Object.entries(input)) {
+      const lowerKey = key.toLowerCase();
+
+      if (
+        lowerKey.includes("password") ||
+        lowerKey.includes("token") ||
+        lowerKey.includes("authorization") ||
+        lowerKey.includes("service_role") ||
+        lowerKey.includes("secret") ||
+        lowerKey.includes("api_key") ||
+        lowerKey.includes("apikey") ||
+        lowerKey.includes("card") ||
+        lowerKey.includes("cvv") ||
+        lowerKey.includes("cvc")
+      ) {
+        continue;
+      }
+
+      output[key] = sanitizeValue(nestedValue);
+    }
+
+    return output;
+  }
+
+  return String(value).slice(0, 3000);
+}
+
+function sanitizeDetails(details: unknown) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return {};
+  }
+
+  return sanitizeValue(details) as Record<string, unknown>;
+}
+
+function fingerprintOf(params: {
+  code: string | null;
+  source: ErrorLogSource;
+  area: string | null;
+  message: string;
+}) {
+  return [
+    params.code ?? "no_code",
+    params.source,
+    params.area ?? "unknown",
+    params.message,
+  ]
+    .join("|")
+    .toLowerCase()
+    .slice(0, 500);
+}
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as ErrorLogBody;
+    const rawBody = await req.json().catch(() => null);
 
-    const source = body.source?.trim() || "client";
-    const area = body.area?.trim() || null;
-    const message = body.message?.trim();
-    const details = body.details ?? {};
-    const path = body.path?.trim() || null;
-    const role = body.role?.trim() || null;
-    const userAgent =
-      body.userAgent?.trim() || req.headers.get("user-agent") || null;
-
-    if (!message) {
-      return NextResponse.json(
-        { error: "message is required" },
-        { status: 400 }
-      );
+    if (!rawBody || typeof rawBody !== "object") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
+
+    const body = rawBody as ErrorLogBody;
+
+    const message = safeTrim(body.message, 2000);
+    if (!message) {
+      return NextResponse.json({ error: "message is required" }, { status: 400 });
+    }
+
+    const source = normalizeSource(body.source);
+    const level = normalizeLevel(body.level);
+    const area = safeTrim(body.area, 200) ?? null;
+    const path = safeTrim(body.path, 1000) ?? null;
+    const role = safeTrim(body.role, 100) ?? null;
+    const code = safeTrim(body.code, 200) ?? null;
+    const userAgent =
+      safeTrim(body.userAgent, 1000) ??
+      safeTrim(req.headers.get("user-agent"), 1000) ??
+      null;
+
+    const statusCode =
+      typeof body.statusCode === "number" && Number.isFinite(body.statusCode)
+        ? body.statusCode
+        : null;
+
+    const details = sanitizeDetails(body.details);
 
     const supabase = await createClient();
-
     const {
       data: { user },
-      error: userErr,
     } = await supabase.auth.getUser();
 
-    if (userErr) {
-      return NextResponse.json(
-        { error: userErr.message },
-        { status: 401 }
-      );
-    }
+    const fingerprint = fingerprintOf({
+      code,
+      source,
+      area,
+      message,
+    });
 
     const { error } = await supabase.from("error_logs").insert({
       user_id: user?.id ?? null,
@@ -54,16 +176,23 @@ export async function POST(req: Request) {
       details,
       path,
       user_agent: userAgent,
+      level,
+      code,
+      status_code: statusCode,
+      fingerprint,
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: "Unable to write error log" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
+  } catch {
     return NextResponse.json(
-      { error: e?.message || "Unexpected error logging failure" },
+      { error: "Unexpected error logging failure" },
       { status: 500 }
     );
   }

@@ -8,6 +8,58 @@ export type Customer = {
   description: string | null;
 };
 
+type AppError = Error & {
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
+function createAppError(
+  message: string,
+  code: string,
+  details?: Record<string, unknown>
+): AppError {
+  const error = new Error(message) as AppError;
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function normalizeCustomerError(error: any, context: string): AppError {
+  const rawMessage =
+    error?.message ||
+    error?.error_description ||
+    error?.details ||
+    "Unknown customer error";
+
+  const dbCode = String(error?.code || "").toLowerCase();
+  const message = String(rawMessage).toLowerCase();
+
+  if (
+    dbCode === "23505" ||
+    message.includes("duplicate key") ||
+    message.includes("customers_owner_user_id") ||
+    message.includes("unique")
+  ) {
+    return createAppError(
+      "Customer organization already exists.",
+      `${context}_duplicate`,
+      {
+        rawMessage,
+        dbCode: error?.code ?? null,
+        hint: error?.hint ?? null,
+        details: error?.details ?? null,
+      }
+    );
+  }
+
+  return createAppError(rawMessage, `${context}_failed`, {
+    rawMessage,
+    dbCode: error?.code ?? null,
+    hint: error?.hint ?? null,
+    details: error?.details ?? null,
+  });
+}
+
 export async function getMyCustomer(): Promise<Customer | null> {
   const uid = await getMyUserId();
 
@@ -17,7 +69,7 @@ export async function getMyCustomer(): Promise<Customer | null> {
     .eq("owner_user_id", uid)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "get_my_customer");
   return (data || null) as Customer | null;
 }
 
@@ -67,7 +119,7 @@ export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
     .eq("owner_user_id", userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "get_my_customer_org");
   return (data ?? null) as CustomerOrg | null;
 }
 
@@ -87,7 +139,7 @@ export async function createMyCustomerOrg(params: {
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "create_my_customer_org");
   return data as CustomerOrg;
 }
 
@@ -97,7 +149,7 @@ export async function listScopes(): Promise<Scope[]> {
     .select("*")
     .order("name");
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_scopes");
   return (data || []) as Scope[];
 }
 
@@ -109,7 +161,10 @@ export async function listCustomerInsuranceReq(
     .select("*")
     .eq("customer_id", customerId);
 
-  if (error) throw error;
+  if (error) {
+    throw normalizeCustomerError(error, "list_customer_insurance_requirements");
+  }
+
   return (data || []) as CustomerInsuranceRequirement[];
 }
 
@@ -123,7 +178,9 @@ export async function upsertCustomerInsuranceReq(
     .from("customer_insurance_requirements")
     .upsert(payload, { onConflict: "customer_id,insurance_type_id" });
 
-  if (error) throw error;
+  if (error) {
+    throw normalizeCustomerError(error, "upsert_customer_insurance_requirement");
+  }
 }
 
 export async function listCustomerScopeReq(
@@ -134,7 +191,7 @@ export async function listCustomerScopeReq(
     .select("*")
     .eq("customer_id", customerId);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_customer_scope_requirements");
   return (data || []) as CustomerScopeRequirement[];
 }
 
@@ -158,7 +215,7 @@ export async function upsertCustomerScopeReq(row: {
       { onConflict: "customer_id,scope_id,cert_type_id" }
     );
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "upsert_customer_scope_requirement");
 }
 
 export async function deleteCustomerScopeReq(
@@ -173,17 +230,28 @@ export async function deleteCustomerScopeReq(
     .eq("scope_id", scopeId)
     .eq("cert_type_id", certTypeId);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "delete_customer_scope_requirement");
 }
 
 export async function ensureMyCustomerOrg() {
   const existing = await getMyCustomerOrg();
   if (existing) return existing;
 
-  return await createMyCustomerOrg({
-    name: "My Customer Org",
-    description: "",
-  });
+  try {
+    return await createMyCustomerOrg({
+      name: "My Customer Org",
+      description: "",
+    });
+  } catch (error: any) {
+    const code = String(error?.code || "");
+
+    if (code === "create_my_customer_org_duplicate") {
+      const retry = await getMyCustomerOrg();
+      if (retry) return retry;
+    }
+
+    throw error;
+  }
 }
 
 // ===== Approved contractors + COI =====
@@ -274,7 +342,7 @@ export async function listApprovedCustomerContractorsDetailed(): Promise<
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_approved_customer_contractors");
 
   return normalizeApprovedContractors(
     (data || []) as ApprovedContractorRowDb[]
@@ -299,7 +367,7 @@ export async function listLatestApprovedCoiByCompanies(
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_latest_approved_coi_by_companies");
 
   for (const row of (data || []) as ContractorCoiRow[]) {
     if (!map[row.company_id]) map[row.company_id] = row;
@@ -328,7 +396,7 @@ export async function searchContractorCompanies(
     .order("created_at", { ascending: false })
     .limit(20);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "search_contractor_companies");
   return (data || []) as ContractorCompanyMini[];
 }
 
@@ -349,7 +417,7 @@ export async function upsertCustomerContractor(params: {
       { onConflict: "customer_id,contractor_company_id" }
     );
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "upsert_customer_contractor");
 }
 
 export async function updateCustomerContractorStatus(
@@ -364,7 +432,7 @@ export async function updateCustomerContractorStatus(
     .eq("customer_id", customerId)
     .eq("contractor_company_id", contractorCompanyId);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "update_customer_contractor_status");
 }
 
 export async function removeCustomerContractor(contractorCompanyId: string) {
@@ -376,7 +444,7 @@ export async function removeCustomerContractor(contractorCompanyId: string) {
     .eq("customer_id", customerId)
     .eq("contractor_company_id", contractorCompanyId);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "remove_customer_contractor");
 }
 
 export async function listCustomerContractorsByStatus(
@@ -404,7 +472,7 @@ export async function listCustomerContractorsByStatus(
     .eq("status", status)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_customer_contractors_by_status");
 
   return normalizeApprovedContractors(
     (data || []) as ApprovedContractorRowDb[]
@@ -518,7 +586,7 @@ export async function listInsuranceTypes(): Promise<InsuranceType[]> {
     .order("is_core", { ascending: false })
     .order("name", { ascending: true });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_insurance_types");
   return (data || []) as InsuranceType[];
 }
 
@@ -528,7 +596,7 @@ export async function listEndorsementTypes(): Promise<EndorsementType[]> {
     .select("id, code, name")
     .order("name", { ascending: true });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_endorsement_types");
   return (data || []) as EndorsementType[];
 }
 
@@ -541,7 +609,7 @@ export async function getCustomerInsuranceConfig(
     .eq("customer_id", customerId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "get_customer_insurance_config");
   return (data ?? null) as CustomerInsuranceConfig | null;
 }
 
@@ -552,7 +620,7 @@ export async function upsertCustomerInsuranceConfig(
     .from("customer_insurance_config")
     .upsert(row, { onConflict: "customer_id" });
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "upsert_customer_insurance_config");
 }
 
 export async function listCustomerRequiredEndorsements(
@@ -563,7 +631,7 @@ export async function listCustomerRequiredEndorsements(
     .select("endorsement_type_id")
     .eq("customer_id", customerId);
 
-  if (error) throw error;
+  if (error) throw normalizeCustomerError(error, "list_customer_required_endorsements");
   return (data || []).map((x: any) => x.endorsement_type_id as string);
 }
 
@@ -576,7 +644,9 @@ export async function setCustomerRequiredEndorsements(
     .delete()
     .eq("customer_id", customerId);
 
-  if (delErr) throw delErr;
+  if (delErr) {
+    throw normalizeCustomerError(delErr, "delete_customer_required_endorsements");
+  }
 
   if (endorsementTypeIds.length === 0) return;
 
@@ -589,5 +659,7 @@ export async function setCustomerRequiredEndorsements(
       }))
     );
 
-  if (insErr) throw insErr;
+  if (insErr) {
+    throw normalizeCustomerError(insErr, "insert_customer_required_endorsements");
+  }
 }

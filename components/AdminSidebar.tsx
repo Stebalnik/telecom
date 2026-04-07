@@ -8,7 +8,7 @@ type NavItem = {
   href: string;
   label: string;
   exact?: boolean;
-  badgeKey?: "feedback";
+  badgeKey?: "feedback" | "errors";
 };
 
 type NavGroup = {
@@ -29,6 +29,19 @@ type FeedbackSummary = {
   attentionCount?: number;
 };
 
+type ErrorSummary = {
+  total?: number;
+  unresolvedCount?: number;
+  criticalCount?: number;
+  byLevel?: Record<string, number>;
+  bySource?: Record<string, number>;
+  byArea?: Record<string, number>;
+  topFingerprints?: Array<{
+    fingerprint: string;
+    total: number;
+  }>;
+};
+
 const navGroups: NavGroup[] = [
   {
     title: "Overview",
@@ -41,7 +54,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/analytics/customers", label: "Customer Analytics" },
       { href: "/admin/analytics/contractors", label: "Contractor Analytics" },
       { href: "/admin/analytics/admin-actions", label: "Admin Actions" },
-      { href: "/admin/errors", label: "Errors" },
+      { href: "/admin/errors", label: "Errors", badgeKey: "errors" },
     ],
   },
   {
@@ -65,8 +78,11 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+
   const [feedbackSummary, setFeedbackSummary] = useState<FeedbackSummary>({});
-  const [loading, setLoading] = useState(true);
+  const [errorSummary, setErrorSummary] = useState<ErrorSummary>({});
+  const [loadingFeedback, setLoadingFeedback] = useState(true);
+  const [loadingErrors, setLoadingErrors] = useState(true);
 
   async function loadFeedbackSummary() {
     try {
@@ -76,28 +92,55 @@ export default function AdminSidebar() {
       });
 
       const data = await res.json();
-
       if (!res.ok) return;
 
       setFeedbackSummary(data.summary || {});
     } catch {
       // keep sidebar resilient
     } finally {
-      setLoading(false);
+      setLoadingFeedback(false);
     }
   }
 
+  async function loadErrorSummary() {
+    try {
+      const res = await fetch("/api/admin/errors?summary=true&resolved=false", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      if (!res.ok) return;
+
+      setErrorSummary(data.summary || {});
+    } catch {
+      // keep sidebar resilient
+    } finally {
+      setLoadingErrors(false);
+    }
+  }
+
+  async function loadAll() {
+    await Promise.all([loadFeedbackSummary(), loadErrorSummary()]);
+  }
+
   useEffect(() => {
-    loadFeedbackSummary();
+    void loadAll();
 
     const interval = setInterval(() => {
-      loadFeedbackSummary();
+      void loadAll();
     }, 30000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const feedbackBadgeCount = loading ? 0 : feedbackSummary.attentionCount ?? 0;
+  const feedbackBadgeCount = loadingFeedback
+    ? 0
+    : feedbackSummary.attentionCount ?? 0;
+
+  const errorBadgeCount = loadingErrors
+    ? 0
+    : errorSummary.unresolvedCount ?? 0;
 
   return (
     <aside className="w-full rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm lg:sticky lg:top-6 lg:w-72 lg:self-start">
@@ -123,6 +166,15 @@ export default function AdminSidebar() {
                 const active = isActive(pathname, item.href, item.exact);
                 const showFeedbackBadge =
                   item.badgeKey === "feedback" && feedbackBadgeCount > 0;
+                const showErrorBadge =
+                  item.badgeKey === "errors" && errorBadgeCount > 0;
+
+                const badgeCount =
+                  item.badgeKey === "feedback"
+                    ? feedbackBadgeCount
+                    : item.badgeKey === "errors"
+                    ? errorBadgeCount
+                    : 0;
 
                 return (
                   <Link
@@ -136,9 +188,9 @@ export default function AdminSidebar() {
                   >
                     <span>{item.label}</span>
 
-                    {showFeedbackBadge ? (
+                    {showFeedbackBadge || showErrorBadge ? (
                       <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#2EA3FF] px-2 py-0.5 text-xs font-semibold text-white">
-                        {feedbackBadgeCount}
+                        {badgeCount}
                       </span>
                     ) : null}
                   </Link>

@@ -280,7 +280,7 @@ export default function ContractorJobBidPage() {
       setErr("Something went wrong. Please try again.");
 
       await logError("contractor_job_page_load_failed", {
-        source: "client",
+        source: "frontend",
         area: "contractor_job_page",
         role: "contractor",
         details: {
@@ -307,7 +307,7 @@ export default function ContractorJobBidPage() {
         setTeamId("");
       } catch (e: any) {
         await logError("contractor_job_teams_load_failed", {
-          source: "client",
+          source: "frontend",
           area: "contractor_job_page",
           role: "contractor",
           details: {
@@ -380,7 +380,7 @@ export default function ContractorJobBidPage() {
         }
 
         await logError("customer_approval_request_failed", {
-          source: "client",
+          source: "frontend",
           area: "contractor_job_page",
           role: "contractor",
           details: {
@@ -409,7 +409,7 @@ export default function ContractorJobBidPage() {
       setErr("Approval request failed.");
 
       await logError("customer_approval_request_exception", {
-        source: "client",
+        source: "frontend",
         area: "contractor_job_page",
         role: "contractor",
         details: {
@@ -478,7 +478,7 @@ export default function ContractorJobBidPage() {
       setErr(safeMessage);
 
       await logError("submit_bid_failed", {
-        source: "client",
+        source: "frontend",
         area: "contractor_job_page",
         role: "contractor",
         details: {

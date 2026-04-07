@@ -1,25 +1,41 @@
 # ROUTES
 
-Generated: Sun Apr  5 13:29:19 EDT 2026
+Generated: Mon Apr  6 21:49:34 EDT 2026
 
 ## App router files
 ```
 app/(app)/layout.tsx
+app/admin/analytics/admin-actions/page.tsx
+app/admin/analytics/contractors/page.tsx
+app/admin/analytics/customers/page.tsx
 app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/errors/page.tsx
+app/admin/feedback/[id]/page.tsx
+app/admin/feedback/page.tsx
 app/admin/layout.tsx
 app/admin/page.tsx
 app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
+app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/errors/route.ts
+app/api/admin/feedback/[id]/messages/route.ts
+app/api/admin/feedback/[id]/route.ts
+app/api/admin/feedback/route.ts
+app/api/analytics/track/route.ts
 app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
+app/api/errors/log/route.ts
+app/api/feedback/[id]/messages/route.ts
+app/api/feedback/[id]/route.ts
+app/api/feedback/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -69,6 +85,7 @@ app/customer/settings/certs-per-scope/page.tsx
 app/customer/settings/insurance/page.tsx
 app/customer/settings/page.tsx
 app/dashboard/page.tsx
+app/feedback/page.tsx
 app/forgot-password/page.tsx
 app/layout.tsx
 app/login/page.tsx

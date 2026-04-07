@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
+import { logError } from "../../lib/logError";
 
 function getErrorMessage(message: string) {
   const normalized = message.toLowerCase();
@@ -17,7 +18,7 @@ function getErrorMessage(message: string) {
     return "Please confirm your email before logging in.";
   }
 
-  return message;
+  return "Unable to sign in. Please try again.";
 }
 
 export default function LoginPage() {
@@ -45,14 +46,24 @@ export default function LoginPage() {
           router.refresh();
           return;
         }
-      } catch {
-        // ignore and allow login form
+      } catch (e: any) {
+        if (!mounted) return;
+
+        await logError("login_check_session_failed", {
+          source: "frontend",
+          area: "auth",
+          path: "/login",
+          code: "login_check_session_failed",
+          details: {
+            message: e?.message || "Unknown error",
+          },
+        });
       } finally {
         if (mounted) setCheckingSession(false);
       }
     }
 
-    checkExistingSession();
+    void checkExistingSession();
 
     return () => {
       mounted = false;
@@ -72,26 +83,50 @@ export default function LoginPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-
-    if (error) {
-      setLoading(false);
-      setError(getErrorMessage(error.message));
-      return;
-    }
-
-    await track("login", {
-      meta: {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
-        userId: data.user?.id ?? null,
-      },
-    });
+        password,
+      });
 
-    router.replace("/dashboard");
-    router.refresh();
+      if (error) {
+        await logError("login_failed", {
+          source: "frontend",
+          area: "auth",
+          path: "/login",
+          code: "login_failed",
+          details: {
+            message: error.message,
+          },
+        });
+
+        setLoading(false);
+        setError(getErrorMessage(error.message));
+        return;
+      }
+
+      await track("login", {
+        meta: {
+          userId: data.user?.id ?? null,
+        },
+      });
+
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (e: any) {
+      await logError("login_exception", {
+        source: "frontend",
+        area: "auth",
+        path: "/login",
+        code: "login_exception",
+        details: {
+          message: e?.message || "Unknown error",
+        },
+      });
+
+      setError("Unable to sign in. Please try again.");
+      setLoading(false);
+    }
   }
 
   if (checkingSession) {

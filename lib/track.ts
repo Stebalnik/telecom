@@ -8,6 +8,10 @@ export async function track(
     meta?: Record<string, unknown>;
   }
 ) {
+  const path =
+    options?.path ??
+    (typeof window !== "undefined" ? window.location.pathname : null);
+
   try {
     const res = await fetch("/api/analytics/track", {
       method: "POST",
@@ -16,7 +20,7 @@ export async function track(
       },
       body: JSON.stringify({
         event,
-        path: options?.path ?? window.location.pathname,
+        path,
         role: options?.role ?? null,
         meta: options?.meta ?? {},
       }),
@@ -24,14 +28,14 @@ export async function track(
     });
 
     if (!res.ok) {
-      const text = await res.text();
+      const text = await res.text().catch(() => "");
 
-      console.error("Analytics track failed:", res.status, text);
-
-      await logError("Analytics track failed", {
-        source: "client",
+      await logError("analytics_track_failed", {
+        source: "frontend",
         area: "analytics",
         role: options?.role ?? null,
+        path: path ?? undefined,
+        code: "analytics_track_failed",
         details: {
           status: res.status,
           responseText: text,
@@ -42,15 +46,13 @@ export async function track(
 
       return;
     }
-
-    console.log("Analytics tracked:", event);
   } catch (error: any) {
-    console.error("Analytics track error:", error);
-
-    await logError("Analytics track request error", {
-      source: "client",
+    await logError("analytics_track_request_failed", {
+      source: "frontend",
       area: "analytics",
       role: options?.role ?? null,
+      path: path ?? undefined,
+      code: "analytics_track_request_failed",
       details: {
         event,
         meta: options?.meta ?? {},

@@ -6,8 +6,28 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
 import { ensureMyCustomerOrg } from "../../lib/customers";
+import { logError } from "../../lib/logError";
 
 type PendingRole = "customer" | "contractor" | null;
+
+type AppLikeError = Error & {
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
+function getSafeDashboardErrorMessage(error: AppLikeError, fallback: string) {
+  const code = String(error?.code || "");
+
+  if (code.includes("duplicate")) {
+    return "This account setup already exists. Please try again.";
+  }
+
+  if (code.includes("not_logged_in")) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  return fallback;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -73,13 +93,27 @@ export default function DashboardPage() {
         }
       } catch (e: any) {
         if (!mounted) return;
-        setErr(e.message ?? "Error loading dashboard");
+
+        await logError("dashboard_load_failed", {
+          source: "frontend",
+          area: "auth",
+          role: null,
+          path: "/dashboard",
+          code: "dashboard_load_failed",
+          details: {
+            message: e?.message || "Unknown error",
+            originalCode: e?.code || null,
+            originalDetails: e?.details || null,
+          },
+        });
+
+        setErr("Unable to load dashboard. Please try again.");
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    load();
+    void load();
 
     return () => {
       mounted = false;
@@ -112,9 +146,32 @@ export default function DashboardPage() {
       setRole(pendingRole);
 
       if (pendingRole === "customer") {
-        await ensureMyCustomerOrg();
-        router.push("/customer/settings");
-        return;
+        try {
+          await ensureMyCustomerOrg();
+          router.push("/customer/settings");
+          return;
+        } catch (e: any) {
+          await logError("dashboard_ensure_customer_org_failed", {
+            source: "frontend",
+            area: "customer",
+            role: "customer",
+            path: "/dashboard",
+            code: "dashboard_ensure_customer_org_failed",
+            details: {
+              message: e?.message || "Unknown error",
+              originalCode: e?.code || null,
+              originalDetails: e?.details || null,
+            },
+          });
+
+          setErr(
+            getSafeDashboardErrorMessage(
+              e,
+              "Role was saved, but customer workspace setup failed. Please try again."
+            )
+          );
+          return;
+        }
       }
 
       if (pendingRole === "contractor") {
@@ -122,7 +179,26 @@ export default function DashboardPage() {
         return;
       }
     } catch (e: any) {
-      setErr(e.message ?? "Error saving role");
+      await logError("dashboard_create_profile_failed", {
+        source: "frontend",
+        area: "auth",
+        role: pendingRole,
+        path: "/dashboard",
+        code: "dashboard_create_profile_failed",
+        details: {
+          message: e?.message || "Unknown error",
+          selectedRole: pendingRole,
+          originalCode: e?.code || null,
+          originalDetails: e?.details || null,
+        },
+      });
+
+      setErr(
+        getSafeDashboardErrorMessage(
+          e,
+          "Unable to save your role. Please try again."
+        )
+      );
     } finally {
       setSavingRole(false);
     }
@@ -135,7 +211,20 @@ export default function DashboardPage() {
       router.replace("/login");
       router.refresh();
     } catch (e: any) {
-      setErr(e.message ?? "Error during logout");
+      await logError("dashboard_logout_failed", {
+        source: "frontend",
+        area: "auth",
+        role,
+        path: "/dashboard",
+        code: "dashboard_logout_failed",
+        details: {
+          message: e?.message || "Unknown error",
+          originalCode: e?.code || null,
+          originalDetails: e?.details || null,
+        },
+      });
+
+      setErr("Unable to log out. Please try again.");
     } finally {
       setLoggingOut(false);
     }
@@ -188,7 +277,19 @@ export default function DashboardPage() {
 
       window.location.href = json.url;
     } catch (e: any) {
-      setErr(e.message ?? "Unable to open support checkout");
+      await logError("dashboard_support_checkout_failed", {
+        source: "frontend",
+        area: "checkout",
+        role,
+        path: "/dashboard",
+        code: "dashboard_support_checkout_failed",
+        details: {
+          message: e?.message || "Unknown error",
+          amount: finalSupportAmount,
+        },
+      });
+
+      setErr("Unable to open support checkout. Please try again.");
       setSupportLoading(false);
     }
   }

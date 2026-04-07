@@ -266,6 +266,24 @@ $$;
 ALTER FUNCTION "public"."archive_contractor_coi_before_update"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."bump_feedback_last_message_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  update public.feedback_items
+  set
+    last_message_at = now(),
+    updated_at = now()
+  where id = new.feedback_id;
+
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."bump_feedback_last_message_at"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."can_bid_job"("p_job_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE
     AS $$
@@ -287,6 +305,25 @@ $$;
 
 
 ALTER FUNCTION "public"."can_bid_job"("p_job_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."can_current_user_view_feedback"("p_feedback_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  select exists (
+    select 1
+    from public.feedback_items f
+    where f.id = p_feedback_id
+      and (
+        public.is_admin()
+        or (f.user_id is not null and f.user_id = auth.uid())
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."can_current_user_view_feedback"("p_feedback_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."company_insurance_issues"("p_company_id" "uuid") RETURNS "jsonb"
@@ -1383,6 +1420,19 @@ $$;
 ALTER FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."set_feedback_items_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."set_feedback_items_updated_at"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -2105,6 +2155,75 @@ CREATE TABLE IF NOT EXISTS "public"."endorsement_types" (
 ALTER TABLE "public"."endorsement_types" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."error_logs" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid",
+    "role" "text",
+    "source" "text" NOT NULL,
+    "area" "text",
+    "message" "text" NOT NULL,
+    "details" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "path" "text",
+    "user_agent" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "level" "text" DEFAULT 'error'::"text" NOT NULL,
+    "code" "text",
+    "status_code" integer,
+    "fingerprint" "text",
+    "resolved_at" timestamp with time zone,
+    "resolved_by" "uuid"
+);
+
+
+ALTER TABLE "public"."error_logs" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."feedback_items" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "user_id" "uuid",
+    "role" "text",
+    "source" "text" NOT NULL,
+    "customer_id" "uuid",
+    "contractor_company_id" "uuid",
+    "guest_name" "text",
+    "guest_email" "text",
+    "category" "text" NOT NULL,
+    "subject" "text" NOT NULL,
+    "message" "text" NOT NULL,
+    "priority" "text" DEFAULT 'normal'::"text" NOT NULL,
+    "status" "text" DEFAULT 'new'::"text" NOT NULL,
+    "path" "text",
+    "last_message_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "reviewed_by" "uuid",
+    "reviewed_at" timestamp with time zone,
+    CONSTRAINT "feedback_items_category_check" CHECK (("category" = ANY (ARRAY['bug'::"text", 'feature_request'::"text", 'ux_issue'::"text", 'billing'::"text", 'account'::"text", 'other'::"text"]))),
+    CONSTRAINT "feedback_items_priority_check" CHECK (("priority" = ANY (ARRAY['low'::"text", 'normal'::"text", 'high'::"text"]))),
+    CONSTRAINT "feedback_items_role_check" CHECK (("role" = ANY (ARRAY['customer'::"text", 'contractor'::"text", 'admin'::"text", 'unknown'::"text"]))),
+    CONSTRAINT "feedback_items_source_check" CHECK (("source" = ANY (ARRAY['public'::"text", 'landing'::"text", 'signup'::"text", 'login'::"text", 'dashboard'::"text", 'customer'::"text", 'contractor'::"text", 'admin'::"text"]))),
+    CONSTRAINT "feedback_items_status_check" CHECK (("status" = ANY (ARRAY['new'::"text", 'in_review'::"text", 'waiting_for_user'::"text", 'planned'::"text", 'resolved'::"text", 'closed'::"text"])))
+);
+
+
+ALTER TABLE "public"."feedback_items" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."feedback_messages" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "feedback_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "sender_user_id" "uuid",
+    "sender_role" "text" NOT NULL,
+    "body" "text" NOT NULL,
+    "is_internal" boolean DEFAULT false NOT NULL,
+    CONSTRAINT "feedback_messages_sender_role_check" CHECK (("sender_role" = ANY (ARRAY['guest'::"text", 'customer'::"text", 'contractor'::"text", 'admin'::"text"])))
+);
+
+
+ALTER TABLE "public"."feedback_messages" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."insurance_policy_data" (
     "document_id" "uuid" NOT NULL,
     "limit_each_occurrence" bigint,
@@ -2636,6 +2755,21 @@ ALTER TABLE ONLY "public"."endorsement_types"
 
 
 
+ALTER TABLE ONLY "public"."error_logs"
+    ADD CONSTRAINT "error_logs_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."feedback_items"
+    ADD CONSTRAINT "feedback_items_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."feedback_messages"
+    ADD CONSTRAINT "feedback_messages_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."insurance_policy_data"
     ADD CONSTRAINT "insurance_policy_data_pkey" PRIMARY KEY ("document_id");
 
@@ -2864,6 +2998,74 @@ CREATE INDEX "customer_resource_markets_resource_idx" ON "public"."customer_reso
 
 
 CREATE UNIQUE INDEX "customer_resource_markets_unique" ON "public"."customer_resource_markets" USING "btree" ("resource_id", "market");
+
+
+
+CREATE INDEX "error_logs_area_idx" ON "public"."error_logs" USING "btree" ("area");
+
+
+
+CREATE INDEX "error_logs_code_idx" ON "public"."error_logs" USING "btree" ("code");
+
+
+
+CREATE INDEX "error_logs_created_at_idx" ON "public"."error_logs" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "error_logs_fingerprint_idx" ON "public"."error_logs" USING "btree" ("fingerprint");
+
+
+
+CREATE INDEX "error_logs_level_idx" ON "public"."error_logs" USING "btree" ("level");
+
+
+
+CREATE INDEX "error_logs_role_idx" ON "public"."error_logs" USING "btree" ("role");
+
+
+
+CREATE INDEX "error_logs_source_idx" ON "public"."error_logs" USING "btree" ("source");
+
+
+
+CREATE INDEX "error_logs_unresolved_idx" ON "public"."error_logs" USING "btree" ("resolved_at") WHERE ("resolved_at" IS NULL);
+
+
+
+CREATE INDEX "error_logs_user_id_idx" ON "public"."error_logs" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "feedback_items_contractor_company_id_idx" ON "public"."feedback_items" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "feedback_items_customer_id_idx" ON "public"."feedback_items" USING "btree" ("customer_id");
+
+
+
+CREATE INDEX "feedback_items_last_message_at_idx" ON "public"."feedback_items" USING "btree" ("last_message_at" DESC);
+
+
+
+CREATE INDEX "feedback_items_role_idx" ON "public"."feedback_items" USING "btree" ("role");
+
+
+
+CREATE INDEX "feedback_items_source_idx" ON "public"."feedback_items" USING "btree" ("source");
+
+
+
+CREATE INDEX "feedback_items_status_idx" ON "public"."feedback_items" USING "btree" ("status");
+
+
+
+CREATE INDEX "feedback_items_user_id_idx" ON "public"."feedback_items" USING "btree" ("user_id");
+
+
+
+CREATE INDEX "feedback_messages_feedback_id_idx" ON "public"."feedback_messages" USING "btree" ("feedback_id", "created_at");
 
 
 
@@ -3108,6 +3310,14 @@ CREATE OR REPLACE TRIGGER "trg_customer_agreements_updated_at" BEFORE UPDATE ON 
 
 
 CREATE OR REPLACE TRIGGER "trg_customer_resources_updated_at" BEFORE UPDATE ON "public"."customer_resources" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_feedback_items_updated_at" BEFORE UPDATE ON "public"."feedback_items" FOR EACH ROW EXECUTE FUNCTION "public"."set_feedback_items_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_feedback_messages_bump_parent" AFTER INSERT ON "public"."feedback_messages" FOR EACH ROW EXECUTE FUNCTION "public"."bump_feedback_last_message_at"();
 
 
 
@@ -3450,6 +3660,21 @@ ALTER TABLE ONLY "public"."documents"
 
 ALTER TABLE ONLY "public"."documents"
     ADD CONSTRAINT "documents_verified_by_fkey" FOREIGN KEY ("verified_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."feedback_items"
+    ADD CONSTRAINT "feedback_items_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."feedback_items"
+    ADD CONSTRAINT "feedback_items_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."feedback_messages"
+    ADD CONSTRAINT "feedback_messages_feedback_id_fkey" FOREIGN KEY ("feedback_id") REFERENCES "public"."feedback_items"("id") ON DELETE CASCADE;
 
 
 
@@ -4345,6 +4570,53 @@ CREATE POLICY "documents_update_admin" ON "public"."documents" FOR UPDATE USING 
 
 
 
+ALTER TABLE "public"."error_logs" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "error_logs_admin_read" ON "public"."error_logs" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."profiles" "p"
+  WHERE (("p"."id" = "auth"."uid"()) AND ("p"."role" = 'admin'::"text")))));
+
+
+
+CREATE POLICY "error_logs_admin_update" ON "public"."error_logs" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+CREATE POLICY "error_logs_insert_authenticated" ON "public"."error_logs" FOR INSERT TO "authenticated" WITH CHECK ((("user_id" IS NULL) OR ("user_id" = "auth"."uid"())));
+
+
+
+ALTER TABLE "public"."feedback_items" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "feedback_items_insert_authenticated" ON "public"."feedback_items" FOR INSERT TO "authenticated" WITH CHECK (("user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "feedback_items_select_own_or_admin" ON "public"."feedback_items" FOR SELECT TO "authenticated" USING (("public"."is_admin"() OR ("user_id" = "auth"."uid"())));
+
+
+
+CREATE POLICY "feedback_items_update_admin_only" ON "public"."feedback_items" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+ALTER TABLE "public"."feedback_messages" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "feedback_messages_insert_owner_or_admin" ON "public"."feedback_messages" FOR INSERT TO "authenticated" WITH CHECK ("public"."can_current_user_view_feedback"("feedback_id"));
+
+
+
+CREATE POLICY "feedback_messages_select_own_or_admin" ON "public"."feedback_messages" FOR SELECT TO "authenticated" USING (("public"."can_current_user_view_feedback"("feedback_id") AND ("public"."is_admin"() OR ("is_internal" = false))));
+
+
+
+CREATE POLICY "feedback_messages_update_admin_only" ON "public"."feedback_messages" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
 ALTER TABLE "public"."insurance_policy_data" ENABLE ROW LEVEL SECURITY;
 
 
@@ -4842,9 +5114,21 @@ GRANT ALL ON FUNCTION "public"."archive_contractor_coi_before_update"() TO "serv
 
 
 
+GRANT ALL ON FUNCTION "public"."bump_feedback_last_message_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."bump_feedback_last_message_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."bump_feedback_last_message_at"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_bid_job"("p_job_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."can_current_user_view_feedback"("p_feedback_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."can_current_user_view_feedback"("p_feedback_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."can_current_user_view_feedback"("p_feedback_id" "uuid") TO "service_role";
 
 
 
@@ -5008,6 +5292,12 @@ GRANT ALL ON FUNCTION "public"."request_customer_approval"("p_customer_id" "uuid
 GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_customer_agreement_template_default"("p_template_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."set_feedback_items_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."set_feedback_items_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."set_feedback_items_updated_at"() TO "service_role";
 
 
 
@@ -5251,6 +5541,24 @@ GRANT ALL ON TABLE "public"."documents" TO "service_role";
 GRANT ALL ON TABLE "public"."endorsement_types" TO "anon";
 GRANT ALL ON TABLE "public"."endorsement_types" TO "authenticated";
 GRANT ALL ON TABLE "public"."endorsement_types" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."error_logs" TO "anon";
+GRANT ALL ON TABLE "public"."error_logs" TO "authenticated";
+GRANT ALL ON TABLE "public"."error_logs" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."feedback_items" TO "anon";
+GRANT ALL ON TABLE "public"."feedback_items" TO "authenticated";
+GRANT ALL ON TABLE "public"."feedback_items" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."feedback_messages" TO "anon";
+GRANT ALL ON TABLE "public"."feedback_messages" TO "authenticated";
+GRANT ALL ON TABLE "public"."feedback_messages" TO "service_role";
 
 
 
