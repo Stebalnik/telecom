@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase/browser";
 import { getMyProfile } from "../../../lib/profile";
 import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { refreshAdminSidebar } from "../../../lib/admin/refreshAdminSidebar";
 
 type ErrorLogLevel = "info" | "warning" | "error" | "critical";
 
@@ -210,16 +211,13 @@ export default function AdminErrorsPage() {
     setErr(null);
 
     try {
-      const ok = await withErrorLogging(
-        () => ensureAdminAccess(),
-        {
-          message: "admin_errors_access_check_failed",
-          code: "admin_errors_access_check_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin/errors",
-        }
-      );
+      const ok = await withErrorLogging(() => ensureAdminAccess(), {
+        message: "admin_errors_access_check_failed",
+        code: "admin_errors_access_check_failed",
+        source: "frontend",
+        area: "admin",
+        path: "/admin/errors",
+      });
 
       if (!ok) return;
 
@@ -246,16 +244,13 @@ export default function AdminErrorsPage() {
         }
       );
 
-      const json = await withErrorLogging(
-        () => res.json(),
-        {
-          message: "admin_errors_response_parse_failed",
-          code: "admin_errors_response_parse_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin/errors",
-        }
-      );
+      const json = await withErrorLogging(() => res.json(), {
+        message: "admin_errors_response_parse_failed",
+        code: "admin_errors_response_parse_failed",
+        source: "frontend",
+        area: "admin",
+        path: "/admin/errors",
+      });
 
       if (!res.ok) {
         throw new Error(json?.error || "admin_errors_load_failed");
@@ -274,16 +269,13 @@ export default function AdminErrorsPage() {
     setSummaryLoading(true);
 
     try {
-      const ok = await withErrorLogging(
-        () => ensureAdminAccess(),
-        {
-          message: "admin_errors_summary_access_check_failed",
-          code: "admin_errors_summary_access_check_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin/errors",
-        }
-      );
+      const ok = await withErrorLogging(() => ensureAdminAccess(), {
+        message: "admin_errors_summary_access_check_failed",
+        code: "admin_errors_summary_access_check_failed",
+        source: "frontend",
+        area: "admin",
+        path: "/admin/errors",
+      });
 
       if (!ok) return;
 
@@ -308,16 +300,13 @@ export default function AdminErrorsPage() {
         }
       );
 
-      const json = await withErrorLogging(
-        () => res.json(),
-        {
-          message: "admin_errors_summary_response_parse_failed",
-          code: "admin_errors_summary_response_parse_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin/errors",
-        }
-      );
+      const json = await withErrorLogging(() => res.json(), {
+        message: "admin_errors_summary_response_parse_failed",
+        code: "admin_errors_summary_response_parse_failed",
+        source: "frontend",
+        area: "admin",
+        path: "/admin/errors",
+      });
 
       if (!res.ok) {
         throw new Error(json?.error || "admin_errors_summary_load_failed");
@@ -368,25 +357,23 @@ export default function AdminErrorsPage() {
         }
       );
 
-      const json = await withErrorLogging(
-        () => res.json(),
-        {
-          message: "admin_error_resolve_response_parse_failed",
-          code: "admin_error_resolve_response_parse_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin/errors",
-          details: {
-            errorId: row.id,
-          },
-        }
-      );
+      const json = await withErrorLogging(() => res.json(), {
+        message: "admin_error_resolve_response_parse_failed",
+        code: "admin_error_resolve_response_parse_failed",
+        source: "frontend",
+        area: "admin",
+        path: "/admin/errors",
+        details: {
+          errorId: row.id,
+        },
+      });
 
       if (!res.ok) {
         throw new Error(json?.error || "admin_error_resolve_failed");
       }
 
       await loadPage(pagination.offset);
+      refreshAdminSidebar();
     } catch {
       setErr("Unable to update the error state. Please try again.");
     } finally {

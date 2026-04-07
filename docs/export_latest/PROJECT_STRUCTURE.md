@@ -1,6 +1,6 @@
 # PROJECT_STRUCTURE
 
-Generated: Tue Apr  7 14:36:58 EDT 2026
+Generated: Tue Apr  7 19:19:02 EDT 2026
 
 ## 1. Root directories
 ```
@@ -15,6 +15,7 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./app/admin/company-change-requests
 ./app/admin/company-change-requests/[id]
 ./app/admin/contractor-approvals
+./app/admin/customer-approvals
 ./app/admin/errors
 ./app/admin/feedback
 ./app/admin/feedback/[id]
@@ -24,6 +25,13 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./app/api/admin
 ./app/api/admin/analytics
 ./app/api/admin/analytics/breakdown
+./app/api/admin/contractor-approvals
+./app/api/admin/contractor-approvals/pending-count
+./app/api/admin/customer-approvals
+./app/api/admin/customer-approvals/[id]
+./app/api/admin/customer-approvals/[id]/approve
+./app/api/admin/customer-approvals/[id]/return-to-draft
+./app/api/admin/customer-approvals/pending-count
 ./app/api/admin/errors
 ./app/api/admin/feedback
 ./app/api/admin/feedback/[id]
@@ -109,6 +117,7 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./components/analytics
 ./docs
 ./lib
+./lib/admin
 ./lib/analytics
 ./lib/errors
 ./lib/server
@@ -136,6 +145,7 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./app/admin/company-change-requests/[id]/page.tsx
 ./app/admin/company-change-requests/page.tsx
 ./app/admin/contractor-approvals/page.tsx
+./app/admin/customer-approvals/page.tsx
 ./app/admin/errors/page.tsx
 ./app/admin/feedback/[id]/page.tsx
 ./app/admin/feedback/page.tsx
@@ -148,6 +158,13 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./app/api/admin/analytics/.DS_Store
 ./app/api/admin/analytics/breakdown/route.ts
 ./app/api/admin/analytics/route.ts
+./app/api/admin/contractor-approvals/.DS_Store
+./app/api/admin/contractor-approvals/pending-count/route.ts
+./app/api/admin/customer-approvals/.DS_Store
+./app/api/admin/customer-approvals/[id]/approve/route.ts
+./app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+./app/api/admin/customer-approvals/pending-count/route.ts
+./app/api/admin/customer-approvals/route.ts
 ./app/api/admin/errors/route.ts
 ./app/api/admin/feedback/.DS_Store
 ./app/api/admin/feedback/[id]/.DS_Store
@@ -246,6 +263,7 @@ Generated: Tue Apr  7 14:36:58 EDT 2026
 ./docs/security_rules.md
 ./eslint.config.mjs
 ./lib/.DS_Store
+./lib/admin/refreshAdminSidebar.ts
 ./lib/adminAnalytics.ts
 ./lib/adminDocs.ts
 ./lib/agreements.ts
@@ -322,6 +340,7 @@ app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/customer-approvals/page.tsx
 app/admin/errors/page.tsx
 app/admin/feedback/[id]/page.tsx
 app/admin/feedback/page.tsx
@@ -331,6 +350,11 @@ app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/[id]/approve/route.ts
+app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+app/api/admin/customer-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/route.ts
 app/api/admin/errors/route.ts
 app/api/admin/feedback/[id]/messages/route.ts
 app/api/admin/feedback/[id]/route.ts
@@ -415,6 +439,13 @@ app/api/admin/.DS_Store
 app/api/admin/analytics/.DS_Store
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/.DS_Store
+app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/.DS_Store
+app/api/admin/customer-approvals/[id]/approve/route.ts
+app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+app/api/admin/customer-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/route.ts
 app/api/admin/errors/route.ts
 app/api/admin/feedback/.DS_Store
 app/api/admin/feedback/[id]/.DS_Store
@@ -439,6 +470,7 @@ app/api/feedback/route.ts
 ## 5. Library files
 ```
 lib/.DS_Store
+lib/admin/refreshAdminSidebar.ts
 lib/adminAnalytics.ts
 lib/adminDocs.ts
 lib/agreements.ts

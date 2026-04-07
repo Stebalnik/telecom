@@ -15,15 +15,17 @@ import {
   listAdminTeamChangeRequests,
   type TeamChangeRequest,
 } from "../../lib/contractor";
+import { normalizeError } from "../../lib/errors/normalizeError";
 import { unwrapSupabase } from "../../lib/errors/unwrapSupabase";
 import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 
 type AdminFilter =
   | "all"
   | "documents"
+  | "customer_approvals"
+  | "contractor_approvals"
   | "company_changes"
-  | "team_changes"
-  | "contractor_approvals";
+  | "team_changes";
 
 type RequestRow = {
   id: string;
@@ -84,6 +86,15 @@ type ContractorApprovalRow = {
     | null;
 };
 
+type CustomerApprovalRow = {
+  id: string;
+  company_name: string | null;
+  status: string | null;
+  onboarding_status: string | null;
+  created_at: string;
+  owner_user_id: string | null;
+};
+
 type ErrorSummary = {
   total?: number;
   unresolvedCount?: number;
@@ -100,6 +111,13 @@ type ErrorSummary = {
 type AdminProfileLike = {
   role?: UserRole | null;
 } | null;
+
+type PlatformStats = {
+  registeredCustomers: number;
+  registeredContractors: number;
+  undefinedUsers: number;
+  registeredToday: number;
+};
 
 function mapRequestRow(row: RequestRowDb): RequestRow {
   const company = Array.isArray(row.company) ? row.company[0] ?? null : row.company;
@@ -126,6 +144,34 @@ function mapRequestRow(row: RequestRowDb): RequestRow {
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString();
+}
+
+function getTodayStartIso() {
+  const now = new Date();
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+  return start.toISOString();
+}
+
+function getCountFromResult(
+  result: {
+    error: unknown;
+    count: number | null;
+  },
+  code: string
+) {
+  if (result.error) {
+    throw normalizeError(result.error, code);
+  }
+
+  return result.count ?? 0;
 }
 
 function StatusBadge({
@@ -202,16 +248,79 @@ function FilterButton({
   );
 }
 
+function StatCard({
+  label,
+  value,
+  tone = "neutral",
+  href,
+  hrefLabel,
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "danger" | "warning";
+  href?: string;
+  hrefLabel?: string;
+}) {
+  const className =
+    tone === "danger"
+      ? "rounded-2xl border border-red-200 bg-red-50 p-4"
+      : tone === "warning"
+      ? "rounded-2xl border border-amber-200 bg-amber-50 p-4"
+      : "rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4";
+
+  const labelClass =
+    tone === "danger"
+      ? "text-sm text-red-600"
+      : tone === "warning"
+      ? "text-sm text-amber-700"
+      : "text-sm text-[#4B5563]";
+
+  const valueClass =
+    tone === "danger"
+      ? "mt-2 text-2xl font-semibold text-red-700"
+      : tone === "warning"
+      ? "mt-2 text-2xl font-semibold text-amber-800"
+      : "mt-2 text-2xl font-semibold text-[#111827]";
+
+  const linkClass =
+    tone === "danger"
+      ? "mt-2 inline-block text-xs font-medium text-red-700 hover:underline"
+      : tone === "warning"
+      ? "mt-2 inline-block text-xs font-medium text-amber-800 hover:underline"
+      : "mt-2 inline-block text-xs font-medium text-[#1F6FB5] hover:underline";
+
+  return (
+    <div className={className}>
+      <div className={labelClass}>{label}</div>
+      <div className={valueClass}>{value}</div>
+      {href && hrefLabel ? (
+        <Link href={href} className={linkClass}>
+          {hrefLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [companyRequests, setCompanyRequests] = useState<RequestRow[]>([]);
   const [teamRequests, setTeamRequests] = useState<TeamChangeRequest[]>([]);
+  const [customerApprovals, setCustomerApprovals] = useState<CustomerApprovalRow[]>(
+    []
+  );
   const [contractorApprovals, setContractorApprovals] = useState<
     ContractorApprovalRow[]
   >([]);
   const [errorSummary, setErrorSummary] = useState<ErrorSummary>({});
+  const [platformStats, setPlatformStats] = useState<PlatformStats>({
+    registeredCustomers: 0,
+    registeredContractors: 0,
+    undefinedUsers: 0,
+    registeredToday: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
@@ -244,12 +353,19 @@ export default function AdminPage() {
             return null;
           }
 
+          const todayStartIso = getTodayStartIso();
+
           const [
             docsResult,
             requestsResult,
             teamRequestsResult,
+            customerApprovalsResult,
             contractorApprovalsResult,
             errorSummaryResponse,
+            customersCountResult,
+            contractorsCountResult,
+            undefinedUsersCountResult,
+            registeredTodayCountResult,
           ] = await Promise.all([
             listPendingDocs(),
             supabase
@@ -269,6 +385,18 @@ export default function AdminPage() {
               .eq("status", "pending")
               .order("created_at", { ascending: false }),
             listAdminTeamChangeRequests(),
+            supabase
+              .from("customers")
+              .select(`
+                id,
+                company_name,
+                status,
+                onboarding_status,
+                created_at,
+                owner_user_id
+              `)
+              .eq("onboarding_status", "submitted")
+              .order("created_at", { ascending: false }),
             supabase
               .from("contractor_companies")
               .select(`
@@ -294,11 +422,32 @@ export default function AdminPage() {
               method: "GET",
               cache: "no-store",
             }),
+            supabase
+              .from("profiles")
+              .select("id", { count: "exact", head: true })
+              .eq("role", "customer"),
+            supabase
+              .from("profiles")
+              .select("id", { count: "exact", head: true })
+              .eq("role", "contractor"),
+            supabase
+              .from("profiles")
+              .select("id", { count: "exact", head: true })
+              .is("role", null),
+            supabase
+              .from("profiles")
+              .select("id", { count: "exact", head: true })
+              .gte("created_at", todayStartIso),
           ]);
 
           const companyChangeRows = unwrapSupabase<RequestRowDb[]>(
             requestsResult,
             "admin_company_change_requests_load_failed"
+          );
+
+          const customerApprovalRows = unwrapSupabase<CustomerApprovalRow[]>(
+            customerApprovalsResult,
+            "admin_customer_approvals_load_failed"
           );
 
           const contractorApprovalRows = unwrapSupabase<ContractorApprovalRow[]>(
@@ -322,8 +471,27 @@ export default function AdminPage() {
             teamRequests: teamRequestsResult.filter(
               (row) => row.status === "pending"
             ),
+            customerApprovals: customerApprovalRows ?? [],
             contractorApprovals: contractorApprovalRows ?? [],
             errorSummary: errorSummaryJson.summary || {},
+            platformStats: {
+              registeredCustomers: getCountFromResult(
+                customersCountResult,
+                "admin_registered_customers_count_load_failed"
+              ),
+              registeredContractors: getCountFromResult(
+                contractorsCountResult,
+                "admin_registered_contractors_count_load_failed"
+              ),
+              undefinedUsers: getCountFromResult(
+                undefinedUsersCountResult,
+                "admin_undefined_users_count_load_failed"
+              ),
+              registeredToday: getCountFromResult(
+                registeredTodayCountResult,
+                "admin_registered_today_count_load_failed"
+              ),
+            },
           };
         },
         {
@@ -340,8 +508,10 @@ export default function AdminPage() {
       setDocs(result.docs);
       setCompanyRequests(result.companyRequests);
       setTeamRequests(result.teamRequests);
+      setCustomerApprovals(result.customerApprovals);
       setContractorApprovals(result.contractorApprovals);
       setErrorSummary(result.errorSummary);
+      setPlatformStats(result.platformStats);
     } catch {
       setErr("Unable to load review center. Please try again.");
     } finally {
@@ -388,6 +558,15 @@ export default function AdminPage() {
       )
       .subscribe();
 
+    const customerApprovalsChannel = supabase
+      .channel("admin-customer-approvals-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "customers" },
+        () => scheduleReload()
+      )
+      .subscribe();
+
     const contractorApprovalsChannel = supabase
       .channel("admin-contractor-approvals-live")
       .on(
@@ -406,13 +585,24 @@ export default function AdminPage() {
       )
       .subscribe();
 
+    const profilesChannel = supabase
+      .channel("admin-profiles-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => scheduleReload()
+      )
+      .subscribe();
+
     return () => {
       if (reloadTimer) clearTimeout(reloadTimer);
       supabase.removeChannel(docsChannel);
       supabase.removeChannel(companyRequestsChannel);
       supabase.removeChannel(teamRequestsChannel);
+      supabase.removeChannel(customerApprovalsChannel);
       supabase.removeChannel(contractorApprovalsChannel);
       supabase.removeChannel(contractorPublicProfilesChannel);
+      supabase.removeChannel(profilesChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -422,19 +612,16 @@ export default function AdminPage() {
     setBusyDocId(id);
 
     try {
-      await withErrorLogging(
-        () => approveDoc(id),
-        {
-          message: "admin_doc_approve_failed",
-          code: "admin_doc_approve_failed",
-          source: "admin",
-          area: "documents",
-          path: "/admin",
-          details: {
-            documentId: id,
-          },
-        }
-      );
+      await withErrorLogging(() => approveDoc(id), {
+        message: "admin_doc_approve_failed",
+        code: "admin_doc_approve_failed",
+        source: "admin",
+        area: "documents",
+        path: "/admin",
+        details: {
+          documentId: id,
+        },
+      });
 
       await load();
     } catch {
@@ -449,20 +636,17 @@ export default function AdminPage() {
     setBusyDocId(id);
 
     try {
-      await withErrorLogging(
-        () => rejectDoc(id, rejectNote[id] || "Rejected"),
-        {
-          message: "admin_doc_reject_failed",
-          code: "admin_doc_reject_failed",
-          source: "admin",
-          area: "documents",
-          path: "/admin",
-          details: {
-            documentId: id,
-            rejectReason: rejectNote[id] || "Rejected",
-          },
-        }
-      );
+      await withErrorLogging(() => rejectDoc(id, rejectNote[id] || "Rejected"), {
+        message: "admin_doc_reject_failed",
+        code: "admin_doc_reject_failed",
+        source: "admin",
+        area: "documents",
+        path: "/admin",
+        details: {
+          documentId: id,
+          rejectReason: rejectNote[id] || "Rejected",
+        },
+      });
 
       await load();
     } catch {
@@ -475,28 +659,33 @@ export default function AdminPage() {
   const counts = useMemo(
     () => ({
       documents: docs.length,
+      customerApprovals: customerApprovals.length,
+      contractorApprovals: contractorApprovals.length,
       companyChanges: companyRequests.length,
       teamChanges: teamRequests.length,
-      contractorApprovals: contractorApprovals.length,
       total:
         docs.length +
+        customerApprovals.length +
+        contractorApprovals.length +
         companyRequests.length +
-        teamRequests.length +
-        contractorApprovals.length,
+        teamRequests.length,
     }),
     [
       docs.length,
+      customerApprovals.length,
+      contractorApprovals.length,
       companyRequests.length,
       teamRequests.length,
-      contractorApprovals.length,
     ]
   );
 
   const showDocuments = filter === "all" || filter === "documents";
-  const showCompanyChanges = filter === "all" || filter === "company_changes";
-  const showTeamChanges = filter === "all" || filter === "team_changes";
+  const showCustomerApprovals =
+    filter === "all" || filter === "customer_approvals";
   const showContractorApprovals =
     filter === "all" || filter === "contractor_approvals";
+  const showCompanyChanges = filter === "all" || filter === "company_changes";
+  const showTeamChanges = filter === "all" || filter === "team_changes";
 
   return (
     <div className="space-y-6">
@@ -506,81 +695,53 @@ export default function AdminPage() {
             Admin review center
           </h1>
           <p className="mt-2 text-sm text-[#4B5563]">
-            Review pending documents, contractor approvals, contractor company
-            change requests, team change requests, and operational errors.
+            Review pending documents, initial customer and contractor approvals,
+            contractor company change requests, team change requests, and
+            operational issues.
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-8">
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Total pending</div>
-            <div className="mt-2 text-2xl font-semibold text-[#111827]">
-              {counts.total}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-            <div className="text-sm text-red-600">Unresolved errors</div>
-            <div className="mt-2 text-2xl font-semibold text-red-700">
-              {errorSummary.unresolvedCount ?? 0}
-            </div>
-            <Link
-              href="/admin/errors"
-              className="mt-2 inline-block text-xs font-medium text-red-700 hover:underline"
-            >
-              View errors →
-            </Link>
-          </div>
-
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="text-sm text-amber-700">Critical errors</div>
-            <div className="mt-2 text-2xl font-semibold text-amber-800">
-              {errorSummary.criticalCount ?? 0}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Documents</div>
-            <div className="mt-2 text-2xl font-semibold text-[#111827]">
-              {counts.documents}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Contractor approvals</div>
-            <div className="mt-2 text-2xl font-semibold text-[#111827]">
-              {counts.contractorApprovals}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Company changes</div>
-            <div className="mt-2 text-2xl font-semibold text-[#111827]">
-              {counts.companyChanges}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Team changes</div>
-            <div className="mt-2 text-2xl font-semibold text-[#111827]">
-              {counts.teamChanges}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-            <div className="text-sm text-[#4B5563]">Filter</div>
-            <div className="mt-2 text-sm font-medium text-[#111827] capitalize">
-              {filter === "all"
-                ? "All requests"
-                : filter === "documents"
-                ? "Documents only"
-                : filter === "contractor_approvals"
-                ? "Contractor approvals only"
-                : filter === "company_changes"
-                ? "Company changes only"
-                : "Team changes only"}
-            </div>
-          </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <StatCard label="Total pending" value={counts.total} />
+          <StatCard
+            label="Registered customers"
+            value={platformStats.registeredCustomers}
+          />
+          <StatCard
+            label="Registered contractors"
+            value={platformStats.registeredContractors}
+          />
+          <StatCard
+            label="Undefined users"
+            value={platformStats.undefinedUsers}
+          />
+          <StatCard
+            label="Registered today"
+            value={platformStats.registeredToday}
+          />
+          <StatCard
+            label="Unresolved issues"
+            value={errorSummary.unresolvedCount ?? 0}
+            tone="danger"
+            href="/admin/errors"
+            hrefLabel="View errors →"
+          />
+          <StatCard
+            label="Critical issues"
+            value={errorSummary.criticalCount ?? 0}
+            tone="warning"
+          />
+          <StatCard label="Documents" value={counts.documents} />
+          <StatCard
+            label="Customer approvals"
+            value={counts.customerApprovals}
+          />
+          <StatCard
+            label="Contractor approvals"
+            value={counts.contractorApprovals}
+          />
+          <StatCard label="Company changes" value={counts.companyChanges} />
+          <StatCard label="Team changes" value={counts.teamChanges} />
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -593,6 +754,13 @@ export default function AdminPage() {
             onClick={() => setFilter("documents")}
           >
             Documents ({counts.documents})
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "customer_approvals"}
+            onClick={() => setFilter("customer_approvals")}
+          >
+            Customer approvals ({counts.customerApprovals})
           </FilterButton>
 
           <FilterButton
@@ -633,6 +801,96 @@ export default function AdminPage() {
       {!loading && counts.total === 0 ? (
         <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
           <p className="text-sm text-[#4B5563]">No pending items.</p>
+        </section>
+      ) : null}
+
+      {showCustomerApprovals ? (
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-[#111827]">
+                Pending customer approvals
+              </h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                Submitted customer accounts waiting for admin approval.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/customer-approvals"
+              className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+            >
+              View all
+            </Link>
+          </div>
+
+          {customerApprovals.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
+              No pending customer approvals.
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {customerApprovals.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-2xl border border-[#D9E2EC] bg-[#FCFDFE] p-5"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-semibold text-[#111827]">
+                          {row.company_name || "Unnamed company"}
+                        </h3>
+                        <MetaBadge
+                          text={row.onboarding_status || "unknown"}
+                          tone="warning"
+                        />
+                        <MetaBadge text={row.status || "unknown"} tone="info" />
+                      </div>
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Created
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {formatDate(row.created_at)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Status
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#111827]">
+                            {row.status || "—"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                            Owner user
+                          </div>
+                          <div className="mt-1 break-all text-sm font-medium text-[#111827]">
+                            {row.owner_user_id || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:text-right">
+                      <Link
+                        href="/admin/customer-approvals"
+                        className="inline-flex rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
 
@@ -682,10 +940,7 @@ export default function AdminPage() {
                             text={row.onboarding_status || "unknown"}
                             tone="warning"
                           />
-                          <MetaBadge
-                            text={row.status || "unknown"}
-                            tone="info"
-                          />
+                          <MetaBadge text={row.status || "unknown"} tone="info" />
                           <MetaBadge
                             text={publicProfile?.is_listed ? "listed" : "not listed"}
                             tone={publicProfile?.is_listed ? "success" : "neutral"}

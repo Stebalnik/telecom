@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Tue Apr  7 14:36:58 EDT 2026
+Generated: Tue Apr  7 19:19:03 EDT 2026
 
 ## App router files
 ```
@@ -12,6 +12,7 @@ app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/customer-approvals/page.tsx
 app/admin/errors/page.tsx
 app/admin/feedback/[id]/page.tsx
 app/admin/feedback/page.tsx
@@ -21,6 +22,11 @@ app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/[id]/approve/route.ts
+app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+app/api/admin/customer-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/route.ts
 app/api/admin/errors/route.ts
 app/api/admin/feedback/[id]/messages/route.ts
 app/api/admin/feedback/[id]/route.ts

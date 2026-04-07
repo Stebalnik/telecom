@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Tue Apr  7 14:36:58 EDT 2026
+Generated: Tue Apr  7 19:19:02 EDT 2026
 
-Export folder: docs/export_files/2026-04-07_14-36-57
+Export folder: docs/export_files/2026-04-07_19-19-02
 
 ## 1. Directory tree
 ```
@@ -16,6 +16,7 @@ app/admin/analytics/customers
 app/admin/company-change-requests
 app/admin/company-change-requests/[id]
 app/admin/contractor-approvals
+app/admin/customer-approvals
 app/admin/errors
 app/admin/feedback
 app/admin/feedback/[id]
@@ -25,6 +26,13 @@ app/api
 app/api/admin
 app/api/admin/analytics
 app/api/admin/analytics/breakdown
+app/api/admin/contractor-approvals
+app/api/admin/contractor-approvals/pending-count
+app/api/admin/customer-approvals
+app/api/admin/customer-approvals/[id]
+app/api/admin/customer-approvals/[id]/approve
+app/api/admin/customer-approvals/[id]/return-to-draft
+app/api/admin/customer-approvals/pending-count
 app/api/admin/errors
 app/api/admin/feedback
 app/api/admin/feedback/[id]
@@ -109,6 +117,7 @@ app/terms
 components
 components/analytics
 lib
+lib/admin
 lib/analytics
 lib/errors
 lib/server
@@ -131,6 +140,7 @@ app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/customer-approvals/page.tsx
 app/admin/errors/page.tsx
 app/admin/feedback/[id]/page.tsx
 app/admin/feedback/page.tsx
@@ -143,6 +153,13 @@ app/api/admin/.DS_Store
 app/api/admin/analytics/.DS_Store
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/.DS_Store
+app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/.DS_Store
+app/api/admin/customer-approvals/[id]/approve/route.ts
+app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+app/api/admin/customer-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/route.ts
 app/api/admin/errors/route.ts
 app/api/admin/feedback/.DS_Store
 app/api/admin/feedback/[id]/.DS_Store
@@ -233,6 +250,7 @@ components/CustomerSidebar.tsx
 components/LegalPage.tsx
 components/LogoutButton.tsx
 lib/.DS_Store
+lib/admin/refreshAdminSidebar.ts
 lib/adminAnalytics.ts
 lib/adminDocs.ts
 lib/agreements.ts
@@ -288,6 +306,7 @@ app/admin/analytics/page.tsx
 app/admin/company-change-requests/[id]/page.tsx
 app/admin/company-change-requests/page.tsx
 app/admin/contractor-approvals/page.tsx
+app/admin/customer-approvals/page.tsx
 app/admin/errors/page.tsx
 app/admin/feedback/[id]/page.tsx
 app/admin/feedback/page.tsx
@@ -297,6 +316,11 @@ app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/[id]/approve/route.ts
+app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
+app/api/admin/customer-approvals/pending-count/route.ts
+app/api/admin/customer-approvals/route.ts
 app/api/admin/errors/route.ts
 app/api/admin/feedback/[id]/messages/route.ts
 app/api/admin/feedback/[id]/route.ts

@@ -2103,7 +2103,15 @@ CREATE TABLE IF NOT EXISTS "public"."customers" (
     "description" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "legal_name" "text",
-    "dba_name" "text"
+    "dba_name" "text",
+    "company_name" "text" NOT NULL,
+    "status" "text" DEFAULT 'pending_review'::"text" NOT NULL,
+    "onboarding_status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "uuid",
+    "review_notes" "text",
+    CONSTRAINT "customers_onboarding_status_check" CHECK (("onboarding_status" = ANY (ARRAY['draft'::"text", 'submitted'::"text", 'approved'::"text", 'rejected'::"text"]))),
+    CONSTRAINT "customers_status_check" CHECK (("status" = ANY (ARRAY['pending_review'::"text", 'active'::"text", 'blocked'::"text"])))
 );
 
 
@@ -3133,6 +3141,14 @@ CREATE INDEX "idx_contractor_coi_supporting_files_coi_id" ON "public"."contracto
 
 
 
+CREATE INDEX "idx_contractor_companies_onboarding_status" ON "public"."contractor_companies" USING "btree" ("onboarding_status");
+
+
+
+CREATE INDEX "idx_contractor_companies_onboarding_status_created_at" ON "public"."contractor_companies" USING "btree" ("onboarding_status", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_contractor_companies_owner" ON "public"."contractor_companies" USING "btree" ("owner_user_id");
 
 
@@ -3181,7 +3197,27 @@ CREATE INDEX "idx_customer_contractors_customer_status" ON "public"."customer_co
 
 
 
+CREATE INDEX "idx_customers_onboarding_status" ON "public"."customers" USING "btree" ("onboarding_status");
+
+
+
+CREATE INDEX "idx_customers_onboarding_status_created_at" ON "public"."customers" USING "btree" ("onboarding_status", "created_at" DESC);
+
+
+
 CREATE INDEX "idx_customers_owner" ON "public"."customers" USING "btree" ("owner_user_id");
+
+
+
+CREATE INDEX "idx_customers_owner_user_id" ON "public"."customers" USING "btree" ("owner_user_id");
+
+
+
+CREATE INDEX "idx_customers_reviewed_by" ON "public"."customers" USING "btree" ("reviewed_by");
+
+
+
+CREATE INDEX "idx_customers_status" ON "public"."customers" USING "btree" ("status");
 
 
 
@@ -3194,6 +3230,46 @@ CREATE INDEX "idx_documents_member" ON "public"."documents" USING "btree" ("team
 
 
 CREATE INDEX "idx_documents_status" ON "public"."documents" USING "btree" ("verification_status");
+
+
+
+CREATE INDEX "idx_error_logs_area" ON "public"."error_logs" USING "btree" ("area");
+
+
+
+CREATE INDEX "idx_error_logs_code" ON "public"."error_logs" USING "btree" ("code");
+
+
+
+CREATE INDEX "idx_error_logs_created_at" ON "public"."error_logs" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "idx_error_logs_fingerprint" ON "public"."error_logs" USING "btree" ("fingerprint");
+
+
+
+CREATE INDEX "idx_error_logs_fingerprint_created" ON "public"."error_logs" USING "btree" ("fingerprint", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_error_logs_level" ON "public"."error_logs" USING "btree" ("level");
+
+
+
+CREATE INDEX "idx_error_logs_resolved_at" ON "public"."error_logs" USING "btree" ("resolved_at");
+
+
+
+CREATE INDEX "idx_error_logs_source" ON "public"."error_logs" USING "btree" ("source");
+
+
+
+CREATE INDEX "idx_error_logs_source_area_created" ON "public"."error_logs" USING "btree" ("source", "area", "created_at" DESC);
+
+
+
+CREATE INDEX "idx_error_logs_unresolved_created_at" ON "public"."error_logs" USING "btree" ("resolved_at", "created_at" DESC);
 
 
 
@@ -3635,6 +3711,11 @@ ALTER TABLE ONLY "public"."customer_scope_requirements"
 
 ALTER TABLE ONLY "public"."customers"
     ADD CONSTRAINT "customers_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."customers"
+    ADD CONSTRAINT "customers_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -4245,6 +4326,14 @@ CREATE POLICY "contractor_companies_admin_all" ON "public"."contractor_companies
 
 
 
+CREATE POLICY "contractor_companies_admin_select" ON "public"."contractor_companies" FOR SELECT TO "authenticated" USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "contractor_companies_admin_update" ON "public"."contractor_companies" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
 CREATE POLICY "contractor_companies_owner_insert" ON "public"."contractor_companies" FOR INSERT WITH CHECK (("owner_user_id" = "auth"."uid"()));
 
 
@@ -4513,7 +4602,27 @@ ALTER TABLE "public"."customer_scope_requirements" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;
 
 
+CREATE POLICY "customers_admin_select" ON "public"."customers" FOR SELECT TO "authenticated" USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "customers_admin_update" ON "public"."customers" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
 CREATE POLICY "customers_insert_owner" ON "public"."customers" FOR INSERT WITH CHECK (("owner_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "customers_owner_insert" ON "public"."customers" FOR INSERT TO "authenticated" WITH CHECK (("owner_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "customers_owner_select" ON "public"."customers" FOR SELECT TO "authenticated" USING (("owner_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "customers_owner_update" ON "public"."customers" FOR UPDATE TO "authenticated" USING (("owner_user_id" = "auth"."uid"())) WITH CHECK (("owner_user_id" = "auth"."uid"()));
 
 
 
@@ -4579,7 +4688,15 @@ CREATE POLICY "error_logs_admin_read" ON "public"."error_logs" FOR SELECT TO "au
 
 
 
+CREATE POLICY "error_logs_admin_select" ON "public"."error_logs" FOR SELECT TO "authenticated" USING ("public"."is_admin"());
+
+
+
 CREATE POLICY "error_logs_admin_update" ON "public"."error_logs" FOR UPDATE TO "authenticated" USING ("public"."is_admin"()) WITH CHECK ("public"."is_admin"());
+
+
+
+CREATE POLICY "error_logs_authenticated_insert" ON "public"."error_logs" FOR INSERT TO "authenticated" WITH CHECK (true);
 
 
 

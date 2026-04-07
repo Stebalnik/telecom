@@ -7,6 +7,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
 import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
 import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
+import { refreshAdminSidebar } from "../../../lib/admin/refreshAdminSidebar";
 
 type ContractorApprovalRow = {
   id: string;
@@ -219,6 +220,7 @@ export default function AdminContractorApprovalsPage() {
           }
 
           await loadPage();
+          refreshAdminSidebar();
         },
         {
           message: "admin_contractor_approve_failed",
@@ -256,6 +258,7 @@ export default function AdminContractorApprovalsPage() {
 
           unwrapSupabase(updateResult, "admin_contractor_reject_failed");
           await loadPage();
+          refreshAdminSidebar();
         },
         {
           message: "admin_contractor_reject_failed",
