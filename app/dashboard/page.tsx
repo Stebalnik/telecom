@@ -25,7 +25,7 @@ function getSafeDashboardErrorMessage(error: unknown, fallback: string) {
   const code = String(normalized.code || "");
 
   if (code.includes("duplicate")) {
-    return "This account setup already exists. Please try again.";
+    return "This account setup already exists. Please refresh and try again.";
   }
 
   if (code.includes("not_logged_in")) {
@@ -163,20 +163,28 @@ export default function DashboardPage() {
     setErr(null);
 
     try {
-      await withErrorLogging(
-        () => createMyProfile(pendingRole),
-        {
-          message: "dashboard_create_profile_failed",
-          code: "dashboard_create_profile_failed",
-          source: "frontend",
-          area: "auth",
-          role: pendingRole,
-          path: "/dashboard",
-          details: {
-            selectedRole: pendingRole,
-          },
+      try {
+        await withErrorLogging(
+          () => createMyProfile(pendingRole),
+          {
+            message: "dashboard_create_profile_failed",
+            code: "dashboard_create_profile_failed",
+            source: "frontend",
+            area: "auth",
+            role: pendingRole,
+            path: "/dashboard",
+            details: {
+              selectedRole: pendingRole,
+            },
+          }
+        );
+      } catch (error) {
+        const existingProfile = (await getMyProfile()) as DashboardProfile;
+
+        if (!existingProfile?.role || existingProfile.role !== pendingRole) {
+          throw error;
         }
-      );
+      }
 
       setRole(pendingRole);
 
@@ -194,7 +202,7 @@ export default function DashboardPage() {
             }
           );
 
-          router.push("/customer/settings");
+          router.replace("/customer/settings");
           return;
         } catch (error) {
           setErr(
@@ -208,7 +216,7 @@ export default function DashboardPage() {
       }
 
       if (pendingRole === "contractor") {
-        router.push("/contractor");
+        router.replace("/contractor");
         return;
       }
     } catch (error) {

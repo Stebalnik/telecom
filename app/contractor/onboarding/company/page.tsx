@@ -4,10 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeError } from "../../../../lib/errors/normalizeError";
-import {
-  unwrapSupabase,
-  unwrapSupabaseNullable,
-} from "../../../../lib/errors/unwrapSupabase";
+import { unwrapSupabaseNullable } from "../../../../lib/errors/unwrapSupabase";
 import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
 import { getMyProfile, UserRole } from "../../../../lib/profile";
 import { supabase } from "../../../../lib/supabaseClient";
@@ -287,73 +284,60 @@ export default function ContractorCompanyOnboardingPage() {
   }
 
   async function getOrCreateDraftCompany(userId: string): Promise<Company> {
-  let existingResult;
-  try {
-    existingResult = await supabase
-      .from("contractor_companies")
-      .select(
+    const selectExisting = async () => {
+      const result = await supabase
+        .from("contractor_companies")
+        .select(
+          `
+          id,
+          owner_user_id,
+          legal_name,
+          dba_name,
+          fein,
+          phone,
+          email,
+          address_line1,
+          address_line2,
+          city,
+          state,
+          zip,
+          country,
+          bank_account_holder,
+          bank_routing,
+          bank_account,
+          payout_method_type,
+          payout_account_label,
+          payout_contact_email,
+          payout_contact_phone,
+          payout_external_ref,
+          billing_method_type,
+          billing_account_label,
+          billing_contact_email,
+          billing_contact_phone,
+          billing_external_ref,
+          billing_provider,
+          billing_customer_id,
+          billing_payment_method_id,
+          billing_card_brand,
+          billing_last4,
+          billing_exp_month,
+          billing_exp_year,
+          onboarding_status
         `
-        id,
-        owner_user_id,
-        legal_name,
-        dba_name,
-        fein,
-        phone,
-        email,
-        address_line1,
-        address_line2,
-        city,
-        state,
-        zip,
-        country,
-        bank_account_holder,
-        bank_routing,
-        bank_account,
-        payout_method_type,
-        payout_account_label,
-        payout_contact_email,
-        payout_contact_phone,
-        payout_external_ref,
-        billing_method_type,
-        billing_account_label,
-        billing_contact_email,
-        billing_contact_phone,
-        billing_external_ref,
-        billing_provider,
-        billing_customer_id,
-        billing_payment_method_id,
-        billing_card_brand,
-        billing_last4,
-        billing_exp_month,
-        billing_exp_year,
-        onboarding_status
-      `
-      )
-      .eq("owner_user_id", userId)
-      .maybeSingle();
-  } catch (error) {
-    throw normalizeError(
-      error,
-      "contractor_onboarding_get_company_query_failed",
-      "Unable to query contractor company."
-    );
-  }
+        )
+        .eq("owner_user_id", userId)
+        .maybeSingle();
 
-  if (existingResult.error) {
-    throw normalizeError(
-      existingResult.error,
-      "contractor_onboarding_get_company_failed",
-      "Unable to load contractor company."
-    );
-  }
+      return unwrapSupabaseNullable<Company | null>(
+        result,
+        "contractor_onboarding_get_company_failed"
+      );
+    };
 
-  if (existingResult.data) {
-    return existingResult.data as Company;
-  }
+    const existing = await selectExisting();
+    if (existing) return existing;
 
-  let insertResult;
-  try {
-    insertResult = await supabase
+    const insertResult = await supabase
       .from("contractor_companies")
       .insert({
         owner_user_id: userId,
@@ -402,48 +386,44 @@ export default function ContractorCompanyOnboardingPage() {
       `
       )
       .single();
-  } catch (error) {
-    throw normalizeError(
-      error,
-      "contractor_onboarding_create_company_query_failed",
-      "Unable to create contractor company."
-    );
-  }
 
-  if (insertResult.error) {
-    throw normalizeError(
+    if (!insertResult.error && insertResult.data) {
+      return insertResult.data as Company;
+    }
+
+    const normalized = normalizeError(
       insertResult.error,
       "contractor_onboarding_create_company_failed",
       "Unable to create contractor company."
-    );
-  }
+    ) as AppLikeError;
 
-  if (!insertResult.data) {
-    throw normalizeError(
-      new Error("Missing inserted company row."),
-      "contractor_onboarding_create_company_empty",
-      "Unable to create contractor company."
-    );
-  }
+    const isDuplicate =
+      String(normalized.code || "").includes("duplicate") ||
+      String(normalized.message || "").toLowerCase().includes("duplicate key");
 
-  return insertResult.data as Company;
-}
+    if (isDuplicate) {
+      const afterDuplicate = await selectExisting();
+      if (afterDuplicate) return afterDuplicate;
+    }
+
+    throw normalized;
+  }
 
   async function getPublicProfile(
-  companyId: string
-): Promise<ContractorPublicProfile | null> {
-  const result = await supabase
-    .from("contractor_public_profiles")
-    .select("company_id, home_market, markets, is_listed")
-    .eq("company_id", companyId)
-    .maybeSingle();
+    companyId: string
+  ): Promise<ContractorPublicProfile | null> {
+    const result = await supabase
+      .from("contractor_public_profiles")
+      .select("company_id, home_market, markets, is_listed")
+      .eq("company_id", companyId)
+      .maybeSingle();
 
-  if (result.error) {
-    return null;
+    if (result.error) {
+      return null;
+    }
+
+    return (result.data as ContractorPublicProfile | null) ?? null;
   }
-
-  return (result.data as ContractorPublicProfile | null) ?? null;
-}
 
   async function trackOnboardingEventSafely(
     event: string,
@@ -604,28 +584,38 @@ export default function ContractorCompanyOnboardingPage() {
             submitted_at: new Date().toISOString(),
           };
 
-          unwrapSupabase(
-            await supabase
-              .from("contractor_companies")
-              .update(companyPayload)
-              .eq("id", company.id),
-            "contractor_onboarding_update_company_failed"
-          );
+          const companyUpdateResult = await supabase
+            .from("contractor_companies")
+            .update(companyPayload)
+            .eq("id", company.id);
+
+          if (companyUpdateResult.error) {
+            throw normalizeError(
+              companyUpdateResult.error,
+              "contractor_onboarding_update_company_failed",
+              "Unable to update contractor company."
+            );
+          }
 
           const profilePayload = {
-  company_id: company.id,
-  home_market: homeMarket || null,
-  markets: uniq(selectedMarkets),
-  is_listed: true,
-  updated_at: new Date().toISOString(),
-};
+            company_id: company.id,
+            home_market: homeMarket || null,
+            markets: uniq(selectedMarkets),
+            is_listed: true,
+            updated_at: new Date().toISOString(),
+          };
 
-          unwrapSupabase(
-            await supabase
-              .from("contractor_public_profiles")
-              .upsert(profilePayload, { onConflict: "company_id" }),
-            "contractor_onboarding_update_public_profile_failed"
-          );
+          const publicProfileUpsertResult = await supabase
+            .from("contractor_public_profiles")
+            .upsert(profilePayload, { onConflict: "company_id" });
+
+          if (publicProfileUpsertResult.error) {
+            throw normalizeError(
+              publicProfileUpsertResult.error,
+              "contractor_onboarding_update_public_profile_failed",
+              "Unable to update contractor public profile."
+            );
+          }
 
           void trackOnboardingEventSafely("contractor_onboarding_submitted", {
             companyId: company.id,

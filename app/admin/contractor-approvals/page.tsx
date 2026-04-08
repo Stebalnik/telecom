@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { getMyProfile } from "../../../lib/profile";
 import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
+import { normalizeError } from "../../../lib/errors/normalizeError";
 import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 import { refreshAdminSidebar } from "../../../lib/admin/refreshAdminSidebar";
 
@@ -200,10 +201,13 @@ export default function AdminContractorApprovalsPage() {
             })
             .eq("id", companyId);
 
-          unwrapSupabase(
-            companyUpdateResult,
-            "admin_contractor_approval_update_failed"
-          );
+          if (companyUpdateResult.error) {
+            throw normalizeError(
+              companyUpdateResult.error,
+              "admin_contractor_approval_update_failed",
+              "Unable to approve contractor."
+            );
+          }
 
           if (hasPublicProfile) {
             const profileUpdateResult = await supabase
@@ -213,10 +217,13 @@ export default function AdminContractorApprovalsPage() {
               })
               .eq("company_id", companyId);
 
-            unwrapSupabase(
-              profileUpdateResult,
-              "admin_contractor_public_profile_update_failed"
-            );
+            if (profileUpdateResult.error) {
+              throw normalizeError(
+                profileUpdateResult.error,
+                "admin_contractor_public_profile_update_failed",
+                "Unable to update contractor public profile."
+              );
+            }
           }
 
           await loadPage();
@@ -256,7 +263,14 @@ export default function AdminContractorApprovalsPage() {
             })
             .eq("id", companyId);
 
-          unwrapSupabase(updateResult, "admin_contractor_reject_failed");
+          if (updateResult.error) {
+            throw normalizeError(
+              updateResult.error,
+              "admin_contractor_reject_failed",
+              "Unable to return contractor to draft."
+            );
+          }
+
           await loadPage();
           refreshAdminSidebar();
         },

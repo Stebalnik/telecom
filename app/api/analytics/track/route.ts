@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { unwrapSupabase } from "@/lib/errors/unwrapSupabase";
-import { withServerErrorLogging } from "@/lib/errors/withServerErrorLogging";
 
 type TrackBody = {
   event?: string;
@@ -19,7 +17,13 @@ function sanitizeMeta(value: unknown): Record<string, unknown> {
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as TrackBody | null;
+  let body: TrackBody | null = null;
+
+  try {
+    body = (await req.json().catch(() => null)) as TrackBody | null;
+  } catch {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
 
   const event = body?.event?.trim();
   const path = body?.path?.trim() || null;
@@ -31,51 +35,34 @@ export async function POST(req: Request) {
   }
 
   try {
-    await withServerErrorLogging(
-      async () => {
-        const supabase = await createClient();
+    const supabase = await createClient();
 
-        let userId: string | null = null;
+    let userId: string | null = null;
 
-        try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-          userId = user?.id ?? null;
-        } catch {
-          userId = null;
-        }
+      userId = user?.id ?? null;
+    } catch {
+      userId = null;
+    }
 
-        unwrapSupabase(
-          await supabase.from("analytics_events").insert({
-            user_id: userId,
-            event,
-            path,
-            role,
-            meta,
-          }),
-          "analytics_track_failed",
-          "Unable to track analytics event."
-        );
-      },
-      {
-        message: "analytics_track_failed",
-        code: "analytics_track_failed",
-        source: "api",
-        area: "analytics",
-        path: "/api/analytics/track",
-        details: {
-          event,
-          trackPath: path,
-          role,
-        },
-      }
-    );
+    const insertResult = await supabase.from("analytics_events").insert({
+      user_id: userId,
+      event,
+      path,
+      role,
+      meta,
+    });
+
+    if (insertResult.error) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
+    return NextResponse.json({ ok: true });
   } catch {
-    // analytics must stay non-blocking for UX
     return NextResponse.json({ ok: true, skipped: true });
   }
-
-  return NextResponse.json({ ok: true });
 }

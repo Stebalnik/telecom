@@ -119,18 +119,19 @@ export async function createMyProfile(
   const userId = sessionData.session.user.id;
 
   try {
-    unwrapSupabase(
-      await supabase.from("profiles").upsert(
-        {
-          id: userId,
-          role,
-        },
-        {
-          onConflict: "id",
-        }
-      ),
-      "create_profile_failed"
+    const result = await supabase.from("profiles").upsert(
+      {
+        id: userId,
+        role,
+      },
+      {
+        onConflict: "id",
+      }
     );
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeProfileError(
       error,

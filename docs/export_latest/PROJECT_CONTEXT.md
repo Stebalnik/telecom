@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Tue Apr  7 19:19:02 EDT 2026
+Generated: Wed Apr  8 12:31:26 EDT 2026
 
-Export folder: docs/export_files/2026-04-07_19-19-02
+Export folder: docs/export_files/2026-04-08_12-31-26
 
 ## 1. Directory tree
 ```
@@ -156,6 +156,7 @@ app/api/admin/analytics/route.ts
 app/api/admin/contractor-approvals/.DS_Store
 app/api/admin/contractor-approvals/pending-count/route.ts
 app/api/admin/customer-approvals/.DS_Store
+app/api/admin/customer-approvals/[id]/.DS_Store
 app/api/admin/customer-approvals/[id]/approve/route.ts
 app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
 app/api/admin/customer-approvals/pending-count/route.ts
