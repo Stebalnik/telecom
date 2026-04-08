@@ -4,7 +4,10 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeError } from "../../../../lib/errors/normalizeError";
-import { unwrapSupabase } from "../../../../lib/errors/unwrapSupabase";
+import {
+  unwrapSupabase,
+  unwrapSupabaseNullable,
+} from "../../../../lib/errors/unwrapSupabase";
 import { withErrorLogging } from "../../../../lib/errors/withErrorLogging";
 import { getMyProfile, UserRole } from "../../../../lib/profile";
 import { supabase } from "../../../../lib/supabaseClient";
@@ -280,190 +283,251 @@ export default function ContractorCompanyOnboardingPage() {
     setPayoutExternalRef(c.payout_external_ref || "");
 
     setHomeMarket(profile?.home_market || "");
-    setSelectedMarkets(profile?.markets || []);
+    setSelectedMarkets(profile?.markets ?? []);
   }
 
   async function getOrCreateDraftCompany(userId: string): Promise<Company> {
-    const existing = unwrapSupabase<Company | null>(
-      await supabase
-        .from("contractor_companies")
-        .select(
-          `
-          id,
-          owner_user_id,
-          legal_name,
-          dba_name,
-          fein,
-          phone,
-          email,
-          address_line1,
-          address_line2,
-          city,
-          state,
-          zip,
-          country,
-          bank_account_holder,
-          bank_routing,
-          bank_account,
-          payout_method_type,
-          payout_account_label,
-          payout_contact_email,
-          payout_contact_phone,
-          payout_external_ref,
-          billing_method_type,
-          billing_account_label,
-          billing_contact_email,
-          billing_contact_phone,
-          billing_external_ref,
-          billing_provider,
-          billing_customer_id,
-          billing_payment_method_id,
-          billing_card_brand,
-          billing_last4,
-          billing_exp_month,
-          billing_exp_year,
-          onboarding_status
+  let existingResult;
+  try {
+    existingResult = await supabase
+      .from("contractor_companies")
+      .select(
         `
-        )
-        .eq("owner_user_id", userId)
-        .maybeSingle(),
-      "contractor_onboarding_get_company_failed"
+        id,
+        owner_user_id,
+        legal_name,
+        dba_name,
+        fein,
+        phone,
+        email,
+        address_line1,
+        address_line2,
+        city,
+        state,
+        zip,
+        country,
+        bank_account_holder,
+        bank_routing,
+        bank_account,
+        payout_method_type,
+        payout_account_label,
+        payout_contact_email,
+        payout_contact_phone,
+        payout_external_ref,
+        billing_method_type,
+        billing_account_label,
+        billing_contact_email,
+        billing_contact_phone,
+        billing_external_ref,
+        billing_provider,
+        billing_customer_id,
+        billing_payment_method_id,
+        billing_card_brand,
+        billing_last4,
+        billing_exp_month,
+        billing_exp_year,
+        onboarding_status
+      `
+      )
+      .eq("owner_user_id", userId)
+      .maybeSingle();
+  } catch (error) {
+    throw normalizeError(
+      error,
+      "contractor_onboarding_get_company_query_failed",
+      "Unable to query contractor company."
     );
-
-    if (existing) return existing;
-
-    const created = unwrapSupabase<Company>(
-      await supabase
-        .from("contractor_companies")
-        .insert({
-          owner_user_id: userId,
-          legal_name: "Draft company",
-          onboarding_status: "draft",
-          status: "active",
-          payout_method_type: "ach",
-        })
-        .select(
-          `
-          id,
-          owner_user_id,
-          legal_name,
-          dba_name,
-          fein,
-          phone,
-          email,
-          address_line1,
-          address_line2,
-          city,
-          state,
-          zip,
-          country,
-          bank_account_holder,
-          bank_routing,
-          bank_account,
-          payout_method_type,
-          payout_account_label,
-          payout_contact_email,
-          payout_contact_phone,
-          payout_external_ref,
-          billing_method_type,
-          billing_account_label,
-          billing_contact_email,
-          billing_contact_phone,
-          billing_external_ref,
-          billing_provider,
-          billing_customer_id,
-          billing_payment_method_id,
-          billing_card_brand,
-          billing_last4,
-          billing_exp_month,
-          billing_exp_year,
-          onboarding_status
-        `
-        )
-        .single(),
-      "contractor_onboarding_create_company_failed"
-    );
-
-    return created;
   }
 
-  async function getPublicProfile(
-    companyId: string
-  ): Promise<ContractorPublicProfile | null> {
-    const data = unwrapSupabase<ContractorPublicProfile | null>(
-      await supabase
-        .from("contractor_public_profiles")
-        .select("company_id, home_market, markets, is_listed")
-        .eq("company_id", companyId)
-        .maybeSingle(),
-      "contractor_onboarding_get_public_profile_failed"
+  if (existingResult.error) {
+    throw normalizeError(
+      existingResult.error,
+      "contractor_onboarding_get_company_failed",
+      "Unable to load contractor company."
     );
+  }
 
-    return data ?? null;
+  if (existingResult.data) {
+    return existingResult.data as Company;
+  }
+
+  let insertResult;
+  try {
+    insertResult = await supabase
+      .from("contractor_companies")
+      .insert({
+        owner_user_id: userId,
+        legal_name: "Draft company",
+        onboarding_status: "draft",
+        status: "active",
+        payout_method_type: "ach",
+        insurance_mode: "either",
+      })
+      .select(
+        `
+        id,
+        owner_user_id,
+        legal_name,
+        dba_name,
+        fein,
+        phone,
+        email,
+        address_line1,
+        address_line2,
+        city,
+        state,
+        zip,
+        country,
+        bank_account_holder,
+        bank_routing,
+        bank_account,
+        payout_method_type,
+        payout_account_label,
+        payout_contact_email,
+        payout_contact_phone,
+        payout_external_ref,
+        billing_method_type,
+        billing_account_label,
+        billing_contact_email,
+        billing_contact_phone,
+        billing_external_ref,
+        billing_provider,
+        billing_customer_id,
+        billing_payment_method_id,
+        billing_card_brand,
+        billing_last4,
+        billing_exp_month,
+        billing_exp_year,
+        onboarding_status
+      `
+      )
+      .single();
+  } catch (error) {
+    throw normalizeError(
+      error,
+      "contractor_onboarding_create_company_query_failed",
+      "Unable to create contractor company."
+    );
+  }
+
+  if (insertResult.error) {
+    throw normalizeError(
+      insertResult.error,
+      "contractor_onboarding_create_company_failed",
+      "Unable to create contractor company."
+    );
+  }
+
+  if (!insertResult.data) {
+    throw normalizeError(
+      new Error("Missing inserted company row."),
+      "contractor_onboarding_create_company_empty",
+      "Unable to create contractor company."
+    );
+  }
+
+  return insertResult.data as Company;
+}
+
+  async function getPublicProfile(
+  companyId: string
+): Promise<ContractorPublicProfile | null> {
+  const result = await supabase
+    .from("contractor_public_profiles")
+    .select("company_id, home_market, markets, is_listed")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (result.error) {
+    return null;
+  }
+
+  return (result.data as ContractorPublicProfile | null) ?? null;
+}
+
+  async function trackOnboardingEventSafely(
+    event: string,
+    meta: Record<string, unknown>
+  ) {
+    try {
+      await track(event, {
+        role: "contractor",
+        meta,
+      });
+    } catch {
+      // analytics must never break onboarding UX
+    }
   }
 
   async function loadPage() {
-  setLoading(true);
-  setErr(null);
+    setLoading(true);
+    setErr(null);
 
-  try {
-    await withErrorLogging(
-      async () => {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
+    try {
+      const result = await withErrorLogging(
+        async () => {
+          const { data: sessionData, error: sessionError } =
+            await supabase.auth.getSession();
 
-        if (sessionError) {
-          throw sessionError;
-        }
+          if (sessionError) {
+            throw sessionError;
+          }
 
-        if (!sessionData.session?.user) {
-          router.replace("/login");
-          return;
-        }
+          if (!sessionData.session?.user) {
+            router.replace("/login");
+            return null;
+          }
 
-        const profile = (await getMyProfile()) as ProfileLike;
+          const profile = (await getMyProfile()) as ProfileLike;
 
-        if (!profile || profile.role !== "contractor") {
-          router.replace("/dashboard");
-          return;
-        }
+          if (!profile || profile.role !== "contractor") {
+            router.replace("/dashboard");
+            return null;
+          }
 
-        const draftCompany = await getOrCreateDraftCompany(
-          sessionData.session.user.id
-        );
+          const draftCompany = await getOrCreateDraftCompany(
+            sessionData.session.user.id
+          );
 
-        if (draftCompany.onboarding_status !== "draft") {
-          router.replace("/contractor");
-          return;
-        }
+          if (draftCompany.onboarding_status !== "draft") {
+            router.replace("/contractor");
+            return null;
+          }
 
-        const publicProfile = await getPublicProfile(draftCompany.id);
-        fillForm(draftCompany, publicProfile);
+          const publicProfile = await getPublicProfile(draftCompany.id);
 
-        await track("contractor_onboarding_started", {
+          return {
+            draftCompany,
+            publicProfile,
+          };
+        },
+        {
+          message: "contractor_onboarding_load_failed",
+          code: "contractor_onboarding_load_failed",
+          source: "frontend",
+          area: "contractor",
           role: "contractor",
-          meta: {
-            companyId: draftCompany.id,
-          },
-        });
-      },
-      {
-        message: "contractor_onboarding_load_failed",
-        code: "contractor_onboarding_load_failed",
-        source: "frontend",
-        area: "contractor",
-        role: "contractor",
-        path: "/contractor/onboarding/company",
+          path: "/contractor/onboarding/company",
+        }
+      );
+
+      if (!result) {
+        return;
       }
-    );
-  } catch (error) {
-    setErr(
-      getSafeErrorMessage(error, "Unable to load onboarding. Please try again.")
-    );
-  } finally {
-    setLoading(false);
+
+      fillForm(result.draftCompany, result.publicProfile);
+
+      void trackOnboardingEventSafely("contractor_onboarding_started", {
+        companyId: result.draftCompany.id,
+      });
+    } catch (error) {
+      setErr(
+        getSafeErrorMessage(error, "Unable to load onboarding. Please try again.")
+      );
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   useEffect(() => {
     void loadPage();
@@ -549,12 +613,12 @@ export default function ContractorCompanyOnboardingPage() {
           );
 
           const profilePayload = {
-            company_id: company.id,
-            home_market: homeMarket,
-            markets: uniq(selectedMarkets),
-            is_listed: true,
-            updated_at: new Date().toISOString(),
-          };
+  company_id: company.id,
+  home_market: homeMarket || null,
+  markets: uniq(selectedMarkets),
+  is_listed: true,
+  updated_at: new Date().toISOString(),
+};
 
           unwrapSupabase(
             await supabase
@@ -563,11 +627,8 @@ export default function ContractorCompanyOnboardingPage() {
             "contractor_onboarding_update_public_profile_failed"
           );
 
-          await track("contractor_onboarding_submitted", {
-            role: "contractor",
-            meta: {
-              companyId: company.id,
-            },
+          void trackOnboardingEventSafely("contractor_onboarding_submitted", {
+            companyId: company.id,
           });
 
           router.replace("/contractor");
