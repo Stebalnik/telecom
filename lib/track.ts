@@ -1,5 +1,3 @@
-import { logError } from "@/lib/logError";
-
 export async function track(
   event: string,
   options?: {
@@ -27,37 +25,11 @@ export async function track(
       keepalive: true,
     });
 
+    // analytics is intentionally non-blocking
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-
-      await logError("analytics_track_failed", {
-        source: "frontend",
-        area: "analytics",
-        role: options?.role ?? null,
-        path: path ?? undefined,
-        code: "analytics_track_failed",
-        details: {
-          status: res.status,
-          responseText: text,
-          event,
-          meta: options?.meta ?? {},
-        },
-      });
-
       return;
     }
-  } catch (error: any) {
-    await logError("analytics_track_request_failed", {
-      source: "frontend",
-      area: "analytics",
-      role: options?.role ?? null,
-      path: path ?? undefined,
-      code: "analytics_track_request_failed",
-      details: {
-        event,
-        meta: options?.meta ?? {},
-        errorMessage: error?.message ?? String(error),
-      },
-    });
+  } catch {
+    // ignore transient network/dev reload failures
   }
 }

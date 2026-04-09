@@ -6,12 +6,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/browser";
 import { getMyProfile } from "../../lib/profile";
+import { getMyCustomerOrg } from "../../lib/customers";
 import CustomerSidebar from "../../components/CustomerSidebar";
 
 type NavItem = {
   label: string;
   href: string;
 };
+
+type CustomerOrgLike = {
+  onboarding_status?: string | null;
+} | null;
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/customer" },
@@ -31,6 +36,20 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function isCustomerOnboardingRoute(pathname: string) {
+  return pathname === "/customer/onboarding";
+}
+
+function isCustomerPendingRoute(pathname: string) {
+  return pathname === "/customer/onboarding/pending";
+}
+
+function isCustomerSetupRoute(pathname: string) {
+  return (
+    isCustomerOnboardingRoute(pathname) || isCustomerPendingRoute(pathname)
+  );
+}
+
 export default function CustomerLayout({
   children,
 }: {
@@ -41,6 +60,7 @@ export default function CustomerLayout({
 
   const [checking, setChecking] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -48,11 +68,16 @@ export default function CustomerLayout({
     async function checkAccess() {
       setChecking(true);
       setErr(null);
+      setWorkspaceReady(false);
 
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
 
         if (!active) return;
+
+        if (error) {
+          throw error;
+        }
 
         if (!data.session?.user) {
           router.replace("/login");
@@ -67,20 +92,65 @@ export default function CustomerLayout({
           router.replace("/dashboard");
           return;
         }
-      } catch (e: any) {
+
+        const customerOrg = (await getMyCustomerOrg()) as CustomerOrgLike;
+
         if (!active) return;
-        setErr(e?.message || "Access check error");
+
+        if (!customerOrg) {
+          if (!isCustomerOnboardingRoute(pathname)) {
+            router.replace("/customer/onboarding");
+            return;
+          }
+
+          setWorkspaceReady(false);
+          return;
+        }
+
+        const onboardingStatus = String(
+          customerOrg.onboarding_status || "draft"
+        ).toLowerCase();
+
+        if (onboardingStatus === "approved") {
+          if (isCustomerSetupRoute(pathname)) {
+            router.replace("/customer");
+            return;
+          }
+
+          setWorkspaceReady(true);
+          return;
+        }
+
+        if (onboardingStatus === "submitted") {
+          if (!isCustomerPendingRoute(pathname)) {
+            router.replace("/customer/onboarding/pending");
+            return;
+          }
+
+          setWorkspaceReady(false);
+          return;
+        }
+
+        if (!isCustomerOnboardingRoute(pathname)) {
+          router.replace("/customer/onboarding");
+          return;
+        }
+
+        setWorkspaceReady(false);
+      } catch {
+        if (!active) return;
+        setErr("Unable to load customer workspace. Please try again.");
       } finally {
         if (active) setChecking(false);
       }
     }
 
-    checkAccess();
+    void checkAccess();
 
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [pathname, router]);
 
   const activeItem = useMemo(
     () => navItems.find((item) => isActivePath(pathname, item.href)),
@@ -102,6 +172,16 @@ export default function CustomerLayout({
       <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
         <div className="mx-auto max-w-7xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
           {err}
+        </div>
+      </main>
+    );
+  }
+
+  if (!workspaceReady && isCustomerSetupRoute(pathname)) {
+    return (
+      <main className="min-h-screen bg-[#F4F8FC]">
+        <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <section className="min-w-0 flex-1">{children}</section>
         </div>
       </main>
     );

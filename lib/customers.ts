@@ -1,20 +1,108 @@
 import { getMyUserId } from "./auth";
 import { normalizeError } from "./errors/normalizeError";
-import { unwrapSupabase } from "./errors/unwrapSupabase";
+import {
+  unwrapSupabase,
+  unwrapSupabaseNullable,
+} from "./errors/unwrapSupabase";
 import { supabase } from "./supabaseClient";
+
+export type CustomerOnboardingStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected";
+
+export type CustomerStatus = "active" | "blocked" | string;
 
 export type Customer = {
   id: string;
   owner_user_id: string;
-  name: string | null;
+  name: string;
+  company_name: string;
   description: string | null;
+  status: CustomerStatus;
+  onboarding_status: CustomerOnboardingStatus;
+  created_at: string;
+  legal_name: string | null;
+  dba_name: string | null;
+  fein: string | null;
+  phone: string | null;
+  email: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  project_contact_name: string | null;
+  project_contact_title: string | null;
+  project_contact_email: string | null;
+  project_contact_phone: string | null;
+  activation_notification_phone: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_notes: string | null;
 };
+
+export type CustomerOrg = Customer;
 
 type AppError = Error & {
   code?: string;
   details?: Record<string, unknown>;
   statusCode?: number;
 };
+
+export type CustomerDraftInput = {
+  name: string;
+  company_name?: string;
+  legal_name?: string | null;
+  dba_name?: string | null;
+  description?: string | null;
+  fein?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  country?: string | null;
+  project_contact_name?: string | null;
+  project_contact_title?: string | null;
+  project_contact_email?: string | null;
+  project_contact_phone?: string | null;
+  activation_notification_phone?: string | null;
+};
+
+const CUSTOMER_SELECT = `
+  id,
+  owner_user_id,
+  name,
+  company_name,
+  description,
+  status,
+  onboarding_status,
+  created_at,
+  legal_name,
+  dba_name,
+  fein,
+  phone,
+  email,
+  address_line1,
+  address_line2,
+  city,
+  state,
+  zip,
+  country,
+  project_contact_name,
+  project_contact_title,
+  project_contact_email,
+  project_contact_phone,
+  activation_notification_phone,
+  reviewed_at,
+  reviewed_by,
+  review_notes
+`;
 
 function createAppError(
   message: string,
@@ -64,14 +152,92 @@ function normalizeCustomerError(
   });
 }
 
+function trimOrNull(value?: string | null) {
+  const next = value?.trim();
+  return next ? next : null;
+}
+
+function buildCustomerDraftPayload(
+  input: CustomerDraftInput,
+  fallback?: Partial<CustomerOrg>
+) {
+  const nextName = trimOrNull(input.name) ?? trimOrNull(fallback?.name) ?? "";
+  const nextCompanyName =
+    trimOrNull(input.company_name) ??
+    trimOrNull(input.name) ??
+    trimOrNull(fallback?.company_name) ??
+    trimOrNull(fallback?.name) ??
+    "";
+
+  return {
+    name: nextName,
+    company_name: nextCompanyName,
+    legal_name: trimOrNull(input.legal_name) ?? trimOrNull(fallback?.legal_name),
+    dba_name: trimOrNull(input.dba_name) ?? trimOrNull(fallback?.dba_name),
+    description:
+      input.description !== undefined
+        ? trimOrNull(input.description)
+        : trimOrNull(fallback?.description),
+    fein: trimOrNull(input.fein) ?? trimOrNull(fallback?.fein),
+    phone: trimOrNull(input.phone) ?? trimOrNull(fallback?.phone),
+    email: trimOrNull(input.email) ?? trimOrNull(fallback?.email),
+    address_line1:
+      trimOrNull(input.address_line1) ?? trimOrNull(fallback?.address_line1),
+    address_line2:
+      trimOrNull(input.address_line2) ?? trimOrNull(fallback?.address_line2),
+    city: trimOrNull(input.city) ?? trimOrNull(fallback?.city),
+    state: trimOrNull(input.state) ?? trimOrNull(fallback?.state),
+    zip: trimOrNull(input.zip) ?? trimOrNull(fallback?.zip),
+    country:
+      trimOrNull(input.country) ?? trimOrNull(fallback?.country) ?? "US",
+    project_contact_name:
+      trimOrNull(input.project_contact_name) ??
+      trimOrNull(fallback?.project_contact_name),
+    project_contact_title:
+      trimOrNull(input.project_contact_title) ??
+      trimOrNull(fallback?.project_contact_title),
+    project_contact_email:
+      trimOrNull(input.project_contact_email) ??
+      trimOrNull(fallback?.project_contact_email),
+    project_contact_phone:
+      trimOrNull(input.project_contact_phone) ??
+      trimOrNull(fallback?.project_contact_phone),
+    activation_notification_phone:
+      trimOrNull(input.activation_notification_phone) ??
+      trimOrNull(fallback?.activation_notification_phone),
+  };
+}
+
+export function isCustomerWorkspaceApproved(
+  org: Pick<CustomerOrg, "onboarding_status"> | null | undefined
+) {
+  return org?.onboarding_status === "approved";
+}
+
+export function isCustomerOnboardingPending(
+  org: Pick<CustomerOrg, "onboarding_status"> | null | undefined
+) {
+  return org?.onboarding_status === "submitted";
+}
+
+export function isCustomerOnboardingDraft(
+  org: Pick<CustomerOrg, "onboarding_status"> | null | undefined
+) {
+  return (
+    !org ||
+    org.onboarding_status === "draft" ||
+    org.onboarding_status === "rejected"
+  );
+}
+
 export async function getMyCustomer(): Promise<Customer | null> {
   const uid = await getMyUserId();
 
   try {
-    const data = unwrapSupabase(
+    const data = unwrapSupabaseNullable(
       await supabase
         .from("customers")
-        .select("id, owner_user_id, name, description")
+        .select(CUSTOMER_SELECT)
         .eq("owner_user_id", uid)
         .maybeSingle(),
       "get_my_customer_failed"
@@ -87,13 +253,224 @@ export async function getMyCustomer(): Promise<Customer | null> {
   }
 }
 
-export type CustomerOrg = {
-  id: string;
-  owner_user_id: string;
+export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
+  const userId = await getMyUserId();
+
+  try {
+    const data = unwrapSupabaseNullable(
+      await supabase
+        .from("customers")
+        .select(CUSTOMER_SELECT)
+        .eq("owner_user_id", userId)
+        .maybeSingle(),
+      "get_my_customer_org_failed"
+    );
+
+    return (data ?? null) as CustomerOrg | null;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "get_my_customer_org",
+      "Unable to load customer organization."
+    );
+  }
+}
+
+export async function createMyCustomerOrg(params: {
   name: string;
-  description: string | null;
-  created_at: string;
-};
+  description?: string;
+}): Promise<CustomerOrg> {
+  const userId = await getMyUserId();
+  const safeName = params.name.trim();
+
+  try {
+    const data = unwrapSupabase<CustomerOrg>(
+      await supabase
+        .from("customers")
+        .insert({
+          owner_user_id: userId,
+          name: safeName,
+          company_name: safeName,
+          description: params.description?.trim() || null,
+          status: "active",
+          onboarding_status: "draft",
+          country: "US",
+        })
+        .select(CUSTOMER_SELECT)
+        .single(),
+      "create_my_customer_org_failed"
+    );
+
+    return data;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "create_my_customer_org",
+      "Unable to create customer organization."
+    );
+  }
+}
+
+export async function updateMyCustomerOrgDraft(
+  params: CustomerDraftInput
+): Promise<CustomerOrg> {
+  const existing = await getMyCustomerOrg();
+
+  if (!existing) {
+    throw createAppError(
+      "Customer organization not found.",
+      "customer_org_not_found"
+    );
+  }
+
+  const payload = buildCustomerDraftPayload(params, existing);
+
+  if (!payload.name || !payload.company_name) {
+    throw createAppError(
+      "Customer company name is required.",
+      "customer_org_name_required"
+    );
+  }
+
+  try {
+    const data = unwrapSupabase<CustomerOrg>(
+      await supabase
+        .from("customers")
+        .update({
+          ...payload,
+          onboarding_status:
+            existing.onboarding_status === "approved" ? "approved" : "draft",
+        })
+        .eq("id", existing.id)
+        .select(CUSTOMER_SELECT)
+        .single(),
+      "update_my_customer_org_draft_failed"
+    );
+
+    return data;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "update_my_customer_org_draft",
+      "Unable to save customer organization."
+    );
+  }
+}
+
+export async function submitMyCustomerOrgForReview(
+  params?: Partial<CustomerDraftInput>
+): Promise<CustomerOrg> {
+  const existing = await getMyCustomerOrg();
+
+  if (!existing) {
+    throw createAppError(
+      "Customer organization not found.",
+      "customer_org_not_found"
+    );
+  }
+
+  const payload = buildCustomerDraftPayload(
+    {
+      name: params?.name ?? existing.name,
+      company_name: params?.company_name ?? existing.company_name,
+      legal_name: params?.legal_name ?? existing.legal_name,
+      dba_name: params?.dba_name ?? existing.dba_name,
+      description:
+        params?.description !== undefined
+          ? params.description
+          : existing.description,
+      fein: params?.fein ?? existing.fein,
+      phone: params?.phone ?? existing.phone,
+      email: params?.email ?? existing.email,
+      address_line1: params?.address_line1 ?? existing.address_line1,
+      address_line2: params?.address_line2 ?? existing.address_line2,
+      city: params?.city ?? existing.city,
+      state: params?.state ?? existing.state,
+      zip: params?.zip ?? existing.zip,
+      country: params?.country ?? existing.country,
+      project_contact_name:
+        params?.project_contact_name ?? existing.project_contact_name,
+      project_contact_title:
+        params?.project_contact_title ?? existing.project_contact_title,
+      project_contact_email:
+        params?.project_contact_email ?? existing.project_contact_email,
+      project_contact_phone:
+        params?.project_contact_phone ?? existing.project_contact_phone,
+      activation_notification_phone:
+        params?.activation_notification_phone ??
+        existing.activation_notification_phone,
+    },
+    existing
+  );
+
+  if (!payload.name || !payload.company_name) {
+    throw createAppError(
+      "Customer company name is required.",
+      "customer_org_name_required"
+    );
+  }
+
+  try {
+    const data = unwrapSupabase<CustomerOrg>(
+      await supabase
+        .from("customers")
+        .update({
+          ...payload,
+          onboarding_status: "submitted",
+          review_notes: null,
+          reviewed_at: null,
+          reviewed_by: null,
+        })
+        .eq("id", existing.id)
+        .select(CUSTOMER_SELECT)
+        .single(),
+      "submit_my_customer_org_for_review_failed"
+    );
+
+    return data;
+  } catch (error) {
+    throw normalizeCustomerError(
+      error,
+      "submit_my_customer_org_for_review",
+      "Unable to submit customer organization."
+    );
+  }
+}
+
+export async function ensureMyCustomerOrg() {
+  const existing = await getMyCustomerOrg();
+  if (existing) return existing;
+
+  try {
+    return await createMyCustomerOrg({
+      name: "My Customer Org",
+      description: "",
+    });
+  } catch (error) {
+    const normalized = normalizeError(error) as AppError;
+    const code = String(normalized.code || "");
+
+    if (code === "create_my_customer_org_duplicate") {
+      const retry = await getMyCustomerOrg();
+      if (retry) return retry;
+    }
+
+    throw error;
+  }
+}
+
+export async function getMyCustomerId(): Promise<string> {
+  const org = await getMyCustomerOrg();
+
+  if (!org) {
+    throw createAppError(
+      "Customer organization not found.",
+      "customer_org_not_found"
+    );
+  }
+
+  return org.id;
+}
 
 export type Scope = {
   id: string;
@@ -123,59 +500,6 @@ export type CustomerScopeRequirement = {
   min_count_in_team: number;
   notes: string | null;
 };
-
-export async function getMyCustomerOrg(): Promise<CustomerOrg | null> {
-  const userId = await getMyUserId();
-
-  try {
-    const data = unwrapSupabase(
-      await supabase
-        .from("customers")
-        .select("*")
-        .eq("owner_user_id", userId)
-        .maybeSingle(),
-      "get_my_customer_org_failed"
-    );
-
-    return (data ?? null) as CustomerOrg | null;
-  } catch (error) {
-    throw normalizeCustomerError(
-      error,
-      "get_my_customer_org",
-      "Unable to load customer organization."
-    );
-  }
-}
-
-export async function createMyCustomerOrg(params: {
-  name: string;
-  description?: string;
-}): Promise<CustomerOrg> {
-  const userId = await getMyUserId();
-
-  try {
-    const data = unwrapSupabase<CustomerOrg>(
-      await supabase
-        .from("customers")
-        .insert({
-          owner_user_id: userId,
-          name: params.name,
-          description: params.description ?? null,
-        })
-        .select("*")
-        .single(),
-      "create_my_customer_org_failed"
-    );
-
-    return data;
-  } catch (error) {
-    throw normalizeCustomerError(
-      error,
-      "create_my_customer_org",
-      "Unable to create customer organization."
-    );
-  }
-}
 
 export async function listScopes(): Promise<Scope[]> {
   try {
@@ -226,12 +550,13 @@ export async function upsertCustomerInsuranceReq(
   if (!row.id) delete payload.id;
 
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_insurance_requirements")
-        .upsert(payload, { onConflict: "customer_id,insurance_type_id" }),
-      "upsert_customer_insurance_requirement_failed"
-    );
+    const result = await supabase
+      .from("customer_insurance_requirements")
+      .upsert(payload, { onConflict: "customer_id,insurance_type_id" });
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -271,19 +596,20 @@ export async function upsertCustomerScopeReq(row: {
   notes?: string | null;
 }) {
   try {
-    unwrapSupabase(
-      await supabase.from("customer_scope_requirements").upsert(
-        {
-          customer_id: row.customer_id,
-          scope_id: row.scope_id,
-          cert_type_id: row.cert_type_id,
-          min_count_in_team: row.min_count_in_team,
-          notes: row.notes ?? null,
-        },
-        { onConflict: "customer_id,scope_id,cert_type_id" }
-      ),
-      "upsert_customer_scope_requirement_failed"
+    const result = await supabase.from("customer_scope_requirements").upsert(
+      {
+        customer_id: row.customer_id,
+        scope_id: row.scope_id,
+        cert_type_id: row.cert_type_id,
+        min_count_in_team: row.min_count_in_team,
+        notes: row.notes ?? null,
+      },
+      { onConflict: "customer_id,scope_id,cert_type_id" }
     );
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -299,43 +625,22 @@ export async function deleteCustomerScopeReq(
   certTypeId: string
 ) {
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_scope_requirements")
-        .delete()
-        .eq("customer_id", customerId)
-        .eq("scope_id", scopeId)
-        .eq("cert_type_id", certTypeId),
-      "delete_customer_scope_requirement_failed"
-    );
+    const result = await supabase
+      .from("customer_scope_requirements")
+      .delete()
+      .eq("customer_id", customerId)
+      .eq("scope_id", scopeId)
+      .eq("cert_type_id", certTypeId);
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
       "delete_customer_scope_requirement",
       "Unable to delete customer scope requirement."
     );
-  }
-}
-
-export async function ensureMyCustomerOrg() {
-  const existing = await getMyCustomerOrg();
-  if (existing) return existing;
-
-  try {
-    return await createMyCustomerOrg({
-      name: "My Customer Org",
-      description: "",
-    });
-  } catch (error) {
-    const normalized = normalizeError(error) as AppError;
-    const code = String(normalized.code || "");
-
-    if (code === "create_my_customer_org_duplicate") {
-      const retry = await getMyCustomerOrg();
-      if (retry) return retry;
-    }
-
-    throw error;
   }
 }
 
@@ -395,11 +700,6 @@ function normalizeApprovedContractors(
       ? row.contractor_companies[0] ?? null
       : row.contractor_companies,
   }));
-}
-
-export async function getMyCustomerId(): Promise<string> {
-  const org = await ensureMyCustomerOrg();
-  return org.id;
 }
 
 export async function listApprovedCustomerContractorsDetailed(): Promise<
@@ -521,17 +821,18 @@ export async function upsertCustomerContractor(params: {
   const customerId = await getMyCustomerId();
 
   try {
-    unwrapSupabase(
-      await supabase.from("customer_contractors").upsert(
-        {
-          customer_id: customerId,
-          contractor_company_id: params.contractor_company_id,
-          status: params.status,
-        },
-        { onConflict: "customer_id,contractor_company_id" }
-      ),
-      "upsert_customer_contractor_failed"
+    const result = await supabase.from("customer_contractors").upsert(
+      {
+        customer_id: customerId,
+        contractor_company_id: params.contractor_company_id,
+        status: params.status,
+      },
+      { onConflict: "customer_id,contractor_company_id" }
     );
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -548,14 +849,15 @@ export async function updateCustomerContractorStatus(
   const customerId = await getMyCustomerId();
 
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_contractors")
-        .update({ status })
-        .eq("customer_id", customerId)
-        .eq("contractor_company_id", contractorCompanyId),
-      "update_customer_contractor_status_failed"
-    );
+    const result = await supabase
+      .from("customer_contractors")
+      .update({ status })
+      .eq("customer_id", customerId)
+      .eq("contractor_company_id", contractorCompanyId);
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -569,14 +871,15 @@ export async function removeCustomerContractor(contractorCompanyId: string) {
   const customerId = await getMyCustomerId();
 
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_contractors")
-        .delete()
-        .eq("customer_id", customerId)
-        .eq("contractor_company_id", contractorCompanyId),
-      "remove_customer_contractor_failed"
-    );
+    const result = await supabase
+      .from("customer_contractors")
+      .delete()
+      .eq("customer_id", customerId)
+      .eq("contractor_company_id", contractorCompanyId);
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -766,11 +1069,15 @@ export async function listEndorsementTypes(): Promise<EndorsementType[]> {
   }
 }
 
+export type CustomerOrgWithOnboarding = CustomerOrg & {
+  onboarding_status?: CustomerOnboardingStatus | null;
+};
+
 export async function getCustomerInsuranceConfig(
   customerId: string
 ): Promise<CustomerInsuranceConfig | null> {
   try {
-    const data = unwrapSupabase(
+    const data = unwrapSupabaseNullable(
       await supabase
         .from("customer_insurance_config")
         .select("*")
@@ -793,12 +1100,13 @@ export async function upsertCustomerInsuranceConfig(
   row: CustomerInsuranceConfig
 ) {
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_insurance_config")
-        .upsert(row, { onConflict: "customer_id" }),
-      "upsert_customer_insurance_config_failed"
-    );
+    const result = await supabase
+      .from("customer_insurance_config")
+      .upsert(row, { onConflict: "customer_id" });
+
+    if (result.error) {
+      throw result.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,
@@ -837,25 +1145,29 @@ export async function setCustomerRequiredEndorsements(
   endorsementTypeIds: string[]
 ) {
   try {
-    unwrapSupabase(
-      await supabase
-        .from("customer_required_endorsements")
-        .delete()
-        .eq("customer_id", customerId),
-      "delete_customer_required_endorsements_failed"
-    );
+    const deleteResult = await supabase
+      .from("customer_required_endorsements")
+      .delete()
+      .eq("customer_id", customerId);
+
+    if (deleteResult.error) {
+      throw deleteResult.error;
+    }
 
     if (endorsementTypeIds.length === 0) return;
 
-    unwrapSupabase(
-      await supabase.from("customer_required_endorsements").insert(
+    const insertResult = await supabase
+      .from("customer_required_endorsements")
+      .insert(
         endorsementTypeIds.map((id) => ({
           customer_id: customerId,
           endorsement_type_id: id,
         }))
-      ),
-      "insert_customer_required_endorsements_failed"
-    );
+      );
+
+    if (insertResult.error) {
+      throw insertResult.error;
+    }
   } catch (error) {
     throw normalizeCustomerError(
       error,

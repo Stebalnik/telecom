@@ -10,11 +10,30 @@ type ProfileRow = {
 
 type CustomerApprovalRow = {
   id: string;
+  name: string | null;
   company_name: string | null;
+  legal_name: string | null;
+  dba_name: string | null;
+  description: string | null;
+  fein: string | null;
+  phone: string | null;
+  email: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  country: string | null;
+  project_contact_name: string | null;
+  project_contact_title: string | null;
+  project_contact_email: string | null;
+  project_contact_phone: string | null;
+  activation_notification_phone: string | null;
   status: string | null;
   onboarding_status: string | null;
   created_at: string;
   owner_user_id: string | null;
+  review_notes: string | null;
 };
 
 export async function GET() {
@@ -41,25 +60,42 @@ export async function GET() {
           "admin_customer_approvals_profile_load_failed"
         );
 
-        if (!profile || profile.role !== "admin") {
+        if (profile.role !== "admin") {
           return NextResponse.json({ error: "Forbidden." }, { status: 403 });
         }
 
-        const approvalsResult = await supabase
-          .from("customers")
-          .select(`
-            id,
-            company_name,
-            status,
-            onboarding_status,
-            created_at,
-            owner_user_id
-          `)
-          .eq("onboarding_status", "submitted")
-          .order("created_at", { ascending: false });
-
         const rows = unwrapSupabase<CustomerApprovalRow[]>(
-          approvalsResult,
+          await supabase
+            .from("customers")
+            .select(`
+              id,
+              name,
+              company_name,
+              legal_name,
+              dba_name,
+              description,
+              fein,
+              phone,
+              email,
+              address_line1,
+              address_line2,
+              city,
+              state,
+              zip,
+              country,
+              project_contact_name,
+              project_contact_title,
+              project_contact_email,
+              project_contact_phone,
+              activation_notification_phone,
+              status,
+              onboarding_status,
+              created_at,
+              owner_user_id,
+              review_notes
+            `)
+            .eq("onboarding_status", "submitted")
+            .order("created_at", { ascending: false }),
           "admin_customer_approvals_load_failed"
         );
 

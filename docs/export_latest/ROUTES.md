@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Wed Apr  8 12:31:26 EDT 2026
+Generated: Thu Apr  9 00:15:54 EDT 2026
 
 ## App router files
 ```
@@ -79,6 +79,8 @@ app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
 app/customer/layout.tsx
+app/customer/onboarding/page.tsx
+app/customer/onboarding/pending/page.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
 app/customer/resources/[id]/edit/page.tsx

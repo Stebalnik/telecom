@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { withErrorLogging } from "../lib/errors/withErrorLogging";
 
 type BadgeKey =
   | "feedback"
@@ -103,19 +102,22 @@ function isActive(pathname: string, href: string, exact?: boolean) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-async function fetchJsonOrThrow<T>(input: string): Promise<T> {
-  const res = await fetch(input, {
-    method: "GET",
-    cache: "no-store",
-  });
+async function fetchJsonSafe<T>(input: string): Promise<T | null> {
+  try {
+    const res = await fetch(input, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-  const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return null;
+    }
 
-  if (!res.ok) {
-    throw new Error("admin_sidebar_request_failed");
+    const data = await res.json().catch(() => null);
+    return (data ?? null) as T | null;
+  } catch {
+    return null;
   }
-
-  return (data ?? {}) as T;
 }
 
 export default function AdminSidebar() {
@@ -135,25 +137,11 @@ export default function AdminSidebar() {
 
   async function loadFeedbackSummary() {
     try {
-      const data = await withErrorLogging(
-        () => fetchJsonOrThrow<{ summary?: FeedbackSummary }>("/api/admin/feedback"),
-        {
-          message: "admin_sidebar_feedback_summary_load_failed",
-          code: "admin_sidebar_feedback_summary_load_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin",
-          role: "admin",
-          details: {
-            target: "/api/admin/feedback",
-            component: "AdminSidebar",
-          },
-        }
+      const data = await fetchJsonSafe<{ summary?: FeedbackSummary }>(
+        "/api/admin/feedback"
       );
 
-      setFeedbackSummary(data.summary || {});
-    } catch {
-      setFeedbackSummary({});
+      setFeedbackSummary(data?.summary || {});
     } finally {
       setLoadingFeedback(false);
     }
@@ -161,28 +149,11 @@ export default function AdminSidebar() {
 
   async function loadErrorSummary() {
     try {
-      const data = await withErrorLogging(
-        () =>
-          fetchJsonOrThrow<{ summary?: ErrorSummary }>(
-            "/api/admin/errors?summary=true&resolved=false"
-          ),
-        {
-          message: "admin_sidebar_error_summary_load_failed",
-          code: "admin_sidebar_error_summary_load_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin",
-          role: "admin",
-          details: {
-            target: "/api/admin/errors?summary=true&resolved=false",
-            component: "AdminSidebar",
-          },
-        }
+      const data = await fetchJsonSafe<{ summary?: ErrorSummary }>(
+        "/api/admin/errors?summary=true&resolved=false"
       );
 
-      setErrorSummary(data.summary || {});
-    } catch {
-      setErrorSummary({});
+      setErrorSummary(data?.summary || {});
     } finally {
       setLoadingErrors(false);
     }
@@ -190,28 +161,11 @@ export default function AdminSidebar() {
 
   async function loadCustomerApprovals() {
     try {
-      const data = await withErrorLogging(
-        () =>
-          fetchJsonOrThrow<PendingCountResponse>(
-            "/api/admin/customer-approvals/pending-count"
-          ),
-        {
-          message: "admin_sidebar_customer_approvals_load_failed",
-          code: "admin_sidebar_customer_approvals_load_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin",
-          role: "admin",
-          details: {
-            target: "/api/admin/customer-approvals/pending-count",
-            component: "AdminSidebar",
-          },
-        }
+      const data = await fetchJsonSafe<PendingCountResponse>(
+        "/api/admin/customer-approvals/pending-count"
       );
 
-      setCustomerApprovalCount(data.count ?? 0);
-    } catch {
-      setCustomerApprovalCount(0);
+      setCustomerApprovalCount(data?.count ?? 0);
     } finally {
       setLoadingCustomerApprovals(false);
     }
@@ -219,28 +173,11 @@ export default function AdminSidebar() {
 
   async function loadContractorApprovals() {
     try {
-      const data = await withErrorLogging(
-        () =>
-          fetchJsonOrThrow<PendingCountResponse>(
-            "/api/admin/contractor-approvals/pending-count"
-          ),
-        {
-          message: "admin_sidebar_contractor_approvals_load_failed",
-          code: "admin_sidebar_contractor_approvals_load_failed",
-          source: "frontend",
-          area: "admin",
-          path: "/admin",
-          role: "admin",
-          details: {
-            target: "/api/admin/contractor-approvals/pending-count",
-            component: "AdminSidebar",
-          },
-        }
+      const data = await fetchJsonSafe<PendingCountResponse>(
+        "/api/admin/contractor-approvals/pending-count"
       );
 
-      setContractorApprovalCount(data.count ?? 0);
-    } catch {
-      setContractorApprovalCount(0);
+      setContractorApprovalCount(data?.count ?? 0);
     } finally {
       setLoadingContractorApprovals(false);
     }
@@ -256,43 +193,43 @@ export default function AdminSidebar() {
   }
 
   useEffect(() => {
-  void loadAll();
-
-  const interval = setInterval(() => {
     void loadAll();
-  }, 30000);
 
-  const onFocus = () => {
-    void loadAll();
-  };
-
-  const onVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
+    const interval = setInterval(() => {
       void loadAll();
-    }
-  };
+    }, 30000);
 
-  const onManualRefresh = () => {
-    void loadAll();
-  };
+    const onFocus = () => {
+      void loadAll();
+    };
 
-  window.addEventListener("focus", onFocus);
-  document.addEventListener("visibilitychange", onVisibilityChange);
-  window.addEventListener(
-    "admin-sidebar-refresh",
-    onManualRefresh as EventListener
-  );
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadAll();
+      }
+    };
 
-  return () => {
-    clearInterval(interval);
-    window.removeEventListener("focus", onFocus);
-    document.removeEventListener("visibilitychange", onVisibilityChange);
-    window.removeEventListener(
+    const onManualRefresh = () => {
+      void loadAll();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener(
       "admin-sidebar-refresh",
       onManualRefresh as EventListener
     );
-  };
-}, [pathname]);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener(
+        "admin-sidebar-refresh",
+        onManualRefresh as EventListener
+      );
+    };
+  }, [pathname]);
 
   const feedbackBadgeCount = loadingFeedback
     ? 0

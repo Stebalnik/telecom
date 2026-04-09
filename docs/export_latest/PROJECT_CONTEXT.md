@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Wed Apr  8 12:31:26 EDT 2026
+Generated: Thu Apr  9 00:15:54 EDT 2026
 
-Export folder: docs/export_files/2026-04-08_12-31-26
+Export folder: docs/export_files/2026-04-09_00-15-54
 
 ## 1. Directory tree
 ```
@@ -94,6 +94,8 @@ app/customer/jobs
 app/customer/jobs/active
 app/customer/jobs/archive
 app/customer/jobs/new
+app/customer/onboarding
+app/customer/onboarding/pending
 app/customer/requests
 app/customer/resources
 app/customer/resources/[id]
@@ -217,6 +219,8 @@ app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
 app/customer/layout.tsx
+app/customer/onboarding/page.tsx
+app/customer/onboarding/pending/page.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
 app/customer/resources/[id]/edit/page.tsx
@@ -374,6 +378,8 @@ app/customer/jobs/layout.tsx
 app/customer/jobs/new/page.tsx
 app/customer/jobs/page.tsx
 app/customer/layout.tsx
+app/customer/onboarding/page.tsx
+app/customer/onboarding/pending/page.tsx
 app/customer/page.tsx
 app/customer/requests/page.tsx
 app/customer/resources/[id]/edit/page.tsx

@@ -10,11 +10,13 @@ type AppError = Error & {
 function createAppError(
   message: string,
   code: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
+  statusCode?: number
 ): AppError {
   const error = new Error(message) as AppError;
   error.code = code;
   error.details = details;
+  error.statusCode = statusCode;
   return error;
 }
 
@@ -25,11 +27,14 @@ function normalizeAuthError(
 ): AppError {
   const normalized = normalizeError(error) as AppError;
 
-  return createAppError(normalized.message || fallbackMessage, code, {
-    originalCode: normalized.code ?? null,
-    statusCode: normalized.statusCode ?? null,
-    ...(normalized.details ?? {}),
-  });
+  return createAppError(
+    fallbackMessage,
+    code,
+    {
+      originalCode: normalized.code ?? null,
+    },
+    normalized.statusCode
+  );
 }
 
 export async function getMySessionUser() {
@@ -37,7 +42,7 @@ export async function getMySessionUser() {
     const { data, error } = await supabase.auth.getSession();
 
     if (error) {
-      throw error;
+      throw normalizeError(error, "auth_get_session_failed");
     }
 
     return data.session?.user ?? null;
@@ -54,7 +59,7 @@ export async function getMyUserId(): Promise<string> {
   const user = await getMySessionUser();
 
   if (!user) {
-    throw createAppError("Not logged in.", "auth_not_logged_in");
+    throw createAppError("Not logged in.", "auth_not_logged_in", undefined, 401);
   }
 
   return user.id;

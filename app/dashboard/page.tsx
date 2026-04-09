@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ensureMyCustomerOrg } from "../../lib/customers";
 import { normalizeError } from "../../lib/errors/normalizeError";
 import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
@@ -189,30 +188,8 @@ export default function DashboardPage() {
       setRole(pendingRole);
 
       if (pendingRole === "customer") {
-        try {
-          await withErrorLogging(
-            () => ensureMyCustomerOrg(),
-            {
-              message: "dashboard_ensure_customer_org_failed",
-              code: "dashboard_ensure_customer_org_failed",
-              source: "frontend",
-              area: "customer",
-              role: "customer",
-              path: "/dashboard",
-            }
-          );
-
-          router.replace("/customer/settings");
-          return;
-        } catch (error) {
-          setErr(
-            getSafeDashboardErrorMessage(
-              error,
-              "Role was saved, but customer workspace setup failed. Please try again."
-            )
-          );
-          return;
-        }
+        router.replace("/customer/settings");
+        return;
       }
 
       if (pendingRole === "contractor") {

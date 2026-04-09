@@ -8,11 +8,16 @@ import { refreshAdminSidebar } from "../../../lib/admin/refreshAdminSidebar";
 
 type CustomerApprovalRow = {
   id: string;
+  name: string | null;
   company_name: string | null;
+  legal_name: string | null;
+  dba_name: string | null;
+  description: string | null;
   status: string | null;
   onboarding_status: string | null;
   created_at: string;
   owner_user_id: string | null;
+  review_notes: string | null;
 };
 
 type CustomerApprovalsResponse = {
@@ -251,20 +256,55 @@ export default function AdminCustomerApprovalsPage() {
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:justify-between">
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold text-[#111827]">
-                      {row.company_name || "Unnamed company"}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-semibold text-[#111827]">
+                        {row.company_name || row.name || "Unnamed company"}
+                      </h2>
 
-                    <div className="mt-2 flex flex-wrap gap-2">
                       <StatusBadge
                         status={row.onboarding_status || "unknown"}
                         tone="warning"
                       />
+
                       <StatusBadge
                         status={row.status || "unknown"}
                         tone="info"
                       />
                     </div>
+
+                    {row.legal_name ? (
+                      <p className="mt-2 text-sm text-[#4B5563]">
+                        Legal name: {row.legal_name}
+                      </p>
+                    ) : null}
+
+                    {row.dba_name ? (
+                      <p className="mt-1 text-sm text-[#4B5563]">
+                        DBA: {row.dba_name}
+                      </p>
+                    ) : null}
+
+                    {row.description ? (
+                      <div className="mt-4 rounded-xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+                        <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                          Description
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-[#4B5563]">
+                          {row.description}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {row.review_notes ? (
+                      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <div className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                          Review notes
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-amber-700">
+                          {row.review_notes}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       <div>

@@ -37,22 +37,24 @@ export async function POST(
           "admin_customer_approval_profile_load_failed"
         );
 
-        if (!profile || profile.role !== "admin") {
+        if (profile.role !== "admin") {
           return NextResponse.json({ error: "Forbidden." }, { status: 403 });
         }
 
-        unwrapSupabase(
-          await supabase
-            .from("customers")
-            .update({
-              onboarding_status: "approved",
-              status: "active",
-              reviewed_at: new Date().toISOString(),
-              reviewed_by: user.id,
-            })
-            .eq("id", id),
-          "admin_customer_approval_update_failed"
-        );
+        const updateResult = await supabase
+          .from("customers")
+          .update({
+            onboarding_status: "approved",
+            status: "active",
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: user.id,
+            review_notes: null,
+          })
+          .eq("id", id);
+
+        if (updateResult.error) {
+          throw updateResult.error;
+        }
 
         return NextResponse.json({ ok: true });
       },

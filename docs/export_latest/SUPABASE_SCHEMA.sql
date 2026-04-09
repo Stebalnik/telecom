@@ -2110,6 +2110,20 @@ CREATE TABLE IF NOT EXISTS "public"."customers" (
     "reviewed_at" timestamp with time zone,
     "reviewed_by" "uuid",
     "review_notes" "text",
+    "fein" "text",
+    "phone" "text",
+    "email" "text",
+    "address_line1" "text",
+    "address_line2" "text",
+    "city" "text",
+    "state" "text",
+    "zip" "text",
+    "country" "text" DEFAULT 'US'::"text",
+    "project_contact_name" "text",
+    "project_contact_title" "text",
+    "project_contact_email" "text",
+    "project_contact_phone" "text",
+    "activation_notification_phone" "text",
     CONSTRAINT "customers_onboarding_status_check" CHECK (("onboarding_status" = ANY (ARRAY['draft'::"text", 'submitted'::"text", 'approved'::"text", 'rejected'::"text"]))),
     CONSTRAINT "customers_status_check" CHECK (("status" = ANY (ARRAY['pending_review'::"text", 'active'::"text", 'blocked'::"text"])))
 );
@@ -2127,6 +2141,62 @@ COMMENT ON COLUMN "public"."customers"."legal_name" IS 'Official customer legal 
 
 
 COMMENT ON COLUMN "public"."customers"."dba_name" IS 'Customer DBA or display name.';
+
+
+
+COMMENT ON COLUMN "public"."customers"."fein" IS 'Customer FEIN / tax ID for future agreement automation';
+
+
+
+COMMENT ON COLUMN "public"."customers"."phone" IS 'Primary company phone';
+
+
+
+COMMENT ON COLUMN "public"."customers"."email" IS 'Primary company email';
+
+
+
+COMMENT ON COLUMN "public"."customers"."address_line1" IS 'Company address line 1';
+
+
+
+COMMENT ON COLUMN "public"."customers"."address_line2" IS 'Company address line 2';
+
+
+
+COMMENT ON COLUMN "public"."customers"."city" IS 'Company city';
+
+
+
+COMMENT ON COLUMN "public"."customers"."state" IS 'Company state';
+
+
+
+COMMENT ON COLUMN "public"."customers"."zip" IS 'Company ZIP / postal code';
+
+
+
+COMMENT ON COLUMN "public"."customers"."country" IS 'Company country';
+
+
+
+COMMENT ON COLUMN "public"."customers"."project_contact_name" IS 'Primary customer-side project contact full name';
+
+
+
+COMMENT ON COLUMN "public"."customers"."project_contact_title" IS 'Primary customer-side project contact title';
+
+
+
+COMMENT ON COLUMN "public"."customers"."project_contact_email" IS 'Primary customer-side project contact email';
+
+
+
+COMMENT ON COLUMN "public"."customers"."project_contact_phone" IS 'Primary customer-side project contact phone';
+
+
+
+COMMENT ON COLUMN "public"."customers"."activation_notification_phone" IS 'Optional phone for activation / approval notification';
 
 
 
