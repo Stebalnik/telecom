@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Thu Apr  9 00:15:54 EDT 2026
+Generated: Thu Apr  9 21:07:51 EDT 2026
 
-Export folder: docs/export_files/2026-04-09_00-15-54
+Export folder: docs/export_files/2026-04-09_21-07-51
 
 ## 1. Directory tree
 ```
@@ -27,6 +27,9 @@ app/api/admin
 app/api/admin/analytics
 app/api/admin/analytics/breakdown
 app/api/admin/contractor-approvals
+app/api/admin/contractor-approvals/[id]
+app/api/admin/contractor-approvals/[id]/approve
+app/api/admin/contractor-approvals/[id]/return-to-draft
 app/api/admin/contractor-approvals/pending-count
 app/api/admin/customer-approvals
 app/api/admin/customer-approvals/[id]
@@ -73,6 +76,7 @@ app/contractor/jobs
 app/contractor/jobs/[id]
 app/contractor/onboarding
 app/contractor/onboarding/company
+app/contractor/onboarding/pending
 app/contractor/requests
 app/contractor/resources
 app/contractor/settings
@@ -156,7 +160,11 @@ app/api/admin/analytics/.DS_Store
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
 app/api/admin/contractor-approvals/.DS_Store
+app/api/admin/contractor-approvals/[id]/.DS_Store
+app/api/admin/contractor-approvals/[id]/approve/route.ts
+app/api/admin/contractor-approvals/[id]/return-to-draft/route.ts
 app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/contractor-approvals/route.ts
 app/api/admin/customer-approvals/.DS_Store
 app/api/admin/customer-approvals/[id]/.DS_Store
 app/api/admin/customer-approvals/[id]/approve/route.ts
@@ -196,6 +204,8 @@ app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
 app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
+app/contractor/onboarding/page.tsx
+app/contractor/onboarding/pending/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
 app/contractor/resources/page.tsx
@@ -321,7 +331,10 @@ app/admin/team-change-requests/[id]/page.tsx
 app/admin/team-change-requests/page.tsx
 app/api/admin/analytics/breakdown/route.ts
 app/api/admin/analytics/route.ts
+app/api/admin/contractor-approvals/[id]/approve/route.ts
+app/api/admin/contractor-approvals/[id]/return-to-draft/route.ts
 app/api/admin/contractor-approvals/pending-count/route.ts
+app/api/admin/contractor-approvals/route.ts
 app/api/admin/customer-approvals/[id]/approve/route.ts
 app/api/admin/customer-approvals/[id]/return-to-draft/route.ts
 app/api/admin/customer-approvals/pending-count/route.ts
@@ -355,6 +368,8 @@ app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
 app/contractor/layout.tsx
 app/contractor/onboarding/company/page.tsx
+app/contractor/onboarding/page.tsx
+app/contractor/onboarding/pending/page.tsx
 app/contractor/page.tsx
 app/contractor/requests/page.tsx
 app/contractor/resources/page.tsx

@@ -4,14 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { getMyProfile } from "../../lib/profile";
-import { getMyCompany, listMembers, listTeams, type Company, type Team } from "../../lib/contractor";
+import {
+  getMyCompany,
+  listMembers,
+  listTeams,
+  type Company,
+  type Team,
+} from "../../lib/contractor";
 import {
   listCompanyInsurance,
   listMemberCerts,
   type DocumentRow,
 } from "../../lib/documents";
+import { supabase } from "../../lib/supabaseClient";
 
 type OverviewStats = {
   insuranceTotal: number;
@@ -22,6 +29,10 @@ type OverviewStats = {
   membersTotal: number;
   certsTotal: number;
 };
+
+type ContractorOverviewProfile = {
+  role?: string | null;
+} | null;
 
 function StatusBadge({
   status,
@@ -36,8 +47,8 @@ function StatusBadge({
     normalized === "active"
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : normalized === "blocked"
-      ? "bg-red-50 text-red-700 border-red-200"
-      : "bg-blue-50 text-blue-700 border-blue-200";
+        ? "bg-red-50 text-red-700 border-red-200"
+        : "bg-blue-50 text-blue-700 border-blue-200";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -123,38 +134,112 @@ export default function ContractorPage() {
   });
 
   useEffect(() => {
+    let mounted = true;
+
     async function load() {
       setLoading(true);
       setErr(null);
 
       try {
-        const { data } = await supabase.auth.getSession();
+        const sessionResult = await withErrorLogging(
+          async () => {
+            const result = await supabase.auth.getSession();
 
-        if (!data.session?.user) {
+            if (result.error) {
+              throw result.error;
+            }
+
+            return result;
+          },
+          {
+            message: "contractor_overview_session_load_failed",
+            code: "contractor_overview_session_load_failed",
+            source: "frontend",
+            area: "contractor",
+            role: "contractor",
+            path: "/contractor",
+          }
+        );
+
+        if (!mounted) return;
+
+        if (!sessionResult.data.session?.user) {
           router.replace("/login");
           return;
         }
 
-        const profile = await getMyProfile();
+        const profile = (await withErrorLogging(
+          async () => (await getMyProfile()) as ContractorOverviewProfile,
+          {
+            message: "contractor_overview_profile_load_failed",
+            code: "contractor_overview_profile_load_failed",
+            source: "frontend",
+            area: "contractor",
+            role: "contractor",
+            path: "/contractor",
+          }
+        )) as ContractorOverviewProfile;
+
+        if (!mounted) return;
 
         if (!profile || profile.role !== "contractor") {
           router.replace("/dashboard");
           return;
         }
 
-        const currentCompany = await getMyCompany();
+        const currentCompany = await withErrorLogging(
+          async () => await getMyCompany(),
+          {
+            message: "contractor_overview_company_load_failed",
+            code: "contractor_overview_company_load_failed",
+            source: "frontend",
+            area: "contractor",
+            role: "contractor",
+            path: "/contractor",
+          }
+        );
 
-        if (!currentCompany || currentCompany.onboarding_status === "draft") {
-          router.replace("/contractor/onboarding/company");
+        if (!mounted) return;
+
+        if (!currentCompany) {
+          router.replace("/contractor/onboarding");
           return;
         }
 
         setCompany(currentCompany);
 
         const [companyTeams, insuranceDocs] = await Promise.all([
-          listTeams(currentCompany.id),
-          listCompanyInsurance(currentCompany.id),
+          withErrorLogging(
+            async () => await listTeams(currentCompany.id),
+            {
+              message: "contractor_overview_teams_load_failed",
+              code: "contractor_overview_teams_load_failed",
+              source: "frontend",
+              area: "contractor",
+              role: "contractor",
+              path: "/contractor",
+              details: {
+                companyId: currentCompany.id,
+              },
+            }
+          ),
+          withErrorLogging(
+            async () => await listCompanyInsurance(currentCompany.id),
+            {
+              message: "contractor_overview_insurance_load_failed",
+              code: "contractor_overview_insurance_load_failed",
+              source: "frontend",
+              area: "contractor",
+              role: "contractor",
+              path: "/contractor",
+              details: {
+                companyId: currentCompany.id,
+              },
+            }
+          ),
         ]);
+
+        if (!mounted) return;
 
         setTeams(companyTeams);
 
@@ -162,14 +247,44 @@ export default function ContractorPage() {
         let certsTotal = 0;
 
         for (const team of companyTeams) {
-          const members = await listMembers(team.id);
+          const members = await withErrorLogging(
+            async () => await listMembers(team.id),
+            {
+              message: "contractor_overview_members_load_failed",
+              code: "contractor_overview_members_load_failed",
+              source: "frontend",
+              area: "contractor",
+              role: "contractor",
+              path: "/contractor",
+              details: {
+                teamId: team.id,
+              },
+            }
+          );
+
           membersTotal += members.length;
 
           for (const member of members) {
-            const certs = await listMemberCerts(member.id);
+            const certs = await withErrorLogging(
+              async () => await listMemberCerts(member.id),
+              {
+                message: "contractor_overview_member_certs_load_failed",
+                code: "contractor_overview_member_certs_load_failed",
+                source: "frontend",
+                area: "contractor",
+                role: "contractor",
+                path: "/contractor",
+                details: {
+                  memberId: member.id,
+                },
+              }
+            );
+
             certsTotal += certs.length;
           }
         }
+
+        if (!mounted) return;
 
         setStats({
           insuranceTotal: insuranceDocs.length,
@@ -186,20 +301,29 @@ export default function ContractorPage() {
           membersTotal,
           certsTotal,
         });
-      } catch (e: any) {
-        setErr(e?.message || "Failed to load contractor overview.");
+      } catch {
+        if (!mounted) return;
+        setErr("Unable to load contractor overview. Please try again.");
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
-    load();
+    void load();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
   const onboardingLabel = useMemo(() => {
     if (!company) return "—";
     return company.onboarding_status || "—";
   }, [company]);
+
+  const publicProfile = useMemo(() => company?.public_profile ?? null, [company]);
 
   if (loading) {
     return (
@@ -322,11 +446,38 @@ export default function ContractorPage() {
         />
       </section>
 
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Insurance mode"
+          value={company?.insurance_mode || "—"}
+          hint="Company profile setting"
+        />
+        <StatCard
+          label="Home market"
+          value={publicProfile?.home_market || "—"}
+          hint="Primary market"
+        />
+        <StatCard
+          label="Markets"
+          value={publicProfile?.markets?.length || 0}
+          hint={
+            publicProfile?.markets?.length
+              ? publicProfile.markets.join(" · ")
+              : "No markets set"
+          }
+        />
+        <StatCard
+          label="Payout method"
+          value={company?.payout_method_type || "—"}
+          hint={company?.payout_account_label || "No payout label set"}
+        />
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <NavCard
           href="/contractor/company"
           title="Company"
-          desc="View legal details, tax ID, address and payout information. Company data is locked after onboarding submission."
+          desc="View legal details, address, payout information, and marketplace profile settings."
         />
 
         <NavCard

@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { getMyProfile } from "../../../lib/profile";
-import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
-import { normalizeError } from "../../../lib/errors/normalizeError";
 import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
 import { refreshAdminSidebar } from "../../../lib/admin/refreshAdminSidebar";
 
@@ -37,6 +33,10 @@ type ContractorApprovalRow = {
     | null;
 };
 
+type ContractorApprovalsResponse = {
+  rows?: ContractorApprovalRow[];
+};
+
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString();
@@ -53,12 +53,12 @@ function StatusBadge({
     tone === "success"
       ? "border-green-200 bg-green-50 text-green-700"
       : tone === "warning"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : tone === "danger"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : tone === "info"
-      ? "border-blue-200 bg-blue-50 text-blue-700"
-      : "border-[#D9E2EC] bg-[#F8FAFC] text-[#4B5563]";
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : tone === "danger"
+          ? "border-red-200 bg-red-50 text-red-700"
+          : tone === "info"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-[#D9E2EC] bg-[#F8FAFC] text-[#4B5563]";
 
   return (
     <span
@@ -69,9 +69,22 @@ function StatusBadge({
   );
 }
 
-export default function AdminContractorApprovalsPage() {
-  const router = useRouter();
+async function fetchJsonOrThrow<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    cache: "no-store",
+    ...init,
+  });
 
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error((data as { error?: string } | null)?.error || "Request failed");
+  }
+
+  return (data ?? {}) as T;
+}
+
+export default function AdminContractorApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -82,53 +95,14 @@ export default function AdminContractorApprovalsPage() {
     setErr(null);
 
     try {
-      const nextRows = await withErrorLogging(
-        async () => {
-          const sessionResult = await supabase.auth.getSession();
-
-          if (sessionResult.error) {
-            throw sessionResult.error;
-          }
-
-          if (!sessionResult.data.session?.user) {
-            router.replace("/login");
-            return null;
-          }
-
-          const profile = await getMyProfile();
-
-          if (!profile || profile.role !== "admin") {
-            router.replace("/dashboard");
-            return null;
-          }
-
-          const companiesResult = await supabase
-            .from("contractor_companies")
-            .select(`
-              id,
-              legal_name,
-              dba_name,
-              status,
-              onboarding_status,
-              created_at,
-              owner_user_id,
-              block_reason,
-              public_profile:contractor_public_profiles (
-                company_id,
-                is_listed,
-                headline,
-                home_market,
-                markets
-              )
-            `)
-            .eq("onboarding_status", "submitted")
-            .order("created_at", { ascending: false });
-
-          return unwrapSupabase(
-            companiesResult,
-            "admin_contractor_approvals_load_failed"
-          ) as ContractorApprovalRow[];
-        },
+      const data = await withErrorLogging(
+        () =>
+          fetchJsonOrThrow<ContractorApprovalsResponse>(
+            "/api/admin/contractor-approvals",
+            {
+              method: "GET",
+            }
+          ),
         {
           message: "admin_contractor_approvals_load_failed",
           code: "admin_contractor_approvals_load_failed",
@@ -139,11 +113,10 @@ export default function AdminContractorApprovalsPage() {
         }
       );
 
-      if (nextRows) {
-        setRows(nextRows);
-      }
+      setRows(data.rows || []);
     } catch {
       setErr("Unable to load contractor approvals.");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -184,7 +157,6 @@ export default function AdminContractorApprovalsPage() {
       void supabase.removeChannel(companiesChannel);
       void supabase.removeChannel(profileChannel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function approveCompany(companyId: string, hasPublicProfile: boolean) {
@@ -193,42 +165,13 @@ export default function AdminContractorApprovalsPage() {
 
     try {
       await withErrorLogging(
-        async () => {
-          const companyUpdateResult = await supabase
-            .from("contractor_companies")
-            .update({
-              onboarding_status: "approved",
-            })
-            .eq("id", companyId);
-
-          if (companyUpdateResult.error) {
-            throw normalizeError(
-              companyUpdateResult.error,
-              "admin_contractor_approval_update_failed",
-              "Unable to approve contractor."
-            );
-          }
-
-          if (hasPublicProfile) {
-            const profileUpdateResult = await supabase
-              .from("contractor_public_profiles")
-              .update({
-                is_listed: true,
-              })
-              .eq("company_id", companyId);
-
-            if (profileUpdateResult.error) {
-              throw normalizeError(
-                profileUpdateResult.error,
-                "admin_contractor_public_profile_update_failed",
-                "Unable to update contractor public profile."
-              );
+        () =>
+          fetchJsonOrThrow<{ ok: true }>(
+            `/api/admin/contractor-approvals/${companyId}/approve`,
+            {
+              method: "POST",
             }
-          }
-
-          await loadPage();
-          refreshAdminSidebar();
-        },
+          ),
         {
           message: "admin_contractor_approve_failed",
           code: "admin_contractor_approve_failed",
@@ -242,6 +185,9 @@ export default function AdminContractorApprovalsPage() {
           },
         }
       );
+
+      await loadPage();
+      refreshAdminSidebar();
     } catch {
       setErr("Unable to approve contractor.");
     } finally {
@@ -255,25 +201,13 @@ export default function AdminContractorApprovalsPage() {
 
     try {
       await withErrorLogging(
-        async () => {
-          const updateResult = await supabase
-            .from("contractor_companies")
-            .update({
-              onboarding_status: "draft",
-            })
-            .eq("id", companyId);
-
-          if (updateResult.error) {
-            throw normalizeError(
-              updateResult.error,
-              "admin_contractor_reject_failed",
-              "Unable to return contractor to draft."
-            );
-          }
-
-          await loadPage();
-          refreshAdminSidebar();
-        },
+        () =>
+          fetchJsonOrThrow<{ ok: true }>(
+            `/api/admin/contractor-approvals/${companyId}/return-to-draft`,
+            {
+              method: "POST",
+            }
+          ),
         {
           message: "admin_contractor_reject_failed",
           code: "admin_contractor_reject_failed",
@@ -286,6 +220,9 @@ export default function AdminContractorApprovalsPage() {
           },
         }
       );
+
+      await loadPage();
+      refreshAdminSidebar();
     } catch {
       setErr("Unable to return contractor to draft.");
     } finally {

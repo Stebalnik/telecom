@@ -114,7 +114,7 @@ export default function DashboardPage() {
           }
 
           if (nextRole === "contractor") {
-            router.replace("/contractor");
+            router.replace("/contractor/onboarding");
             return;
           }
 
@@ -193,7 +193,7 @@ export default function DashboardPage() {
       }
 
       if (pendingRole === "contractor") {
-        router.replace("/contractor");
+        router.replace("/contractor/onboarding");
         return;
       }
     } catch (error) {
@@ -366,7 +366,8 @@ export default function DashboardPage() {
                   Choose your role
                 </h2>
                 <p className="mt-2 text-sm text-[#4B5563]">
-                  Select the workspace you want to use. This is currently a one-time selection.
+                  Select the workspace you want to use. This is currently a one-time
+                  selection.
                 </p>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -379,7 +380,8 @@ export default function DashboardPage() {
                       I am a Customer
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                      Post jobs, manage contractor approvals, and control compliance requirements.
+                      Post jobs, manage contractor approvals, and control compliance
+                      requirements.
                     </p>
                   </button>
 
@@ -392,7 +394,8 @@ export default function DashboardPage() {
                       I am a Contractor
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                      Build your profile, upload COI and certifications, and bid on jobs.
+                      Build your profile, upload COI and certifications, and bid on
+                      jobs.
                     </p>
                   </button>
                 </div>
@@ -407,7 +410,8 @@ export default function DashboardPage() {
                         : "Contractor agreements"}
                     </h2>
                     <p className="mt-2 text-sm text-[#4B5563]">
-                      Please review and accept the required agreements before continuing.
+                      Please review and accept the required agreements before
+                      continuing.
                     </p>
                   </div>
 
@@ -517,8 +521,9 @@ export default function DashboardPage() {
                   Support the project
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                  You can support LEOTEOR Marketplace with a voluntary one-time payment.
-                  The suggested amount is $13, but you can choose any amount.
+                  You can support LEOTEOR Marketplace with a voluntary one-time
+                  payment. The suggested amount is $13, but you can choose any
+                  amount.
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -604,7 +609,8 @@ export default function DashboardPage() {
             </h2>
 
             <p className="mt-2 text-sm text-[#4B5563]">
-              Current role: <span className="font-medium text-[#111827]">{role}</span>
+              Current role:{" "}
+              <span className="font-medium text-[#111827]">{role}</span>
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -620,9 +626,9 @@ export default function DashboardPage() {
               {role === "contractor" ? (
                 <a
                   className="rounded-xl bg-[#1F6FB5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
-                  href="/contractor"
+                  href="/contractor/onboarding"
                 >
-                  Go to Contractor cabinet
+                  Continue Contractor onboarding
                 </a>
               ) : null}
 
