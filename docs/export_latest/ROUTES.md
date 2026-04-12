@@ -1,6 +1,6 @@
 # ROUTES
 
-Generated: Thu Apr  9 21:07:51 EDT 2026
+Generated: Sun Apr 12 01:11:17 EDT 2026
 
 ## App router files
 ```
@@ -39,12 +39,23 @@ app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/api/contractor/hr/applications/route.ts
+app/api/contractor/hr/invitations/route.ts
+app/api/contractor/hr/vacancies/route.ts
+app/api/contractor/hr/workers/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
 app/api/errors/log/route.ts
 app/api/feedback/[id]/messages/route.ts
 app/api/feedback/[id]/route.ts
 app/api/feedback/route.ts
+app/api/worker/applications/route.ts
+app/api/worker/availability/route.ts
+app/api/worker/certifications/route.ts
+app/api/worker/insurance/route.ts
+app/api/worker/invitations/route.ts
+app/api/worker/profile/route.ts
+app/api/worker/vacancies/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -54,6 +65,10 @@ app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
 app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
+app/contractor/hr/invitations/page.tsx
+app/contractor/hr/page.tsx
+app/contractor/hr/vacancies/page.tsx
+app/contractor/hr/workers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
@@ -109,4 +124,14 @@ app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
 app/terms/page.tsx
+app/worker-agreement/page.tsx
+app/worker/applications/page.tsx
+app/worker/availability/page.tsx
+app/worker/certifications/page.tsx
+app/worker/insurance/page.tsx
+app/worker/invitations/page.tsx
+app/worker/layout.tsx
+app/worker/page.tsx
+app/worker/profile/page.tsx
+app/worker/vacancies/page.tsx
 ```

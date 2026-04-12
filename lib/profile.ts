@@ -2,7 +2,11 @@ import { normalizeError } from "./errors/normalizeError";
 import { unwrapSupabaseNullable } from "./errors/unwrapSupabase";
 import { supabase } from "./supabaseClient";
 
-export type UserRole = "customer" | "contractor" | "admin";
+export type UserRole =
+  | "customer"
+  | "contractor"
+  | "admin"
+  | "specialist";
 
 export type Profile = {
   id: string;

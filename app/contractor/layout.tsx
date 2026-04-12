@@ -57,7 +57,8 @@ export default function ContractorLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [accessState, setAccessState] = useState<ContractorAccessState>("checking");
+  const [accessState, setAccessState] =
+    useState<ContractorAccessState>("checking");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 

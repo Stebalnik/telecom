@@ -1818,6 +1818,7 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_companies" (
     "payout_contact_email" "text",
     "payout_contact_phone" "text",
     "payout_external_ref" "text",
+    "owner_id" "uuid",
     CONSTRAINT "contractor_companies_insurance_mode_check" CHECK (("insurance_mode" = ANY (ARRAY['coi_only'::"text", 'separate_only'::"text", 'either'::"text"]))),
     CONSTRAINT "contractor_companies_onboarding_status_check" CHECK (("onboarding_status" = ANY (ARRAY['draft'::"text", 'submitted'::"text", 'approved'::"text"]))),
     CONSTRAINT "contractor_companies_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'blocked'::"text"])))
@@ -1860,6 +1861,32 @@ CREATE TABLE IF NOT EXISTS "public"."contractor_public_profiles" (
 
 
 ALTER TABLE "public"."contractor_public_profiles" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."contractor_vacancies" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "contractor_company_id" "uuid" NOT NULL,
+    "title" "text",
+    "target_role" "text",
+    "description" "text",
+    "market" "text",
+    "location_text" "text",
+    "employment_type" "text",
+    "pay_type" "text",
+    "pay_range_min" numeric,
+    "pay_range_max" numeric,
+    "start_date" "date",
+    "duration_type" "text",
+    "workers_needed" integer,
+    "status" "text" DEFAULT 'open'::"text" NOT NULL,
+    "is_public" boolean DEFAULT true NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."contractor_vacancies" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."customer_agreement_templates" (
@@ -2433,7 +2460,8 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "customer_agreement_accepted_at" timestamp with time zone,
     "contractor_agreement_accepted_at" timestamp with time zone,
     "role_selected_at" timestamp with time zone,
-    CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['customer'::"text", 'contractor'::"text", 'admin'::"text"])))
+    "specialist_agreement_accepted_at" timestamp with time zone,
+    CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['customer'::"text", 'contractor'::"text", 'admin'::"text", 'specialist'::"text"])))
 );
 
 
@@ -2560,6 +2588,40 @@ CREATE TABLE IF NOT EXISTS "public"."team_members" (
 ALTER TABLE "public"."team_members" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."vacancies" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "contractor_company_id" "uuid",
+    "title" "text" NOT NULL,
+    "description" "text",
+    "role" "text",
+    "location" "text",
+    "pay_rate" "text",
+    "start_date" "date",
+    "status" "text" DEFAULT 'open'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."vacancies" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."vacancy_applications" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "vacancy_id" "uuid" NOT NULL,
+    "worker_id" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'submitted'::"text" NOT NULL,
+    "message" "text",
+    "applied_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."vacancy_applications" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."vendor_approvals" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "customer_id" "uuid" NOT NULL,
@@ -2594,6 +2656,82 @@ CREATE TABLE IF NOT EXISTS "public"."work_reviews" (
 
 
 ALTER TABLE "public"."work_reviews" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."worker_applications" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "vacancy_id" "uuid",
+    "worker_user_id" "uuid",
+    "message" "text",
+    "status" "text" DEFAULT 'submitted'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."worker_applications" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."worker_availability" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "user_id" "uuid",
+    "status" "text",
+    "notes" "text",
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."worker_availability" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."worker_certifications" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "user_id" "uuid",
+    "name" "text",
+    "issuer" "text",
+    "expires_at" "date",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."worker_certifications" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."worker_invitations" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "contractor_company_id" "uuid",
+    "worker_user_id" "uuid",
+    "vacancy_id" "uuid",
+    "message" "text",
+    "status" "text" DEFAULT 'pending'::"text",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."worker_invitations" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."worker_profiles" (
+    "user_id" "uuid" NOT NULL,
+    "full_name" "text",
+    "phone" "text",
+    "primary_role" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "headline" "text",
+    "summary" "text",
+    "secondary_roles" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "years_experience" integer,
+    "home_market" "text",
+    "markets" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "travel_willingness" "text",
+    "availability_mode" "text",
+    "employment_type_preference" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
+    "is_active" boolean DEFAULT true NOT NULL,
+    CONSTRAINT "worker_profiles_years_experience_check" CHECK ((("years_experience" IS NULL) OR ("years_experience" >= 0)))
+);
+
+
+ALTER TABLE "public"."worker_profiles" OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."analytics_events"
@@ -2698,6 +2836,11 @@ ALTER TABLE ONLY "public"."contractor_insurance_policies"
 
 ALTER TABLE ONLY "public"."contractor_public_profiles"
     ADD CONSTRAINT "contractor_public_profiles_pkey" PRIMARY KEY ("company_id");
+
+
+
+ALTER TABLE ONLY "public"."contractor_vacancies"
+    ADD CONSTRAINT "contractor_vacancies_pkey" PRIMARY KEY ("id");
 
 
 
@@ -2941,6 +3084,21 @@ ALTER TABLE ONLY "public"."teams"
 
 
 
+ALTER TABLE ONLY "public"."vacancies"
+    ADD CONSTRAINT "vacancies_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."vacancy_applications"
+    ADD CONSTRAINT "vacancy_applications_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."vacancy_applications"
+    ADD CONSTRAINT "vacancy_applications_unique_worker_per_vacancy" UNIQUE ("vacancy_id", "worker_id");
+
+
+
 ALTER TABLE ONLY "public"."vendor_approvals"
     ADD CONSTRAINT "vendor_approvals_pkey" PRIMARY KEY ("id");
 
@@ -2948,6 +3106,31 @@ ALTER TABLE ONLY "public"."vendor_approvals"
 
 ALTER TABLE ONLY "public"."work_reviews"
     ADD CONSTRAINT "work_reviews_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_applications"
+    ADD CONSTRAINT "worker_applications_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_availability"
+    ADD CONSTRAINT "worker_availability_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_certifications"
+    ADD CONSTRAINT "worker_certifications_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_invitations"
+    ADD CONSTRAINT "worker_invitations_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_profiles"
+    ADD CONSTRAINT "worker_profiles_pkey" PRIMARY KEY ("user_id");
 
 
 
@@ -3211,6 +3394,14 @@ CREATE INDEX "idx_contractor_companies_owner" ON "public"."contractor_companies"
 
 
 
+CREATE INDEX "idx_contractor_vacancies_company" ON "public"."contractor_vacancies" USING "btree" ("contractor_company_id");
+
+
+
+CREATE INDEX "idx_contractor_vacancies_public_status" ON "public"."contractor_vacancies" USING "btree" ("is_public", "status");
+
+
+
 CREATE INDEX "idx_customer_agreement_templates_customer" ON "public"."customer_agreement_templates" USING "btree" ("customer_id", "created_at" DESC);
 
 
@@ -3387,6 +3578,26 @@ CREATE INDEX "idx_teams_company" ON "public"."teams" USING "btree" ("company_id"
 
 
 
+CREATE INDEX "idx_vacancy_applications_vacancy" ON "public"."vacancy_applications" USING "btree" ("vacancy_id");
+
+
+
+CREATE INDEX "idx_vacancy_applications_worker" ON "public"."vacancy_applications" USING "btree" ("worker_id");
+
+
+
+CREATE INDEX "idx_worker_profiles_home_market" ON "public"."worker_profiles" USING "btree" ("home_market");
+
+
+
+CREATE INDEX "idx_worker_profiles_primary_role" ON "public"."worker_profiles" USING "btree" ("primary_role");
+
+
+
+CREATE INDEX "idx_worker_profiles_updated_at" ON "public"."worker_profiles" USING "btree" ("updated_at" DESC);
+
+
+
 CREATE UNIQUE INDEX "insurance_types_code_uq" ON "public"."insurance_types" USING "btree" ("code");
 
 
@@ -3439,6 +3650,10 @@ CREATE OR REPLACE TRIGGER "trg_bids_updated_at" BEFORE UPDATE ON "public"."bids"
 
 
 
+CREATE OR REPLACE TRIGGER "trg_contractor_vacancies_updated_at" BEFORE UPDATE ON "public"."contractor_vacancies" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_customer_agreements_updated_at" BEFORE UPDATE ON "public"."customer_agreements" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
@@ -3464,6 +3679,14 @@ CREATE OR REPLACE TRIGGER "trg_sync_customer_contractors_to_vendor_approvals" AF
 
 
 CREATE OR REPLACE TRIGGER "trg_team_change_requests_updated_at" BEFORE UPDATE ON "public"."team_change_requests" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_vacancy_applications_updated_at" BEFORE UPDATE ON "public"."vacancy_applications" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_worker_profiles_updated_at" BEFORE UPDATE ON "public"."worker_profiles" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -3578,6 +3801,11 @@ ALTER TABLE ONLY "public"."contractor_coi_supporting_files"
 
 
 ALTER TABLE ONLY "public"."contractor_companies"
+    ADD CONSTRAINT "contractor_companies_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."contractor_companies"
     ADD CONSTRAINT "contractor_companies_owner_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
@@ -3594,6 +3822,16 @@ ALTER TABLE ONLY "public"."contractor_insurance_policies"
 
 ALTER TABLE ONLY "public"."contractor_public_profiles"
     ADD CONSTRAINT "contractor_public_profiles_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."contractor_vacancies"
+    ADD CONSTRAINT "contractor_vacancies_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."contractor_vacancies"
+    ADD CONSTRAINT "contractor_vacancies_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -3952,6 +4190,26 @@ ALTER TABLE ONLY "public"."teams"
 
 
 
+ALTER TABLE ONLY "public"."vacancies"
+    ADD CONSTRAINT "vacancies_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id");
+
+
+
+ALTER TABLE ONLY "public"."vacancy_applications"
+    ADD CONSTRAINT "vacancy_applications_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."vacancy_applications"
+    ADD CONSTRAINT "vacancy_applications_vacancy_id_fkey" FOREIGN KEY ("vacancy_id") REFERENCES "public"."contractor_vacancies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."vacancy_applications"
+    ADD CONSTRAINT "vacancy_applications_worker_id_fkey" FOREIGN KEY ("worker_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."vendor_approvals"
     ADD CONSTRAINT "vendor_approvals_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id") ON DELETE CASCADE;
 
@@ -3984,6 +4242,46 @@ ALTER TABLE ONLY "public"."work_reviews"
 
 ALTER TABLE ONLY "public"."work_reviews"
     ADD CONSTRAINT "work_reviews_reviewer_user_id_fkey" FOREIGN KEY ("reviewer_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."worker_applications"
+    ADD CONSTRAINT "worker_applications_vacancy_id_fkey" FOREIGN KEY ("vacancy_id") REFERENCES "public"."vacancies"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."worker_applications"
+    ADD CONSTRAINT "worker_applications_worker_user_id_fkey" FOREIGN KEY ("worker_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."worker_availability"
+    ADD CONSTRAINT "worker_availability_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."worker_certifications"
+    ADD CONSTRAINT "worker_certifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."worker_invitations"
+    ADD CONSTRAINT "worker_invitations_contractor_company_id_fkey" FOREIGN KEY ("contractor_company_id") REFERENCES "public"."contractor_companies"("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_invitations"
+    ADD CONSTRAINT "worker_invitations_vacancy_id_fkey" FOREIGN KEY ("vacancy_id") REFERENCES "public"."vacancies"("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_invitations"
+    ADD CONSTRAINT "worker_invitations_worker_user_id_fkey" FOREIGN KEY ("worker_user_id") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."worker_profiles"
+    ADD CONSTRAINT "worker_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -4436,6 +4734,21 @@ CREATE POLICY "contractor_public_profiles_update_owner" ON "public"."contractor_
   WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"())) WITH CHECK (((EXISTS ( SELECT 1
    FROM "public"."contractor_companies" "c"
   WHERE (("c"."id" = "contractor_public_profiles"."company_id") AND ("c"."owner_user_id" = "auth"."uid"())))) OR "public"."is_admin"()));
+
+
+
+ALTER TABLE "public"."contractor_vacancies" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "contractor_vacancies_company_manage" ON "public"."contractor_vacancies" TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "cc"
+  WHERE (("cc"."id" = "contractor_vacancies"."contractor_company_id") AND ("cc"."owner_id" = "auth"."uid"()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."contractor_companies" "cc"
+  WHERE (("cc"."id" = "contractor_vacancies"."contractor_company_id") AND ("cc"."owner_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "contractor_vacancies_public_read" ON "public"."contractor_vacancies" FOR SELECT TO "authenticated" USING ((("is_public" = true) AND ("status" = 'open'::"text")));
 
 
 
@@ -5060,6 +5373,41 @@ CREATE POLICY "teams_update_own" ON "public"."teams" FOR UPDATE USING ((EXISTS (
 
 
 
+ALTER TABLE "public"."vacancies" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "vacancies_public_read" ON "public"."vacancies" FOR SELECT USING (true);
+
+
+
+ALTER TABLE "public"."vacancy_applications" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "vacancy_applications_contractor_read_company" ON "public"."vacancy_applications" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM ("public"."contractor_vacancies" "cv"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "cv"."contractor_company_id")))
+  WHERE (("cv"."id" = "vacancy_applications"."vacancy_id") AND ("cc"."owner_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "vacancy_applications_contractor_update_company" ON "public"."vacancy_applications" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM ("public"."contractor_vacancies" "cv"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "cv"."contractor_company_id")))
+  WHERE (("cv"."id" = "vacancy_applications"."vacancy_id") AND ("cc"."owner_id" = "auth"."uid"()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM ("public"."contractor_vacancies" "cv"
+     JOIN "public"."contractor_companies" "cc" ON (("cc"."id" = "cv"."contractor_company_id")))
+  WHERE (("cv"."id" = "vacancy_applications"."vacancy_id") AND ("cc"."owner_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "vacancy_applications_worker_insert_own" ON "public"."vacancy_applications" FOR INSERT TO "authenticated" WITH CHECK (("worker_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "vacancy_applications_worker_read_own" ON "public"."vacancy_applications" FOR SELECT TO "authenticated" USING (("worker_id" = "auth"."uid"()));
+
+
+
 ALTER TABLE "public"."vendor_approvals" ENABLE ROW LEVEL SECURITY;
 
 
@@ -5089,6 +5437,47 @@ CREATE POLICY "work_reviews_insert_own" ON "public"."work_reviews" FOR INSERT TO
 
 
 CREATE POLICY "work_reviews_select_authenticated" ON "public"."work_reviews" FOR SELECT TO "authenticated" USING (true);
+
+
+
+ALTER TABLE "public"."worker_applications" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "worker_apply_own" ON "public"."worker_applications" FOR INSERT WITH CHECK (("worker_user_id" = "auth"."uid"()));
+
+
+
+ALTER TABLE "public"."worker_invitations" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "worker_profile_self" ON "public"."worker_profiles" USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
+
+
+
+ALTER TABLE "public"."worker_profiles" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "worker_profiles_admin_select" ON "public"."worker_profiles" FOR SELECT TO "authenticated" USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "worker_profiles_insert_own" ON "public"."worker_profiles" FOR INSERT TO "authenticated" WITH CHECK (("user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "worker_profiles_select_own" ON "public"."worker_profiles" FOR SELECT TO "authenticated" USING (("user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "worker_profiles_update_own" ON "public"."worker_profiles" FOR UPDATE TO "authenticated" USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "worker_view_invitations" ON "public"."worker_invitations" FOR SELECT USING (("worker_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "worker_view_own" ON "public"."worker_applications" FOR SELECT USING (("worker_user_id" = "auth"."uid"()));
 
 
 
@@ -5623,6 +6012,12 @@ GRANT ALL ON TABLE "public"."contractor_public_profiles" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."contractor_vacancies" TO "anon";
+GRANT ALL ON TABLE "public"."contractor_vacancies" TO "authenticated";
+GRANT ALL ON TABLE "public"."contractor_vacancies" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "anon";
 GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "authenticated";
 GRANT ALL ON TABLE "public"."customer_agreement_templates" TO "service_role";
@@ -5845,6 +6240,18 @@ GRANT ALL ON TABLE "public"."team_members" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."vacancies" TO "anon";
+GRANT ALL ON TABLE "public"."vacancies" TO "authenticated";
+GRANT ALL ON TABLE "public"."vacancies" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."vacancy_applications" TO "anon";
+GRANT ALL ON TABLE "public"."vacancy_applications" TO "authenticated";
+GRANT ALL ON TABLE "public"."vacancy_applications" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "anon";
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "authenticated";
 GRANT ALL ON TABLE "public"."vendor_approvals" TO "service_role";
@@ -5854,6 +6261,36 @@ GRANT ALL ON TABLE "public"."vendor_approvals" TO "service_role";
 GRANT ALL ON TABLE "public"."work_reviews" TO "anon";
 GRANT ALL ON TABLE "public"."work_reviews" TO "authenticated";
 GRANT ALL ON TABLE "public"."work_reviews" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."worker_applications" TO "anon";
+GRANT ALL ON TABLE "public"."worker_applications" TO "authenticated";
+GRANT ALL ON TABLE "public"."worker_applications" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."worker_availability" TO "anon";
+GRANT ALL ON TABLE "public"."worker_availability" TO "authenticated";
+GRANT ALL ON TABLE "public"."worker_availability" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."worker_certifications" TO "anon";
+GRANT ALL ON TABLE "public"."worker_certifications" TO "authenticated";
+GRANT ALL ON TABLE "public"."worker_certifications" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."worker_invitations" TO "anon";
+GRANT ALL ON TABLE "public"."worker_invitations" TO "authenticated";
+GRANT ALL ON TABLE "public"."worker_invitations" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."worker_profiles" TO "anon";
+GRANT ALL ON TABLE "public"."worker_profiles" TO "authenticated";
+GRANT ALL ON TABLE "public"."worker_profiles" TO "service_role";
 
 
 

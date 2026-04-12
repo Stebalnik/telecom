@@ -1,8 +1,8 @@
 # Project Context Snapshot
 
-Generated: Thu Apr  9 21:07:51 EDT 2026
+Generated: Sun Apr 12 01:11:17 EDT 2026
 
-Export folder: docs/export_files/2026-04-09_21-07-51
+Export folder: docs/export_files/2026-04-12_01-11-17
 
 ## 1. Directory tree
 ```
@@ -49,6 +49,12 @@ app/api/checkout/create
 app/api/coi
 app/api/coi/signed-upload
 app/api/coi/signed-url
+app/api/contractor
+app/api/contractor/hr
+app/api/contractor/hr/applications
+app/api/contractor/hr/invitations
+app/api/contractor/hr/vacancies
+app/api/contractor/hr/workers
 app/api/customer
 app/api/customer-approvals
 app/api/customer-approvals/request
@@ -59,6 +65,14 @@ app/api/errors/log
 app/api/feedback
 app/api/feedback/[id]
 app/api/feedback/[id]/messages
+app/api/worker
+app/api/worker/applications
+app/api/worker/availability
+app/api/worker/certifications
+app/api/worker/insurance
+app/api/worker/invitations
+app/api/worker/profile
+app/api/worker/vacancies
 app/contractor
 app/contractor-agreement
 app/contractor/agreements
@@ -71,6 +85,10 @@ app/contractor/company/change-request 2
 app/contractor/customers
 app/contractor/customers/[customerId]
 app/contractor/customers/[customerId]/resources
+app/contractor/hr
+app/contractor/hr/invitations
+app/contractor/hr/vacancies
+app/contractor/hr/workers
 app/contractor/insurance
 app/contractor/jobs
 app/contractor/jobs/[id]
@@ -120,12 +138,22 @@ app/privacy
 app/reset-password
 app/signup
 app/terms
+app/worker
+app/worker-agreement
+app/worker/applications
+app/worker/availability
+app/worker/certifications
+app/worker/insurance
+app/worker/invitations
+app/worker/profile
+app/worker/vacancies
 components
 components/analytics
 lib
 lib/admin
 lib/analytics
 lib/errors
+lib/geo
 lib/server
 lib/supabase
 public
@@ -183,6 +211,10 @@ app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/api/contractor/hr/applications/route.ts
+app/api/contractor/hr/invitations/route.ts
+app/api/contractor/hr/vacancies/route.ts
+app/api/contractor/hr/workers/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
 app/api/errors/.DS_Store
@@ -190,6 +222,13 @@ app/api/errors/log/route.ts
 app/api/feedback/[id]/messages/route.ts
 app/api/feedback/[id]/route.ts
 app/api/feedback/route.ts
+app/api/worker/applications/route.ts
+app/api/worker/availability/route.ts
+app/api/worker/certifications/route.ts
+app/api/worker/insurance/route.ts
+app/api/worker/invitations/route.ts
+app/api/worker/profile/route.ts
+app/api/worker/vacancies/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -199,6 +238,10 @@ app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
 app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
+app/contractor/hr/invitations/page.tsx
+app/contractor/hr/page.tsx
+app/contractor/hr/vacancies/page.tsx
+app/contractor/hr/workers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
@@ -256,6 +299,16 @@ app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
 app/terms/page.tsx
+app/worker-agreement/page.tsx
+app/worker/applications/page.tsx
+app/worker/availability/page.tsx
+app/worker/certifications/page.tsx
+app/worker/insurance/page.tsx
+app/worker/invitations/page.tsx
+app/worker/layout.tsx
+app/worker/page.tsx
+app/worker/profile/page.tsx
+app/worker/vacancies/page.tsx
 components/.DS_Store
 components/AdminSidebar.tsx
 components/analytics/TrackPageView.tsx
@@ -286,6 +339,7 @@ lib/errors/normalizeError.ts
 lib/errors/unwrapSupabase.ts
 lib/errors/withErrorLogging.ts
 lib/errors/withServerErrorLogging.ts
+lib/geo/usStates.ts
 lib/jobFiles.ts
 lib/jobs.ts
 lib/logError.ts
@@ -348,12 +402,23 @@ app/api/auth/forgot-password/route.ts
 app/api/checkout/create/route.ts
 app/api/coi/signed-upload/route.ts
 app/api/coi/signed-url/route.ts
+app/api/contractor/hr/applications/route.ts
+app/api/contractor/hr/invitations/route.ts
+app/api/contractor/hr/vacancies/route.ts
+app/api/contractor/hr/workers/route.ts
 app/api/customer-approvals/request/route.ts
 app/api/customer/resources/acknowledge/route.ts
 app/api/errors/log/route.ts
 app/api/feedback/[id]/messages/route.ts
 app/api/feedback/[id]/route.ts
 app/api/feedback/route.ts
+app/api/worker/applications/route.ts
+app/api/worker/availability/route.ts
+app/api/worker/certifications/route.ts
+app/api/worker/insurance/route.ts
+app/api/worker/invitations/route.ts
+app/api/worker/profile/route.ts
+app/api/worker/vacancies/route.ts
 app/contractor-agreement/page.tsx
 app/contractor/agreements/page.tsx
 app/contractor/bids/page.tsx
@@ -363,6 +428,10 @@ app/contractor/company/change-request/page.tsx
 app/contractor/company/page.tsx
 app/contractor/customers/[customerId]/resources/page.tsx
 app/contractor/customers/page.tsx
+app/contractor/hr/invitations/page.tsx
+app/contractor/hr/page.tsx
+app/contractor/hr/vacancies/page.tsx
+app/contractor/hr/workers/page.tsx
 app/contractor/insurance/page.tsx
 app/contractor/jobs/[id]/page.tsx
 app/contractor/jobs/page.tsx
@@ -418,6 +487,16 @@ app/privacy/page.tsx
 app/reset-password/page.tsx
 app/signup/page.tsx
 app/terms/page.tsx
+app/worker-agreement/page.tsx
+app/worker/applications/page.tsx
+app/worker/availability/page.tsx
+app/worker/certifications/page.tsx
+app/worker/insurance/page.tsx
+app/worker/invitations/page.tsx
+app/worker/layout.tsx
+app/worker/page.tsx
+app/worker/profile/page.tsx
+app/worker/vacancies/page.tsx
 ```
 
 ## 4. Package.json

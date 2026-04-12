@@ -8,7 +8,7 @@ import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { createMyProfile, getMyProfile, UserRole } from "../../lib/profile";
 import { supabase } from "../../lib/supabaseClient";
 
-type PendingRole = "customer" | "contractor" | null;
+type PendingRole = "customer" | "contractor" | "specialist" | null;
 
 type AppLikeError = Error & {
   code?: string;
@@ -34,6 +34,13 @@ function getSafeDashboardErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function getRoleLabel(role: UserRole) {
+  if (role === "customer") return "Customer";
+  if (role === "contractor") return "Contractor";
+  if (role === "specialist") return "Specialist";
+  return "Admin";
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -50,7 +57,8 @@ export default function DashboardPage() {
   const [agreeBaseLegal, setAgreeBaseLegal] = useState(false);
   const [agreeRoleLegal, setAgreeRoleLegal] = useState(false);
 
-  const [selectedSupportAmount, setSelectedSupportAmount] = useState<number>(13);
+  const [selectedSupportAmount, setSelectedSupportAmount] =
+    useState<number>(13);
   const [customSupportAmount, setCustomSupportAmount] = useState<string>("");
 
   useEffect(() => {
@@ -118,6 +126,11 @@ export default function DashboardPage() {
             return;
           }
 
+          if (nextRole === "specialist") {
+            router.replace("/worker/profile");
+            return;
+          }
+
           if (nextRole === "admin") {
             router.replace("/admin");
             return;
@@ -140,7 +153,7 @@ export default function DashboardPage() {
     };
   }, [router]);
 
-  function beginRoleSelection(nextRole: "customer" | "contractor") {
+  function beginRoleSelection(nextRole: "customer" | "contractor" | "specialist") {
     setPendingRole(nextRole);
     setAgreeBaseLegal(false);
     setAgreeRoleLegal(false);
@@ -163,20 +176,17 @@ export default function DashboardPage() {
 
     try {
       try {
-        await withErrorLogging(
-          () => createMyProfile(pendingRole),
-          {
-            message: "dashboard_create_profile_failed",
-            code: "dashboard_create_profile_failed",
-            source: "frontend",
-            area: "auth",
-            role: pendingRole,
-            path: "/dashboard",
-            details: {
-              selectedRole: pendingRole,
-            },
-          }
-        );
+        await withErrorLogging(() => createMyProfile(pendingRole), {
+          message: "dashboard_create_profile_failed",
+          code: "dashboard_create_profile_failed",
+          source: "frontend",
+          area: "auth",
+          role: pendingRole,
+          path: "/dashboard",
+          details: {
+            selectedRole: pendingRole,
+          },
+        });
       } catch (error) {
         const existingProfile = (await getMyProfile()) as DashboardProfile;
 
@@ -194,6 +204,11 @@ export default function DashboardPage() {
 
       if (pendingRole === "contractor") {
         router.replace("/contractor/onboarding");
+        return;
+      }
+
+      if (pendingRole === "specialist") {
+        router.replace("/worker/profile");
         return;
       }
     } catch (error) {
@@ -244,7 +259,11 @@ export default function DashboardPage() {
   const finalSupportAmount = useMemo(() => {
     const custom = Number(customSupportAmount);
 
-    if (customSupportAmount.trim() !== "" && Number.isFinite(custom) && custom > 0) {
+    if (
+      customSupportAmount.trim() !== "" &&
+      Number.isFinite(custom) &&
+      custom > 0
+    ) {
       return Math.round(custom * 100) / 100;
     }
 
@@ -314,6 +333,13 @@ export default function DashboardPage() {
     }
   }
 
+  const roleTitle =
+    pendingRole === "customer"
+      ? "Customer agreements"
+      : pendingRole === "contractor"
+      ? "Contractor agreements"
+      : "Specialist agreements";
+
   return (
     <main className="min-h-screen bg-[#F4F8FC] px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -324,7 +350,8 @@ export default function DashboardPage() {
                 Dashboard
               </h1>
               <p className="mt-2 text-sm text-[#4B5563]">
-                Choose your workspace, complete required agreements, and continue.
+                Choose your workspace, complete required agreements, and
+                continue.
               </p>
             </div>
 
@@ -366,11 +393,11 @@ export default function DashboardPage() {
                   Choose your role
                 </h2>
                 <p className="mt-2 text-sm text-[#4B5563]">
-                  Select the workspace you want to use. This is currently a one-time
-                  selection.
+                  Select the workspace you want to use. This is currently a
+                  one-time selection.
                 </p>
 
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
                   <button
                     type="button"
                     className="rounded-2xl border border-[#D9E2EC] bg-white p-5 text-left shadow-sm transition hover:bg-[#F8FAFC]"
@@ -380,8 +407,8 @@ export default function DashboardPage() {
                       I am a Customer
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                      Post jobs, manage contractor approvals, and control compliance
-                      requirements.
+                      Post jobs, manage contractor approvals, and control
+                      compliance requirements.
                     </p>
                   </button>
 
@@ -394,8 +421,22 @@ export default function DashboardPage() {
                       I am a Contractor
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-                      Build your profile, upload COI and certifications, and bid on
-                      jobs.
+                      Build your profile, upload COI and certifications, and bid
+                      on jobs.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-[#D9E2EC] bg-white p-5 text-left shadow-sm transition hover:bg-[#F8FAFC]"
+                    onClick={() => beginRoleSelection("specialist")}
+                  >
+                    <div className="text-lg font-semibold text-[#0A2E5C]">
+                      I am a Specialist
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                      Create your individual profile, add certifications and
+                      availability, view vacancies, and respond to invitations.
                     </p>
                   </button>
                 </div>
@@ -405,9 +446,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-[#111827]">
-                      {pendingRole === "customer"
-                        ? "Customer agreements"
-                        : "Contractor agreements"}
+                      {roleTitle}
                     </h2>
                     <p className="mt-2 text-sm text-[#4B5563]">
                       Please review and accept the required agreements before
@@ -476,7 +515,7 @@ export default function DashboardPage() {
                           </Link>
                           .
                         </>
-                      ) : (
+                      ) : pendingRole === "contractor" ? (
                         <>
                           I agree to the{" "}
                           <Link
@@ -486,6 +525,19 @@ export default function DashboardPage() {
                             className="text-[#1F6FB5] hover:underline"
                           >
                             Contractor Agreement
+                          </Link>
+                          .
+                        </>
+                      ) : (
+                        <>
+                          I agree to the{" "}
+                          <Link
+                            href="/worker-agreement"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#1F6FB5] hover:underline"
+                          >
+                            Specialist Agreement
                           </Link>
                           .
                         </>
@@ -576,7 +628,8 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="mt-3 text-sm leading-6 text-[#4B5563]">
-                  This opens a secure Stripe Checkout page for a one-time payment.
+                  This opens a secure Stripe Checkout page for a one-time
+                  payment.
                 </p>
 
                 <button
@@ -610,7 +663,9 @@ export default function DashboardPage() {
 
             <p className="mt-2 text-sm text-[#4B5563]">
               Current role:{" "}
-              <span className="font-medium text-[#111827]">{role}</span>
+              <span className="font-medium text-[#111827]">
+                {getRoleLabel(role)}
+              </span>
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -629,6 +684,15 @@ export default function DashboardPage() {
                   href="/contractor/onboarding"
                 >
                   Continue Contractor onboarding
+                </a>
+              ) : null}
+
+              {role === "specialist" ? (
+                <a
+                  className="rounded-xl bg-[#1F6FB5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+                  href="/worker/profile"
+                >
+                  Go to Specialist profile
                 </a>
               ) : null}
 

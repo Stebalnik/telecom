@@ -20,6 +20,11 @@ const navItems: NavItem[] = [
     match: ["/contractor/customers"],
   },
   {
+    href: "/contractor/hr",
+    label: "HR Center",
+    match: ["/contractor/hr"],
+  },
+  {
     href: "/contractor/resources",
     label: "Resources",
     match: ["/contractor/resources"],
@@ -42,8 +47,14 @@ const navItems: NavItem[] = [
 ];
 
 function pathMatches(pathname: string, href: string) {
-  if (href === "/contractor") return pathname === href;
-  if (href === "/feedback") return pathname === href;
+  if (href === "/contractor") {
+    return pathname === href;
+  }
+
+  if (href === "/feedback") {
+    return pathname === href;
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -51,6 +62,7 @@ function isActive(pathname: string, item: NavItem) {
   if (item.match?.length) {
     return item.match.some((prefix) => pathMatches(pathname, prefix));
   }
+
   return pathMatches(pathname, item.href);
 }
 
