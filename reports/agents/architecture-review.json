@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T16:30:31.569Z",
-  "task_id": "TASK-0039",
-  "title": "Full auth/session QA",
-  "area": "infrastructure",
+  "generated_at": "2026-05-22T17:13:58.194Z",
+  "task_id": "TASK-0040",
+  "title": "Full Supabase permission QA",
+  "area": "security",
   "type": "feature",
   "assigned_agent": "Reviewer Agent + Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full auth/session QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Full Supabase permission QA\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
