@@ -1,9 +1,10 @@
 {
-  "generated_at": "2026-05-22T04:11:03.314Z",
+  "generated_at": "2026-05-22T04:22:52.058Z",
   "passed": true,
   "allowed_verification_commands": [
     "npm run agents:verify",
     "npm run agents:self-verify",
+    "npm run agents:coding-loop",
     "npm run build"
   ],
   "checks": [
@@ -19,13 +20,13 @@
       "name": "current task",
       "passed": true,
       "errors": [],
-      "task_id": "TASK-0005"
+      "task_id": "TASK-0006"
     },
     {
       "name": "implementation packet",
       "passed": true,
       "errors": [],
-      "task_id": "TASK-0005"
+      "task_id": "TASK-0006"
     },
     {
       "name": "verification report",

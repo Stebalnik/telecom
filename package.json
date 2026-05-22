@@ -18,6 +18,7 @@
     "agents:complete": "node scripts/agents/complete-current-task.mjs",
     "agents:status": "node scripts/agents/agent-status.mjs",
     "agents:packet": "node scripts/agents/create-implementation-packet.mjs",
+    "agents:coding-loop": "node scripts/agents/run-coding-loop.mjs",
     "agents:start-cycle": "node scripts/agents/start-agent-cycle.mjs",
     "agents:finalize-cycle": "node scripts/agents/finalize-agent-cycle.mjs",
     "docs:update": "bash ./scripts/update_project_docs.sh",

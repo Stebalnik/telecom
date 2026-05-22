@@ -17,6 +17,7 @@ import { join } from "node:path";
 const allowedVerificationCommands = new Set([
   "npm run agents:verify",
   "npm run agents:self-verify",
+  "npm run agents:coding-loop",
   "npm run build",
 ]);
 

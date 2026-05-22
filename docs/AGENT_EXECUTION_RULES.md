@@ -20,6 +20,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Agent cycles must pass branch isolation before claim, implementation packet generation, verification, or completion.
 - Agent cycles must stop on protected branches including `main`, `master`, `production`, and `prod`.
 - Agents may generate merge-readiness reports, but they must never merge or auto-merge.
+- The autonomous coding loop may prepare implementation context and reports, but it must not call AI APIs or edit files by itself.
 
 ## Agent Roles
 
@@ -102,6 +103,7 @@ The Phase 2 local task runner may run only these hardcoded commands:
 
 - `npm run agents:verify`
 - `npm run agents:self-verify`
+- `npm run agents:coding-loop`
 - `npm run agents:merge-ready`
 - `npm run build`
 

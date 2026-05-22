@@ -114,6 +114,19 @@ Phase 3 adds an implementation packet so Codex receives one precise, auditable t
 
 The packet workflow does not call AI APIs, deploy, merge, execute task-provided commands, or edit production files.
 
+## Autonomous Coding Loop
+
+The autonomous coding loop is a deterministic preparation step, not an AI executor. `npm run agents:coding-loop` validates the claimed task, branch isolation, and implementation packet, then writes `reports/agents/current-coding-loop.json`.
+
+The coding loop records:
+
+- The claimed task and assigned agent.
+- The validated implementation packet path.
+- Safety flags confirming no AI APIs, automatic code edits, arbitrary task commands, deployments, or merges occurred.
+- The expected phases from packet validation through manual Codex implementation, verification, and completion.
+
+Codex still performs implementation inside the workspace using the packet as the single source of truth. The loop exists to make the handoff auditable and repeatable.
+
 ## Preview Runtime Usage
 
 The preview runtime is used for human validation and non-production smoke testing. Agents may recommend preview checks and document expected routes to inspect. Agents must not treat preview success as permission to deploy.
