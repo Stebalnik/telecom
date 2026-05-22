@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
+  assertBranchIsolation,
   currentVerificationPath,
   readJsonFile,
   root,
@@ -21,6 +22,14 @@ function runStep(command, allowFailure = false) {
   }
 
   return result.status ?? 1;
+}
+
+try {
+  const isolation = assertBranchIsolation();
+  console.log(`Branch isolation passed: ${isolation.branch} in ${isolation.workspace}`);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
 }
 
 const verifyExit = runStep(["npm", "run", "agents:verify-current"], true);

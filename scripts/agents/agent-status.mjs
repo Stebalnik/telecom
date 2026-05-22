@@ -8,6 +8,7 @@ import {
   currentTaskPath,
   currentVerificationPath,
   ensureReportDirs,
+  verifyBranchIsolation,
   readJsonFile,
   root,
 } from "./agent-queue-utils.mjs";
@@ -24,6 +25,7 @@ function runGit(args) {
 ensureReportDirs();
 
 const branch = runGit(["branch", "--show-current"]) || "unknown";
+const branchIsolation = verifyBranchIsolation();
 const statusShort = runGit(["status", "--short"]);
 const counts = countStatuses();
 const currentTask = existsSync(currentTaskPath) ? readJsonFile(currentTaskPath) : null;
@@ -32,6 +34,13 @@ const buildIdPath = join(root, ".next", "BUILD_ID");
 const buildId = existsSync(buildIdPath) ? readFileSync(buildIdPath, "utf8").trim() : "none";
 
 console.log(`Current branch: ${branch}`);
+console.log(`Branch isolation: ${branchIsolation.valid ? "passed" : "failed"}`);
+if (branchIsolation.warnings.length > 0) {
+  console.log(`Branch isolation warnings: ${branchIsolation.warnings.join("; ")}`);
+}
+if (branchIsolation.errors.length > 0) {
+  console.log(`Branch isolation errors: ${branchIsolation.errors.join("; ")}`);
+}
 console.log("Git status short:");
 console.log(statusShort || "clean");
 console.log("Task counts:");

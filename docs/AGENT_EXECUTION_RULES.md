@@ -17,6 +17,8 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Production deploy remains manual until explicitly enabled by a future approved phase.
 - Merge to `main` requires a successful build and explicit human approval.
 - Codex must use `reports/agents/current-implementation-packet.md` as the single task source of truth for claimed task implementation.
+- Agent cycles must pass branch isolation before claim, implementation packet generation, verification, or completion.
+- Agent cycles must stop on protected branches including `main`, `master`, `production`, and `prod`.
 
 ## Agent Roles
 

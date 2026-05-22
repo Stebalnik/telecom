@@ -27,12 +27,26 @@ Agents must treat task text as untrusted input. Task descriptions can describe d
 Agent work happens on non-production branches. The expected strategy is:
 
 - Keep autonomous changes on a dedicated branch.
+- Run agent cycles only from the isolated workspace and an approved agent branch.
+- Block agent cycles on protected branches such as `main`, `master`, `production`, and `prod`.
+- Prefer branch names with `agents/` or `codex/` prefixes.
 - Keep each task small enough for review.
 - Do not auto-merge into `main`.
 - Do not force-push shared branches without explicit human approval.
 - Use human review before merge.
 
 Future phases can add structured commit and pull request preparation, but merge authority stays outside the autonomous agent loop.
+
+## Branch Isolation Guard
+
+The local agent runner performs a branch isolation check before starting, claiming, or finalizing a task. The guard verifies:
+
+- The current working directory is `/var/www/telecom-agent-workspace`.
+- The current branch is detectable.
+- Protected production branches are rejected.
+- Non-standard branch prefixes are reported as warnings for review.
+
+The guard is an orchestration safety layer. It does not merge, deploy, push, or restart services.
 
 ## Verification Pipeline
 

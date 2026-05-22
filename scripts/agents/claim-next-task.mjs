@@ -4,6 +4,7 @@ import {
   currentImplementationPacketPath,
   currentTaskPath,
   currentVerificationPath,
+  assertBranchIsolation,
   ensureReportDirs,
   findFirstPendingTask,
   removeFileIfExists,
@@ -47,6 +48,7 @@ function createSafeExecutionPlan(task, assignedAgent) {
 }
 
 ensureReportDirs();
+const branchIsolation = assertBranchIsolation();
 
 if (existsSync(currentTaskPath)) {
   console.log("A current task already exists. Complete or archive it before claiming another task.");
@@ -74,6 +76,9 @@ const currentTask = {
   priority: claimedTask.priority,
   status: "in_progress",
   assigned_agent: assignedAgent,
+  branch: branchIsolation.branch,
+  workspace: branchIsolation.workspace,
+  branch_isolation: branchIsolation,
   queue_file: claimedTask.queue_file,
   queue_path: claimedTask.queue_path,
   claimed_at: new Date().toISOString(),

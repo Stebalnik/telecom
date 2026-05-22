@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { basename, join } from "node:path";
 
 export const root = process.cwd();
+export const expectedWorkspaceRoot = "/var/www/telecom-agent-workspace";
 export const reportsDir = join(root, "reports", "agents");
 export const historyDir = join(reportsDir, "history");
 export const currentTaskPath = join(reportsDir, "current-task.json");
@@ -13,9 +15,64 @@ const queueFilePriority = [
   "docs/AGENT_TASK_QUEUE.md",
 ];
 
+const protectedBranches = new Set(["main", "master", "production", "prod"]);
+const allowedBranchPrefixes = ["agents/", "codex/"];
+
 export function ensureReportDirs() {
   mkdirSync(reportsDir, { recursive: true });
   mkdirSync(historyDir, { recursive: true });
+}
+
+export function getCurrentGitBranch() {
+  const result = spawnSync("git", ["branch", "--show-current"], {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+  });
+
+  return (result.stdout ?? "").trim();
+}
+
+export function verifyBranchIsolation() {
+  const branch = getCurrentGitBranch();
+  const errors = [];
+  const warnings = [];
+
+  if (root !== expectedWorkspaceRoot) {
+    errors.push(`Agent runner must execute from ${expectedWorkspaceRoot}; received ${root}`);
+  }
+
+  if (!branch) {
+    errors.push("Could not determine the current git branch");
+  } else if (protectedBranches.has(branch)) {
+    errors.push(`Protected branch is not allowed for agent execution: ${branch}`);
+  } else if (!allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix))) {
+    warnings.push(`Branch does not use a standard agent prefix: ${branch}`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    branch,
+    workspace: root,
+    expected_workspace: expectedWorkspaceRoot,
+    protected_branches: [...protectedBranches],
+    allowed_branch_prefixes: allowedBranchPrefixes,
+    errors,
+    warnings,
+  };
+}
+
+export function assertBranchIsolation() {
+  const result = verifyBranchIsolation();
+  if (!result.valid) {
+    const message = [
+      "Agent branch isolation check failed:",
+      ...result.errors.map((error) => `- ${error}`),
+    ].join("\n");
+    throw new Error(message);
+  }
+
+  return result;
 }
 
 export function readQueueFiles() {

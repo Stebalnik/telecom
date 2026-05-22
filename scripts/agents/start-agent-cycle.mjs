@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { root } from "./agent-queue-utils.mjs";
+import { assertBranchIsolation, root } from "./agent-queue-utils.mjs";
 
 const steps = [
   ["npm", "run", "agents:status"],
   ["npm", "run", "agents:claim"],
   ["npm", "run", "agents:packet"],
 ];
+
+try {
+  const isolation = assertBranchIsolation();
+  console.log(`Branch isolation passed: ${isolation.branch} in ${isolation.workspace}`);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 function runStep(command) {
   const result = spawnSync(command[0], command.slice(1), {
