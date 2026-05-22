@@ -88,6 +88,26 @@ function canUseAvailability(
   );
 }
 
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
 export default function WorkerAvailabilityPage() {
   const [rows, setRows] = useState<AvailabilityFormRow[]>(createDefaultRows);
   const [loading, setLoading] = useState(true);
@@ -106,6 +126,25 @@ export default function WorkerAvailabilityPage() {
 
   const availableCount = useMemo(() => {
     return rows.filter((row) => row.is_available).length;
+  }, [rows]);
+
+  const availabilitySummary = useMemo(() => {
+    const availableRows = rows.filter((row) => row.is_available);
+    const markets = new Set(
+      availableRows
+        .map((row) => row.market.trim())
+        .filter((market) => market.length > 0)
+    );
+    const missingDetails = availableRows.filter(
+      (row) => !row.market.trim() || !row.time_notes.trim()
+    ).length;
+
+    return {
+      availableDays: availableRows.length,
+      unavailableDays: rows.length - availableRows.length,
+      markets: markets.size,
+      missingDetails,
+    };
   }, [rows]);
 
   useEffect(() => {
@@ -263,6 +302,24 @@ export default function WorkerAvailabilityPage() {
             }
           : row
       )
+    );
+  }
+
+  function setWeekdayAvailability(isAvailable: boolean) {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        is_available: isAvailable,
+      }))
+    );
+  }
+
+  function setBusinessDaysAvailable() {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        is_available: !["Saturday", "Sunday"].includes(row.weekday),
+      }))
     );
   }
 
@@ -449,16 +506,72 @@ export default function WorkerAvailabilityPage() {
 
       {!loading && availabilityEnabled ? (
         <>
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              label="Available"
+              value={availabilitySummary.availableDays}
+              detail="Days selected this week"
+            />
+            <SummaryCard
+              label="Unavailable"
+              value={availabilitySummary.unavailableDays}
+              detail="Days not accepting work"
+            />
+            <SummaryCard
+              label="Markets"
+              value={availabilitySummary.markets}
+              detail="Markets covered by available days"
+            />
+            <SummaryCard
+              label="Needs details"
+              value={availabilitySummary.missingDetails}
+              detail="Available days missing market or time notes"
+            />
+          </section>
+
           <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
-            <div className="text-sm text-[#4B5563]">Available days selected</div>
-            <div className="mt-2 text-3xl font-semibold text-[#0A2E5C]">
-              {availableCount}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Weekly availability workflow
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                  Pick available days, add the target market, then include time
+                  notes so contractors can match you to the right work window.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={setBusinessDaysAvailable}
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                >
+                  Weekdays
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeekdayAvailability(true)}
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                >
+                  All days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeekdayAvailability(false)}
+                  className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+                >
+                  Clear days
+                </button>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-[#4B5563]">
-              This is the initial weekly availability setup. Later this can be
-              expanded into repeating windows, date ranges, and calendar-based
-              availability.
-            </p>
+
+            {availableCount > 0 && availabilitySummary.missingDetails > 0 ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Add market and time notes for each available day before saving
+                so your availability is actionable.
+              </div>
+            ) : null}
           </section>
 
           <form
