@@ -1,29 +1,29 @@
 {
-  "generated_at": "2026-05-22T14:02:52.806Z",
+  "generated_at": "2026-05-22T14:06:44.090Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M app/customer/contractors/all/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-22T14-02-52-213Z-TASK-0027-current-task.json",
+  "working_tree_status": "M app/customer/requests/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-22T14-06-43-565Z-TASK-0028-current-task.json",
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0027",
+    "task_id": "TASK-0028",
     "passed": true,
-    "finished_at": "2026-05-22T14:02:51.903Z"
+    "finished_at": "2026-05-22T14:06:43.270Z"
   },
   "audit_summary": {
     "total_tasks": 34,
-    "completed": 27,
+    "completed": 28,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 7,
-    "commit_ready": 27,
+    "pending": 6,
+    "commit_ready": 28,
     "latest_successful_build": {
-      "build_id": "CclDFToVhkMpm5y2p56wR",
-      "detected_at": "2026-05-22T14:02:49.734Z"
+      "build_id": "Hq6jLEto8uONYbdd4riPV",
+      "detected_at": "2026-05-22T14:06:40.819Z"
     }
   },
   "required_human_actions": [
@@ -49,13 +49,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0027",
-      "finished_at": "2026-05-22T14:02:51.903Z"
+      "task_id": "TASK-0028",
+      "finished_at": "2026-05-22T14:06:43.270Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-22T14:01:55.098Z"
+      "generated_at": "2026-05-22T14:05:40.057Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -68,8 +68,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "CclDFToVhkMpm5y2p56wR",
-        "detected_at": "2026-05-22T14:02:49.734Z"
+        "build_id": "Hq6jLEto8uONYbdd4riPV",
+        "detected_at": "2026-05-22T14:06:40.819Z"
       }
     }
   ]
