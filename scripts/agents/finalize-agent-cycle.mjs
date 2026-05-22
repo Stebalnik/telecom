@@ -33,6 +33,9 @@ try {
 }
 
 const verifyExit = runStep(["npm", "run", "agents:verify-current"], true);
+if (verifyExit !== 0) {
+  runStep(["npm", "run", "agents:recovery"]);
+}
 runStep(["npm", "run", "agents:complete"]);
 runStep(["npm", "run", "agents:audit"]);
 runStep(["npm", "run", "agents:merge-ready"]);

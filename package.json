@@ -23,6 +23,7 @@
     "agents:packet": "node scripts/agents/create-implementation-packet.mjs",
     "agents:coding-loop": "node scripts/agents/run-coding-loop.mjs",
     "agents:architecture-review": "node scripts/agents/create-architecture-review.mjs",
+    "agents:recovery": "node scripts/agents/create-recovery-report.mjs",
     "agents:start-cycle": "node scripts/agents/start-agent-cycle.mjs",
     "agents:finalize-cycle": "node scripts/agents/finalize-agent-cycle.mjs",
     "docs:update": "bash ./scripts/update_project_docs.sh",

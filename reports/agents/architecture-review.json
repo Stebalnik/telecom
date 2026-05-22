@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-22T04:49:21.244Z",
-  "task_id": "TASK-0009",
-  "title": "Implement architecture reviewer",
+  "generated_at": "2026-05-22T04:53:24.966Z",
+  "task_id": "TASK-0010",
+  "title": "Implement lint/build recovery",
   "area": "infrastructure",
   "type": "feature",
-  "assigned_agent": "Architect Agent",
+  "assigned_agent": "Coder Agent",
   "branch_isolation": {
     "valid": true,
     "branch": "agents/dev-system",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Implement architecture reviewer\" with scoped, reviewable changes.",
+    "Implement the task described by \"Implement lint/build recovery\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

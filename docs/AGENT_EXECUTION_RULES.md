@@ -26,6 +26,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Autonomous loops must stop for Codex implementation after generating an implementation packet.
 - Failed tasks must be blocked after the retry limit is reached.
 - A task that fails verification before the retry limit may return to `pending` for correction.
+- Recovery reports may classify verification failures, but they must not automatically edit code.
 - Human review is required before any merge to `main`.
 - Task claiming must be deterministic, dependency-aware, and limited to pending tasks.
 - Architecture review reports are advisory and must not replace human review for security-sensitive changes.
@@ -113,6 +114,7 @@ The Phase 2 local task runner may run only these hardcoded commands:
 - `npm run agents:self-verify`
 - `npm run agents:coding-loop`
 - `npm run agents:architecture-review`
+- `npm run agents:recovery`
 - `npm run agents:merge-ready`
 - `npm run agents:pending`
 - `npm run agents:block-current`
