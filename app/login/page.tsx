@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  getSanitizedAuthErrorDetails,
+  isAuthNetworkError,
+} from "../../lib/authDiagnostics";
 import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { normalizeError } from "../../lib/errors/normalizeError";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
 
 function getErrorMessage(error: unknown) {
+  if (isAuthNetworkError(error)) {
+    return "Authentication service is temporarily unavailable. Please try again shortly.";
+  }
+
   const normalized = normalizeError(error);
   const message = String(normalized.message || "").toLowerCase();
 
@@ -125,6 +133,7 @@ export default function LoginPage() {
       router.replace("/dashboard");
       router.refresh();
     } catch (err) {
+      console.warn("login_auth_failed", getSanitizedAuthErrorDetails(err));
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
