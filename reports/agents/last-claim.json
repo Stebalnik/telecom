@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:58:00.804Z",
-  "task_id": "TASK-0051",
-  "title": "Improve monitoring visibility",
+  "claimed_at": "2026-05-22T18:01:03.305Z",
+  "task_id": "TASK-0052",
+  "title": "Improve operational metrics",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
