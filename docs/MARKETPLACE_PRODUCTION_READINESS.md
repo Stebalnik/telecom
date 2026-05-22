@@ -86,6 +86,50 @@ Run these checks in the isolated preview workspace before release. Do not deploy
 - [ ] Record `npm run build` result for the tested branch.
 - [ ] Record any skipped checks and the reason they were skipped.
 
+## Customer Workflow Smoke Test Checklist
+
+Run these checks with a customer test account in the isolated preview workspace.
+
+### Customer Access And Onboarding
+
+- [ ] Signed-out access to `/customer` redirects to `/login`.
+- [ ] Non-customer roles are redirected away from `/customer`.
+- [ ] A customer without an organization is routed to `/customer/onboarding`.
+- [ ] A submitted customer is routed to `/customer/onboarding/pending`.
+- [ ] An approved customer can load `/customer` and see the dashboard workflow panel.
+
+### Jobs And Bids
+
+- [ ] `/customer/jobs` redirects to the active jobs view.
+- [ ] `/customer/jobs/new` renders the job creation form without client errors.
+- [ ] Active and archived job lists render empty states when no jobs exist.
+- [ ] Opening a job bid review route does not expose another customer's job data.
+- [ ] Bid review links from the customer dashboard resolve to `/customer/bids`.
+
+### Contractors And Requests
+
+- [ ] `/customer/contractors` loads the contractor management area.
+- [ ] Approved and all contractor tabs render without overlap on mobile width.
+- [ ] `/customer/requests` displays pending contractor requests or a friendly empty state.
+- [ ] Approve/reject request actions show a busy state and do not duplicate submissions.
+- [ ] Question threads on requests avoid leaking raw IDs beyond expected operational context.
+
+### Resources And Compliance
+
+- [ ] `/customer/resources` lists customer resource records or an empty state.
+- [ ] Creating a new resource validates required fields before upload.
+- [ ] Resource download/edit routes enforce customer ownership.
+- [ ] `/customer/compliance` loads customer compliance controls.
+- [ ] Insurance and certificate settings screens render current saved values.
+
+### Customer Error And Security Checks
+
+- [ ] Customer API failures show non-sensitive messages.
+- [ ] Browser console has no unhandled promise rejections during customer navigation.
+- [ ] Supabase queries return only rows owned by or shared with the current customer.
+- [ ] Customer pages do not display service keys, tokens, or internal stack traces.
+- [ ] Mobile layout keeps primary customer actions visible and readable.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
