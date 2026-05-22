@@ -16,6 +16,8 @@ import {
   type ContractorBadgeMap,
 } from "../../../../lib/customers";
 
+type ContractorFilter = "all" | "verified" | "requirements" | "onboarded";
+
 function Badge({
   label,
   active,
@@ -39,6 +41,30 @@ function Badge({
   );
 }
 
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-[#1F6FB5] text-white"
+          : "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function InfoPill({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-full bg-[#F4F8FC] px-3 py-1 text-xs font-medium text-[#4B5563]">
@@ -55,6 +81,7 @@ export default function CustomerAllContractorsPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<ContractorFilter>("all");
   const [items, setItems] = useState<MarketplaceContractor[]>([]);
   const [badgeMap, setBadgeMap] = useState<ContractorBadgeMap>({});
 
@@ -63,34 +90,16 @@ export default function CustomerAllContractorsPage() {
     setErr(null);
 
     try {
-      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] load:start", {
-        searchValue,
-      });
-
       const { data } = await supabase.auth.getSession();
 
-      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] session", {
-        userId: data.session?.user?.id ?? null,
-        email: data.session?.user?.email ?? null,
-      });
-
       if (!data.session?.user) {
-        console.warn(
-          "[DEBUG][CustomerAllContractorsPage][marketplace] no session, redirect /login"
-        );
         router.replace("/login");
         return;
       }
 
       const profile = await getMyProfile();
 
-      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] profile", profile);
-
       if (!profile || profile.role !== "customer") {
-        console.warn(
-          "[DEBUG][CustomerAllContractorsPage][marketplace] role is not customer, redirect /dashboard",
-          profile?.role
-        );
         router.replace("/dashboard");
         return;
       }
@@ -101,16 +110,6 @@ export default function CustomerAllContractorsPage() {
           listMyApprovedContractorCompanyIds(),
           listMyCustomerRequiredInsuranceNames(),
         ]);
-
-      console.log(
-        "[DEBUG][CustomerAllContractorsPage][marketplace] data loaded",
-        {
-          marketplaceCount: marketplaceRows.length,
-          marketplaceRows,
-          approvedCompanyIds,
-          requiredInsuranceNames,
-        }
-      );
 
       const contractorInsuranceByCompanyId: Record<string, string[]> = {};
       for (const row of marketplaceRows) {
@@ -124,16 +123,12 @@ export default function CustomerAllContractorsPage() {
         requiredInsuranceNames,
       });
 
-      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] badge map", nextBadgeMap);
-
       setItems(marketplaceRows);
       setBadgeMap(nextBadgeMap);
       setAllowed(true);
-    } catch (e: any) {
-      console.error("[DEBUG][CustomerAllContractorsPage][marketplace] load:error", e);
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
-      console.log("[DEBUG][CustomerAllContractorsPage][marketplace] load:done");
       setLoading(false);
     }
   }
@@ -143,19 +138,31 @@ export default function CustomerAllContractorsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const visibleItems = useMemo(() => items, [items]);
+  const visibleItems = useMemo(() => {
+    if (activeFilter === "all") return items;
 
-  useEffect(() => {
-    console.log("[DEBUG][CustomerAllContractorsPage][marketplace] state snapshot", {
-      loading,
-      allowed,
-      err,
-      search,
-      visibleItemsCount: visibleItems.length,
-      visibleItems,
-      badgeMap,
+    return items.filter((item) => {
+      const badges = badgeMap[item.company_id];
+      if (!badges) return false;
+      if (activeFilter === "verified") return badges.portalVerified;
+      if (activeFilter === "requirements") return badges.meetsYourRequirements;
+      return badges.onboardedWithYou;
     });
-  }, [loading, allowed, err, search, visibleItems, badgeMap]);
+  }, [activeFilter, badgeMap, items]);
+
+  const resultSummary = useMemo(() => {
+    const verified = items.filter(
+      (item) => badgeMap[item.company_id]?.portalVerified
+    ).length;
+    const requirements = items.filter(
+      (item) => badgeMap[item.company_id]?.meetsYourRequirements
+    ).length;
+    const onboarded = items.filter(
+      (item) => badgeMap[item.company_id]?.onboardedWithYou
+    ).length;
+
+    return { verified, requirements, onboarded };
+  }, [badgeMap, items]);
 
   if (loading || !allowed) {
     return (
@@ -232,11 +239,44 @@ export default function CustomerAllContractorsPage() {
             </div>
 
             <button
+              type="button"
               onClick={() => load(search)}
               className="rounded-xl bg-[#1F6FB5] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
             >
               Search
             </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <FilterButton
+              active={activeFilter === "all"}
+              onClick={() => setActiveFilter("all")}
+            >
+              All ({items.length})
+            </FilterButton>
+            <FilterButton
+              active={activeFilter === "verified"}
+              onClick={() => setActiveFilter("verified")}
+            >
+              Verified ({resultSummary.verified})
+            </FilterButton>
+            <FilterButton
+              active={activeFilter === "requirements"}
+              onClick={() => setActiveFilter("requirements")}
+            >
+              Meets requirements ({resultSummary.requirements})
+            </FilterButton>
+            <FilterButton
+              active={activeFilter === "onboarded"}
+              onClick={() => setActiveFilter("onboarded")}
+            >
+              Onboarded ({resultSummary.onboarded})
+            </FilterButton>
+          </div>
+
+          <div className="mt-3 text-sm text-[#4B5563]">
+            Showing {visibleItems.length} of {items.length} contractor
+            {items.length === 1 ? "" : "s"}.
           </div>
         </section>
 
