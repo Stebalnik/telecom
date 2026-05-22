@@ -164,6 +164,12 @@ npm run agents:claim -- --task-id=TASK-0007
 
 The claimer still refuses protected branches, existing active tasks, and tasks with unmet dependencies.
 
+## Architecture Reviewer
+
+The architecture reviewer is deterministic and local. `npm run agents:architecture-review` reads the current task and queue entry, evaluates route, backend, security, and Supabase/RLS review requirements, then writes `reports/agents/architecture-review.json`.
+
+The report is advisory. It does not call AI APIs, execute task-provided commands, deploy, merge, or change application code.
+
 ## Preview Runtime Usage
 
 The preview runtime is used for human validation and non-production smoke testing. Agents may recommend preview checks and document expected routes to inspect. Agents must not treat preview success as permission to deploy.

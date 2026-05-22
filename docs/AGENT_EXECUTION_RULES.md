@@ -28,6 +28,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - A task that fails verification before the retry limit may return to `pending` for correction.
 - Human review is required before any merge to `main`.
 - Task claiming must be deterministic, dependency-aware, and limited to pending tasks.
+- Architecture review reports are advisory and must not replace human review for security-sensitive changes.
 
 ## Agent Roles
 
@@ -111,6 +112,7 @@ The Phase 2 local task runner may run only these hardcoded commands:
 - `npm run agents:verify`
 - `npm run agents:self-verify`
 - `npm run agents:coding-loop`
+- `npm run agents:architecture-review`
 - `npm run agents:merge-ready`
 - `npm run agents:pending`
 - `npm run agents:block-current`

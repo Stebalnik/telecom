@@ -8,6 +8,7 @@ const steps = [
   ["npm", "run", "agents:claim"],
   ["npm", "run", "agents:packet"],
   ["npm", "run", "agents:coding-loop"],
+  ["npm", "run", "agents:architecture-review"],
 ];
 
 try {

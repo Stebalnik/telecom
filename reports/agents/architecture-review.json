@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-05-22T04:49:21.244Z",
+  "task_id": "TASK-0009",
+  "title": "Implement architecture reviewer",
+  "area": "infrastructure",
+  "type": "feature",
+  "assigned_agent": "Architect Agent",
+  "branch_isolation": {
+    "valid": true,
+    "branch": "agents/dev-system",
+    "workspace": "/var/www/telecom-agent-workspace",
+    "errors": [],
+    "warnings": []
+  },
+  "expected_files": [],
+  "acceptance_criteria": [
+    "Implement the task described by \"Implement architecture reviewer\" with scoped, reviewable changes.",
+    "Confirm security and route impact have been reviewed."
+  ],
+  "review_requirements": {
+    "security_review": true,
+    "route_impact_review": false,
+    "backend_review": false,
+    "supabase_rls_review": false,
+    "security_signal_detected": false
+  },
+  "architectural_guidance": [
+    "Keep changes scoped to the claimed task and expected files.",
+    "Prefer existing repository patterns over new abstractions.",
+    "Do not introduce deploy, merge, or production-control behavior.",
+    "Document route, security, and Supabase/RLS impact in the final task report when applicable."
+  ],
+  "risk_level": "low"
+}
