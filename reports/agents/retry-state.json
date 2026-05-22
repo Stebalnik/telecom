@@ -63,6 +63,10 @@
     "TASK-0023": {
       "attempts": 0,
       "last_failure": null
+    },
+    "TASK-0024": {
+      "attempts": 0,
+      "last_failure": null
     }
   }
 }

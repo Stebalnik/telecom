@@ -350,6 +350,59 @@ Run these checks in Stripe test mode only. Do not use live keys, live products, 
 - [ ] Webhook event IDs tested, if applicable.
 - [ ] Follow-up fixes for checkout validation, webhook idempotency, or record reconciliation.
 
+## Deployment Readiness Checklist
+
+This checklist is a release gate only. The agent runner must not deploy, merge to `main`, restart production PM2, or modify `/var/www/telecom`.
+
+### Branch And Review Gate
+
+- [ ] Confirm release candidate branch is `agents/dev-system` or a reviewed release branch.
+- [ ] Confirm no uncommitted changes exist in the release candidate workspace.
+- [ ] Confirm all intended tasks are `commit_ready`.
+- [ ] Confirm human review has approved the release candidate.
+- [ ] Confirm merge to `main` is performed manually by an authorized maintainer.
+
+### Build And Verification Gate
+
+- [ ] Run `npm run agents:verify`.
+- [ ] Run `npm run agents:self-verify`.
+- [ ] Run `npm run build`.
+- [ ] Review `reports/agents/agent-progress-audit.json`.
+- [ ] Review `reports/agents/merge-readiness.json`.
+- [ ] Record the final build id and commit hash.
+
+### Environment And Configuration Gate
+
+- [ ] Confirm production environment variables are present in the deployment platform, not committed to git.
+- [ ] Confirm Supabase production URL and anon key are intended for production.
+- [ ] Confirm service-role keys are server-only and absent from client bundles.
+- [ ] Confirm Stripe live keys and webhook secrets are configured only in protected production settings.
+- [ ] Confirm preview/test keys are not used in production.
+
+### Data And Migration Gate
+
+- [ ] Review all pending database migrations before release.
+- [ ] Confirm migrations were tested in preview or staging.
+- [ ] Confirm RLS policies are enabled for tenant/user-owned tables.
+- [ ] Confirm storage bucket policies match the release requirements.
+- [ ] Confirm backups or restore points exist before production data changes.
+
+### Release And Rollback Gate
+
+- [ ] Confirm release owner, reviewer, and rollback owner are named.
+- [ ] Confirm rollback commit or previous deployment artifact is known.
+- [ ] Confirm production monitoring and error logging are available during release.
+- [ ] Confirm no production PM2 restart is performed by autonomous agents.
+- [ ] Confirm deployment steps are executed manually by an authorized operator.
+
+### Post-Release Smoke Gate
+
+- [ ] Check `/`, `/login`, `/dashboard`, `/customer`, `/contractor`, `/worker`, and `/admin`.
+- [ ] Check one critical customer, contractor, worker, and admin workflow.
+- [ ] Check Stripe checkout in the intended live/test mode for the release.
+- [ ] Check Supabase logs and application error logs for new failures.
+- [ ] Record release notes, known issues, and follow-up tasks.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
