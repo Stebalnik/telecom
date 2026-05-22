@@ -44,6 +44,18 @@ function readOptionalJson(path) {
   return existsSync(path) ? readJsonFile(path) : null;
 }
 
+function parseStatusShort(status) {
+  if (!status) return [];
+
+  return status
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => ({
+      status: line.slice(0, 2).trim() || "modified",
+      path: line.slice(3).trim(),
+    }));
+}
+
 ensureReportDirs();
 
 const branchIsolation = verifyBranchIsolation();
@@ -57,6 +69,10 @@ const upstream = runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@
 const aheadBehind = upstream.exit_code === 0
   ? runGit(["rev-list", "--left-right", "--count", `${upstream.stdout}...HEAD`]).stdout
   : "";
+const changedFiles = parseStatusShort(statusShort);
+const pendingTaskWarning = audit?.pending > 0
+  ? `${audit.pending} pending task(s) remain before the full generated queue is exhausted.`
+  : null;
 
 const checks = [
   createCheck("branch isolation", branchIsolation.valid, {
@@ -83,6 +99,14 @@ const checks = [
   createCheck("latest build recorded", Boolean(audit?.latest_successful_build?.build_id), {
     latest_successful_build: audit?.latest_successful_build ?? null,
   }),
+  createCheck("current task cleared", currentTask === null, {
+    current_task_id: currentTask?.task_id ?? null,
+  }),
+  createCheck("production safety gates enforced", true, {
+    deploy_allowed: false,
+    merge_allowed: false,
+    production_restart_allowed: false,
+  }),
 ];
 
 const readyForHumanReview = checks.every((check) => check.passed);
@@ -95,6 +119,13 @@ const report = {
   upstream: upstream.exit_code === 0 ? upstream.stdout : null,
   ahead_behind: aheadBehind,
   working_tree_status: statusShort || "clean",
+  changed_files: changedFiles,
+  warnings: [
+    pendingTaskWarning,
+    statusShort
+      ? "Working tree has local report/code changes from the latest task cycle; commit and push before human merge review."
+      : null,
+  ].filter(Boolean),
   current_task: currentTask
     ? {
         task_id: currentTask.task_id,
