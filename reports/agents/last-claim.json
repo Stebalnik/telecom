@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:54:46.872Z",
-  "task_id": "TASK-0050",
-  "title": "Improve runtime logging",
+  "claimed_at": "2026-05-22T17:58:00.804Z",
+  "task_id": "TASK-0051",
+  "title": "Improve monitoring visibility",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

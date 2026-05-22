@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0050",
-  "title": "Improve runtime logging",
-  "started_at": "2026-05-22T17:55:29.532Z",
-  "finished_at": "2026-05-22T17:56:37.480Z",
+  "task_id": "TASK-0051",
+  "title": "Improve monitoring visibility",
+  "started_at": "2026-05-22T17:58:24.227Z",
+  "finished_at": "2026-05-22T17:59:30.397Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T17:55:29.532Z",
-      "finished_at": "2026-05-22T17:55:29.768Z",
+      "started_at": "2026-05-22T17:58:24.228Z",
+      "finished_at": "2026-05-22T17:58:24.461Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T17:55:29.769Z",
-      "finished_at": "2026-05-22T17:55:30.008Z",
+      "started_at": "2026-05-22T17:58:24.461Z",
+      "finished_at": "2026-05-22T17:58:24.727Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T17:55:30.008Z",
-      "finished_at": "2026-05-22T17:56:37.480Z",
+      "started_at": "2026-05-22T17:58:24.727Z",
+      "finished_at": "2026-05-22T17:59:30.397Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
