@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T17:47:59.304Z",
-  "task_id": "TASK-0049",
-  "title": "Full role-isolation QA",
+  "generated_at": "2026-05-22T17:54:47.616Z",
+  "task_id": "TASK-0050",
+  "title": "Improve runtime logging",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full role-isolation QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve runtime logging\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

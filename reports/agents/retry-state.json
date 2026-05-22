@@ -167,6 +167,10 @@
     "TASK-0049": {
       "attempts": 0,
       "last_failure": null
+    },
+    "TASK-0050": {
+      "attempts": 0,
+      "last_failure": null
     }
   }
 }
