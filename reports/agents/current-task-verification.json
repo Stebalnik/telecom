@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0033",
-  "title": "Improve workforce availability workflow",
-  "started_at": "2026-05-22T15:48:14.650Z",
-  "finished_at": "2026-05-22T15:49:10.753Z",
+  "task_id": "TASK-0034",
+  "title": "Improve compliance status visibility",
+  "started_at": "2026-05-22T15:51:18.637Z",
+  "finished_at": "2026-05-22T15:52:19.574Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T15:48:14.650Z",
-      "finished_at": "2026-05-22T15:48:14.931Z",
+      "started_at": "2026-05-22T15:51:18.638Z",
+      "finished_at": "2026-05-22T15:51:18.851Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T15:48:14.931Z",
-      "finished_at": "2026-05-22T15:48:15.189Z",
+      "started_at": "2026-05-22T15:51:18.851Z",
+      "finished_at": "2026-05-22T15:51:19.073Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T15:48:15.189Z",
-      "finished_at": "2026-05-22T15:49:10.753Z",
+      "started_at": "2026-05-22T15:51:19.073Z",
+      "finished_at": "2026-05-22T15:52:19.574Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

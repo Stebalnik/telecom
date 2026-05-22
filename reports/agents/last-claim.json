@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T15:47:25.405Z",
-  "task_id": "TASK-0033",
-  "title": "Improve workforce availability workflow",
+  "claimed_at": "2026-05-22T15:50:27.816Z",
+  "task_id": "TASK-0034",
+  "title": "Improve compliance status visibility",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
