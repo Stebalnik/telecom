@@ -11,7 +11,6 @@ import {
   listMembers,
   listTeams,
   type Company,
-  type Team,
 } from "../../lib/contractor";
 import {
   listCompanyInsurance,
@@ -115,6 +114,112 @@ function NavCard({
   );
 }
 
+function WorkflowStep({
+  label,
+  description,
+  href,
+  status,
+}: {
+  label: string;
+  description: string;
+  href: string;
+  status: "ready" | "attention" | "done";
+}) {
+  const statusLabel =
+    status === "done" ? "On track" : status === "attention" ? "Needs review" : "Ready";
+  const statusClasses =
+    status === "done"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "attention"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-[#D9E2EC] bg-[#F8FAFC] text-[#4B5563]";
+
+  return (
+    <Link
+      href={href}
+      className="grid gap-3 rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm transition hover:shadow-md sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+    >
+      <div>
+        <div className="text-sm font-semibold text-[#111827]">{label}</div>
+        <div className="mt-1 text-sm leading-6 text-[#4B5563]">{description}</div>
+      </div>
+      <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses}`}>
+        {statusLabel}
+      </span>
+    </Link>
+  );
+}
+
+function ContractorWorkflowPanel({
+  company,
+  stats,
+}: {
+  company: Company | null;
+  stats: OverviewStats;
+}) {
+  const companyNeedsAttention = !company || company.status === "blocked";
+  const complianceNeedsAttention = stats.pendingInsurance > 0 || stats.rejectedInsurance > 0;
+  const teamNeedsAttention = stats.teamsTotal === 0 || stats.membersTotal === 0;
+  const credentialNeedsAttention = stats.certsTotal === 0;
+
+  const nextAction = companyNeedsAttention
+    ? { label: "Review company profile", href: "/contractor/company" }
+    : complianceNeedsAttention
+      ? { label: "Review insurance", href: "/contractor/insurance" }
+      : teamNeedsAttention
+        ? { label: "Set up teams", href: "/contractor/teams" }
+        : credentialNeedsAttention
+          ? { label: "Add certifications", href: "/contractor/certifications" }
+          : { label: "Browse jobs", href: "/contractor/jobs" };
+
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-6 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-[#0A2E5C]">Contractor Workflow</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#4B5563]">
+            Keep company setup, compliance, crews, and bid readiness moving in order.
+          </p>
+        </div>
+
+        <Link
+          href={nextAction.href}
+          className="w-fit rounded-xl bg-[#2EA3FF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+        >
+          {nextAction.label}
+        </Link>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <WorkflowStep
+          label="1. Confirm company readiness"
+          description={`Company status is ${company?.status || "unknown"} with onboarding ${company?.onboarding_status || "unknown"}.`}
+          href="/contractor/company"
+          status={companyNeedsAttention ? "attention" : "done"}
+        />
+        <WorkflowStep
+          label="2. Resolve insurance review"
+          description={`${stats.approvedInsurance} approved, ${stats.pendingInsurance} pending, ${stats.rejectedInsurance} rejected insurance documents.`}
+          href="/contractor/insurance"
+          status={complianceNeedsAttention ? "attention" : stats.approvedInsurance > 0 ? "done" : "ready"}
+        />
+        <WorkflowStep
+          label="3. Staff available teams"
+          description={`${stats.teamsTotal} teams and ${stats.membersTotal} members are available for job matching.`}
+          href="/contractor/teams"
+          status={teamNeedsAttention ? "attention" : "done"}
+        />
+        <WorkflowStep
+          label="4. Prepare for bids"
+          description={`${stats.certsTotal} certifications are on file before reviewing customer jobs.`}
+          href="/contractor/jobs"
+          status={credentialNeedsAttention ? "attention" : "done"}
+        />
+      </div>
+    </section>
+  );
+}
+
 export default function ContractorPage() {
   const router = useRouter();
 
@@ -122,7 +227,6 @@ export default function ContractorPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [stats, setStats] = useState<OverviewStats>({
     insuranceTotal: 0,
     approvedInsurance: 0,
@@ -240,8 +344,6 @@ export default function ContractorPage() {
         ]);
 
         if (!mounted) return;
-
-        setTeams(companyTeams);
 
         let membersTotal = 0;
         let certsTotal = 0;
@@ -472,6 +574,8 @@ export default function ContractorPage() {
           hint={company?.payout_account_label || "No payout label set"}
         />
       </section>
+
+      <ContractorWorkflowPanel company={company} stats={stats} />
 
       <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <NavCard
