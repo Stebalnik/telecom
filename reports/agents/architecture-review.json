@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T13:00:41.650Z",
-  "task_id": "TASK-0020",
-  "title": "Add admin workflow smoke test checklist",
-  "area": "admin",
+  "generated_at": "2026-05-22T13:09:32.116Z",
+  "task_id": "TASK-0021",
+  "title": "Add worker workflow smoke test checklist",
+  "area": "worker",
   "type": "test",
   "assigned_agent": "Verification Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Add admin workflow smoke test checklist\" with scoped, reviewable changes.",
+    "Implement the task described by \"Add worker workflow smoke test checklist\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
@@ -22,7 +22,7 @@
     "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
-    "security_signal_detected": true
+    "security_signal_detected": false
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",

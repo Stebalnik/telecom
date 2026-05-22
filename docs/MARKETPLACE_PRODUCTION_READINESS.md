@@ -218,6 +218,42 @@ Run these checks with an admin test account in the isolated preview workspace.
 - [ ] Admin pages do not display service keys, tokens, or raw stack traces.
 - [ ] Admin actions are auditable through existing analytics/error logging where supported.
 
+## Worker Workflow Smoke Test Checklist
+
+Run these checks with a worker test account in the isolated preview workspace.
+
+### Worker Access And Profile
+
+- [ ] Signed-out access to `/worker` redirects to `/login`.
+- [ ] Non-worker roles are redirected away from `/worker`.
+- [ ] `/worker` renders the worker dashboard without client errors.
+- [ ] `/worker/profile` loads editable worker profile information for the current user only.
+- [ ] Profile validation prevents saving incomplete or malformed required fields.
+
+### Applications, Invitations, And Vacancies
+
+- [ ] `/worker/vacancies` lists available vacancies or a friendly empty state.
+- [ ] Vacancy detail/application actions do not expose unrelated contractor data.
+- [ ] `/worker/applications` lists submitted applications and current statuses.
+- [ ] `/worker/invitations` lists contractor invitations and response status.
+- [ ] Invitation accept/decline actions show a busy state and prevent duplicate submissions.
+
+### Availability, Certifications, And Insurance
+
+- [ ] `/worker/availability` loads current availability settings and validates updates.
+- [ ] Availability updates persist after refresh for the same worker account.
+- [ ] `/worker/certifications` lists uploaded certifications or a clear empty state.
+- [ ] Certification upload paths validate required metadata before upload.
+- [ ] `/worker/insurance` renders insurance status and does not expose contractor-only records.
+
+### Worker Error And Security Checks
+
+- [ ] Worker API failures show non-sensitive messages.
+- [ ] Browser console has no unhandled promise rejections during worker navigation.
+- [ ] Supabase queries return only records owned by or shared with the current worker.
+- [ ] Worker pages do not display service keys, tokens, or raw stack traces.
+- [ ] Mobile layout keeps worker profile, availability, applications, and invitations readable.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
