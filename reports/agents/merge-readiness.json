@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-05-22T04:25:45.777Z",
+  "generated_at": "2026-05-22T04:31:15.942Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M docs/AGENT_ARCHITECTURE.md\n M docs/AGENT_EXECUTION_RULES.md\n M docs/AGENT_TASK_QUEUE.generated.md\n M package.json\n M reports/agents/agent-progress-audit.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/merge-readiness.json\n M reports/agents/self-verification.json\n M scripts/agents/self-verification.mjs\n M scripts/agents/start-agent-cycle.mjs\n?? reports/agents/current-coding-loop.json\n?? reports/agents/history/2026-05-22T04-24-11-954Z-TASK-0006-current-task.json\n?? scripts/agents/run-coding-loop.mjs",
+  "working_tree_status": "M docs/AGENT_ARCHITECTURE.md\n M docs/AGENT_EXECUTION_RULES.md\n M package.json\n M reports/agents/agent-progress-audit.json\n M scripts/agents/agent-queue-utils.mjs\n?? docs/AUTONOMOUS_AGENT_LOOP.md\n?? reports/agents/autonomous-cycle-log.json\n?? reports/agents/autonomous-cycle-state.json\n?? scripts/agents/list-pending-tasks.mjs\n?? scripts/agents/mark-task-blocked.mjs\n?? scripts/agents/run-autonomous-cycle.mjs",
   "current_task": null,
   "verification_summary": {
     "task_id": "TASK-0006",
@@ -22,8 +22,8 @@
     "pending": 9,
     "commit_ready": 6,
     "latest_successful_build": {
-      "build_id": "q6mv08Ct82oBIlV9I_7B3",
-      "detected_at": "2026-05-22T04:25:31.702Z"
+      "build_id": "ptdHY9r1KDmhSizYrXroN",
+      "detected_at": "2026-05-22T04:31:01.671Z"
     }
   },
   "required_human_actions": [
@@ -68,8 +68,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "q6mv08Ct82oBIlV9I_7B3",
-        "detected_at": "2026-05-22T04:25:31.702Z"
+        "build_id": "ptdHY9r1KDmhSizYrXroN",
+        "detected_at": "2026-05-22T04:31:01.671Z"
       }
     }
   ]

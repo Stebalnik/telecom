@@ -127,6 +127,27 @@ The coding loop records:
 
 Codex still performs implementation inside the workspace using the packet as the single source of truth. The loop exists to make the handoff auditable and repeatable.
 
+## Autonomous Multi-Task Loop
+
+Phase 4 adds a controller for repeated safe task processing. The controller is started with `npm run agents:loop -- --max=5`.
+
+The loop has separate modes:
+
+- Controller mode: checks branch isolation, requires a clean working tree, audits queue state, regenerates tasks when the queue is empty, claims one task, writes loop state/log files, and stops with a packet instruction.
+- Codex implementation mode: Codex reads `reports/agents/current-implementation-packet.md` and implements only that task in the workspace.
+- Verification mode: the task is finalized through the allowlisted verification runner and build.
+- Commit/push mode: commits and pushes happen only after verification and build are green.
+- Human merge gate: merge to `main` remains manual and outside the autonomous loop.
+
+Safety boundaries:
+
+- The loop requires a positive max-iteration limit.
+- The loop stops when implementation is required, when the queue is empty after regeneration, when max iterations are reached, or when a safety check fails.
+- The loop does not deploy, merge, restart PM2, or touch production files.
+- The loop records state in `reports/agents/autonomous-cycle-state.json`.
+- The loop appends events to `reports/agents/autonomous-cycle-log.json`.
+- Failed tasks can be blocked with `npm run agents:block-current -- --reason="..."`; tasks that reach the retry limit are blocked before the controller continues.
+
 ## Preview Runtime Usage
 
 The preview runtime is used for human validation and non-production smoke testing. Agents may recommend preview checks and document expected routes to inspect. Agents must not treat preview success as permission to deploy.

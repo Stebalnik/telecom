@@ -158,6 +158,22 @@ export function findFirstPendingTask() {
   return null;
 }
 
+export function listTasksByStatus(status) {
+  return readQueueFiles().flatMap((queueFile) =>
+    extractTasksFromQueue(queueFile)
+      .filter((task) => task.status === status)
+      .map((task) => ({
+        ...task,
+        queue_file: queueFile.file,
+        queue_path: queueFile.path,
+      })),
+  );
+}
+
+export function listPendingTasks() {
+  return listTasksByStatus("pending");
+}
+
 export function findTaskById(queueFileName, taskId) {
   const queueFile = readQueueFiles().find((candidate) => candidate.file === queueFileName);
   if (!queueFile) return null;

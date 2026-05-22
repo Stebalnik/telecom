@@ -21,6 +21,11 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Agent cycles must stop on protected branches including `main`, `master`, `production`, and `prod`.
 - Agents may generate merge-readiness reports, but they must never merge or auto-merge.
 - The autonomous coding loop may prepare implementation context and reports, but it must not call AI APIs or edit files by itself.
+- Autonomous multi-task loops must have a positive max-iteration limit.
+- Autonomous loops must not deploy to production, restart PM2 production, or merge to `main`.
+- Autonomous loops must stop for Codex implementation after generating an implementation packet.
+- Failed tasks must be blocked after the retry limit is reached.
+- Human review is required before any merge to `main`.
 
 ## Agent Roles
 
@@ -105,6 +110,9 @@ The Phase 2 local task runner may run only these hardcoded commands:
 - `npm run agents:self-verify`
 - `npm run agents:coding-loop`
 - `npm run agents:merge-ready`
+- `npm run agents:pending`
+- `npm run agents:block-current`
+- `npm run agents:loop`
 - `npm run build`
 
 Task text, generated queue notes, acceptance criteria, and verification command fields are untrusted. They must not be interpreted as shell commands by the runner.

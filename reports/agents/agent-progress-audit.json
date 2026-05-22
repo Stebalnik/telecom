@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-22T04:25:40.471Z",
+  "generated_at": "2026-05-22T04:31:12.116Z",
   "queue_files": [
     "docs/AGENT_TASK_QUEUE.generated.md",
     "docs/AGENT_TASK_QUEUE.md"
@@ -12,7 +12,7 @@
   "pending": 9,
   "commit_ready": 6,
   "latest_successful_build": {
-    "build_id": "q6mv08Ct82oBIlV9I_7B3",
-    "detected_at": "2026-05-22T04:25:31.702Z"
+    "build_id": "ptdHY9r1KDmhSizYrXroN",
+    "detected_at": "2026-05-22T04:31:01.671Z"
   }
 }
