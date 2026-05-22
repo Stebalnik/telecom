@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0016",
-  "title": "Review all commit_ready tasks and summarize implemented capability",
-  "started_at": "2026-05-22T12:48:56.180Z",
-  "finished_at": "2026-05-22T12:50:10.290Z",
+  "task_id": "TASK-0017",
+  "title": "Add dashboard smoke test checklist",
+  "started_at": "2026-05-22T12:52:23.176Z",
+  "finished_at": "2026-05-22T12:53:20.806Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T12:48:56.181Z",
-      "finished_at": "2026-05-22T12:48:56.414Z",
+      "started_at": "2026-05-22T12:52:23.177Z",
+      "finished_at": "2026-05-22T12:52:23.449Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T12:48:56.414Z",
-      "finished_at": "2026-05-22T12:48:56.660Z",
+      "started_at": "2026-05-22T12:52:23.449Z",
+      "finished_at": "2026-05-22T12:52:23.704Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T12:48:56.660Z",
-      "finished_at": "2026-05-22T12:50:10.289Z",
+      "started_at": "2026-05-22T12:52:23.704Z",
+      "finished_at": "2026-05-22T12:53:20.805Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

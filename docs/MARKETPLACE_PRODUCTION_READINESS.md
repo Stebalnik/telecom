@@ -41,6 +41,51 @@ The current generated queue preserves 15 `commit_ready` tasks. These tasks estab
 - `/admin/customer-approvals` gained customer approval queue summaries.
 - `/contractor/hr` gained a workforce pipeline and readiness checklist.
 
+## Dashboard Smoke Test Checklist
+
+Run these checks in the isolated preview workspace before release. Do not deploy, merge, or touch production while executing this checklist.
+
+### Authentication And Routing
+
+- [ ] Signed-out users who open `/dashboard` are redirected to `/login`.
+- [ ] A customer user reaches the customer workspace from `/dashboard`.
+- [ ] A contractor user reaches the contractor workspace from `/dashboard`.
+- [ ] A worker user reaches the worker workspace from `/dashboard`.
+- [ ] An admin user reaches the admin workspace from `/dashboard`.
+- [ ] Users with an unsupported or missing role see a safe fallback instead of privileged content.
+
+### Shared Dashboard Navigation
+
+- [ ] Global logo and primary workspace links render without layout shift.
+- [ ] Role-specific navigation entries point to the correct workspace routes.
+- [ ] Logout remains visible and works from dashboard-adjacent screens.
+- [ ] Dashboard cards and links do not expose routes for roles that should not use them.
+- [ ] Mobile-width navigation remains readable and does not overlap content.
+
+### Workspace Landing Checks
+
+- [ ] `/customer` loads the customer dashboard and workflow panel for approved customers.
+- [ ] `/contractor` loads the contractor overview and workflow panel for approved contractors.
+- [ ] `/worker` loads the worker dashboard without console or render errors.
+- [ ] `/admin` loads admin navigation and operational entry points for admins.
+- [ ] Onboarding or pending users are redirected to their setup/pending screen instead of the full workspace.
+
+### Data And Error States
+
+- [ ] Empty dashboard data renders friendly empty states.
+- [ ] Loading states render while profile/session checks complete.
+- [ ] Failed data loads show non-sensitive error text.
+- [ ] No dashboard response exposes secrets, tokens, or raw Supabase errors.
+- [ ] Browser console is free of unhandled promise rejections during initial dashboard load.
+
+### Verification Evidence
+
+- [ ] Record preview URL and branch tested.
+- [ ] Capture pass/fail notes for each role.
+- [ ] Capture screenshots for desktop and mobile widths.
+- [ ] Record `npm run build` result for the tested branch.
+- [ ] Record any skipped checks and the reason they were skipped.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
