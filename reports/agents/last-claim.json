@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T15:39:47.798Z",
-  "task_id": "TASK-0031",
-  "title": "Improve feedback/support loop",
+  "claimed_at": "2026-05-22T15:43:29.392Z",
+  "task_id": "TASK-0032",
+  "title": "Improve agreements workflow",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

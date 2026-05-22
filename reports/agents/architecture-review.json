@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T15:39:48.633Z",
-  "task_id": "TASK-0031",
-  "title": "Improve feedback/support loop",
-  "area": "feedback",
+  "generated_at": "2026-05-22T15:43:30.158Z",
+  "task_id": "TASK-0032",
+  "title": "Improve agreements workflow",
+  "area": "agreements",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve feedback/support loop\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve agreements workflow\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0031",
-  "title": "Improve feedback/support loop",
-  "started_at": "2026-05-22T15:40:48.588Z",
-  "finished_at": "2026-05-22T15:42:04.605Z",
+  "task_id": "TASK-0032",
+  "title": "Improve agreements workflow",
+  "started_at": "2026-05-22T15:44:48.695Z",
+  "finished_at": "2026-05-22T15:45:58.780Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T15:40:48.588Z",
-      "finished_at": "2026-05-22T15:40:48.847Z",
+      "started_at": "2026-05-22T15:44:48.695Z",
+      "finished_at": "2026-05-22T15:44:49.003Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T15:40:48.848Z",
-      "finished_at": "2026-05-22T15:40:49.122Z",
+      "started_at": "2026-05-22T15:44:49.003Z",
+      "finished_at": "2026-05-22T15:44:49.310Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T15:40:49.122Z",
-      "finished_at": "2026-05-22T15:42:04.596Z",
+      "started_at": "2026-05-22T15:44:49.310Z",
+      "finished_at": "2026-05-22T15:45:58.779Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
