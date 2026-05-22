@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T18:01:04.149Z",
-  "task_id": "TASK-0052",
-  "title": "Improve operational metrics",
+  "generated_at": "2026-05-22T18:03:59.955Z",
+  "task_id": "TASK-0053",
+  "title": "Improve error recovery",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve operational metrics\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve error recovery\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

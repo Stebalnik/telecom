@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T18:01:03.305Z",
-  "task_id": "TASK-0052",
-  "title": "Improve operational metrics",
+  "claimed_at": "2026-05-22T18:03:59.062Z",
+  "task_id": "TASK-0053",
+  "title": "Improve error recovery",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
