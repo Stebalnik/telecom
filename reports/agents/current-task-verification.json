@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0048",
-  "title": "Full accessibility QA",
-  "started_at": "2026-05-22T17:45:10.410Z",
-  "finished_at": "2026-05-22T17:46:25.396Z",
+  "task_id": "TASK-0049",
+  "title": "Full role-isolation QA",
+  "started_at": "2026-05-22T17:48:23.253Z",
+  "finished_at": "2026-05-22T17:49:27.260Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T17:45:10.410Z",
-      "finished_at": "2026-05-22T17:45:10.684Z",
+      "started_at": "2026-05-22T17:48:23.253Z",
+      "finished_at": "2026-05-22T17:48:23.502Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T17:45:10.684Z",
-      "finished_at": "2026-05-22T17:45:11.008Z",
+      "started_at": "2026-05-22T17:48:23.502Z",
+      "finished_at": "2026-05-22T17:48:23.790Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T17:45:11.008Z",
-      "finished_at": "2026-05-22T17:46:25.390Z",
+      "started_at": "2026-05-22T17:48:23.790Z",
+      "finished_at": "2026-05-22T17:49:27.260Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

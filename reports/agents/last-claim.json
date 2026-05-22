@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:44:47.488Z",
-  "task_id": "TASK-0048",
-  "title": "Full accessibility QA",
+  "claimed_at": "2026-05-22T17:47:58.189Z",
+  "task_id": "TASK-0049",
+  "title": "Full role-isolation QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
