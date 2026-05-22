@@ -97,6 +97,103 @@ function AttentionItem({
   );
 }
 
+function WorkflowStep({
+  label,
+  description,
+  href,
+  status,
+}: {
+  label: string;
+  description: string;
+  href: string;
+  status: "ready" | "attention" | "done";
+}) {
+  const statusLabel =
+    status === "done" ? "On track" : status === "attention" ? "Needs review" : "Ready";
+  const statusClasses =
+    status === "done"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : status === "attention"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-[#D9E2EC] bg-[#F8FAFC] text-[#4B5563]";
+
+  return (
+    <Link
+      href={href}
+      className="grid gap-3 rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm transition hover:shadow-md sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+    >
+      <div>
+        <div className="text-sm font-semibold text-[#111827]">{label}</div>
+        <div className="mt-1 text-sm leading-6 text-[#4B5563]">{description}</div>
+      </div>
+      <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses}`}>
+        {statusLabel}
+      </span>
+    </Link>
+  );
+}
+
+function CustomerWorkflowPanel({ stats }: { stats: CustomerDashboardStats }) {
+  const jobsNeedAttention = stats.jobsWithNoBids > 0 || stats.jobsCloseToDeadline > 0;
+  const bidsNeedAttention = stats.bidsAwaitingReview > 0;
+  const contractorsNeedAttention = stats.pendingContractorApprovals > 0;
+
+  const nextAction = bidsNeedAttention
+    ? { label: "Review bids", href: "/customer/bids" }
+    : contractorsNeedAttention
+    ? { label: "Review contractor requests", href: "/customer/requests" }
+    : jobsNeedAttention
+    ? { label: "Review active jobs", href: "/customer/jobs/active" }
+    : { label: "Create job", href: "/customer/jobs/new" };
+
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-6 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-[#0A2E5C]">Customer Workflow</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-[#4B5563]">
+            Move work from job creation through bids, contractor approval, and compliance review.
+          </p>
+        </div>
+
+        <Link
+          href={nextAction.href}
+          className="w-fit rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+        >
+          {nextAction.label}
+        </Link>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <WorkflowStep
+          label="1. Publish and monitor jobs"
+          description={`${stats.openJobs} open jobs, ${stats.jobsWithNoBids} without bids, ${stats.jobsCloseToDeadline} close to deadline.`}
+          href="/customer/jobs/active"
+          status={jobsNeedAttention ? "attention" : stats.openJobs > 0 ? "done" : "ready"}
+        />
+        <WorkflowStep
+          label="2. Review contractor bids"
+          description={`${stats.bidsAwaitingReview} bids are awaiting review across ${stats.totalBids} total bids.`}
+          href="/customer/bids"
+          status={bidsNeedAttention ? "attention" : stats.totalBids > 0 ? "done" : "ready"}
+        />
+        <WorkflowStep
+          label="3. Approve contractor access"
+          description={`${stats.approvedContractors} contractors approved, ${stats.pendingContractorApprovals} requests pending.`}
+          href="/customer/requests"
+          status={contractorsNeedAttention ? "attention" : stats.approvedContractors > 0 ? "done" : "ready"}
+        />
+        <WorkflowStep
+          label="4. Keep compliance current"
+          description="Review agreement status, insurance rules, and certificate requirements before work starts."
+          href="/customer/compliance"
+          status="ready"
+        />
+      </div>
+    </section>
+  );
+}
+
 const emptyStats: CustomerDashboardStats = {
   customerId: "",
   customerName: "",
@@ -126,9 +223,9 @@ export default function CustomerPage() {
         const next = await getMyCustomerDashboardStats();
         if (!active) return;
         setStats(next);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!active) return;
-        setErr(e?.message || "Failed to load dashboard.");
+        setErr(e instanceof Error ? e.message : "Failed to load dashboard.");
       } finally {
         if (active) setLoading(false);
       }
@@ -219,6 +316,8 @@ export default function CustomerPage() {
           hint="Items that need customer review or action"
         />
       </section>
+
+      <CustomerWorkflowPanel stats={stats} />
 
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
