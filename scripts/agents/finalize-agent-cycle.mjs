@@ -35,6 +35,7 @@ try {
 const verifyExit = runStep(["npm", "run", "agents:verify-current"], true);
 runStep(["npm", "run", "agents:complete"]);
 runStep(["npm", "run", "agents:audit"]);
+runStep(["npm", "run", "agents:merge-ready"]);
 runStep(["npm", "run", "agents:status"]);
 
 const verification = existsSync(currentVerificationPath) ? readJsonFile(currentVerificationPath) : null;

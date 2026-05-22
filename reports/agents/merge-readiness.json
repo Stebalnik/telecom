@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-05-22T04:14:08.440Z",
+  "ready_for_human_review": true,
+  "merge_allowed": false,
+  "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
+  "branch": "agents/dev-system",
+  "upstream": "origin/agents/dev-system",
+  "ahead_behind": "0\t0",
+  "working_tree_status": "M docs/AGENT_ARCHITECTURE.md\n M docs/AGENT_EXECUTION_RULES.md\n M docs/AGENT_PROGRESS.md\n M docs/AGENT_TASK_QUEUE.generated.md\n M package.json\n M reports/agents/agent-progress-audit.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/self-verification.json\n M scripts/agents/finalize-agent-cycle.mjs\n?? reports/agents/history/2026-05-22T04-12-28-768Z-TASK-0005-current-task.json\n?? reports/agents/merge-readiness.json\n?? scripts/agents/create-merge-readiness-report.mjs",
+  "current_task": null,
+  "verification_summary": {
+    "task_id": "TASK-0005",
+    "passed": true,
+    "finished_at": "2026-05-22T04:12:28.481Z"
+  },
+  "audit_summary": {
+    "total_tasks": 15,
+    "completed": 5,
+    "failed": 0,
+    "blocked": 0,
+    "in_progress": 0,
+    "pending": 10,
+    "commit_ready": 5,
+    "latest_successful_build": {
+      "build_id": "bu6WvNjSreizpzZ8ZDs1b",
+      "detected_at": "2026-05-22T04:13:45.330Z"
+    }
+  },
+  "required_human_actions": [
+    "Review changed files and verification reports.",
+    "Confirm route impact and security implications.",
+    "Confirm Supabase/RLS impact if backend or data-access files changed.",
+    "Approve and perform any merge manually outside the autonomous runner."
+  ],
+  "checks": [
+    {
+      "name": "branch isolation",
+      "passed": true,
+      "branch": "agents/dev-system",
+      "workspace": "/var/www/telecom-agent-workspace",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "not protected branch",
+      "passed": true,
+      "branch": "agents/dev-system"
+    },
+    {
+      "name": "verification passed",
+      "passed": true,
+      "task_id": "TASK-0005",
+      "finished_at": "2026-05-22T04:12:28.481Z"
+    },
+    {
+      "name": "self verification passed",
+      "passed": true,
+      "generated_at": "2026-05-22T04:11:03.314Z"
+    },
+    {
+      "name": "audit has no failed tasks",
+      "passed": true,
+      "failed": 0,
+      "blocked": 0,
+      "in_progress": 0
+    },
+    {
+      "name": "latest build recorded",
+      "passed": true,
+      "latest_successful_build": {
+        "build_id": "bu6WvNjSreizpzZ8ZDs1b",
+        "detected_at": "2026-05-22T04:13:45.330Z"
+      }
+    }
+  ]
+}

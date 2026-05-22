@@ -12,6 +12,7 @@
     "agents:audit": "node scripts/agents/audit-progress.mjs",
     "agents:verify": "node scripts/agents/verify-task.mjs",
     "agents:self-verify": "node scripts/agents/self-verification.mjs",
+    "agents:merge-ready": "node scripts/agents/create-merge-readiness-report.mjs",
     "agents:claim": "node scripts/agents/claim-next-task.mjs",
     "agents:verify-current": "node scripts/agents/run-current-task-verification.mjs",
     "agents:complete": "node scripts/agents/complete-current-task.mjs",

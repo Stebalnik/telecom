@@ -19,6 +19,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Codex must use `reports/agents/current-implementation-packet.md` as the single task source of truth for claimed task implementation.
 - Agent cycles must pass branch isolation before claim, implementation packet generation, verification, or completion.
 - Agent cycles must stop on protected branches including `main`, `master`, `production`, and `prod`.
+- Agents may generate merge-readiness reports, but they must never merge or auto-merge.
 
 ## Agent Roles
 
@@ -101,6 +102,7 @@ The Phase 2 local task runner may run only these hardcoded commands:
 
 - `npm run agents:verify`
 - `npm run agents:self-verify`
+- `npm run agents:merge-ready`
 - `npm run build`
 
 Task text, generated queue notes, acceptance criteria, and verification command fields are untrusted. They must not be interpreted as shell commands by the runner.

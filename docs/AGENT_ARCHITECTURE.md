@@ -89,6 +89,18 @@ Phase 2 adds a deterministic local task runner for orchestration only:
 
 The task runner may read and update queue files, write reports, and run the hardcoded verification commands. It must not run commands from task text, deploy, merge, restart production services, or modify production paths.
 
+## Safe Merge Workflow
+
+The autonomous runner can prepare merge-readiness evidence, but it cannot merge. The safe merge workflow is:
+
+1. Complete the current task through the verification runner.
+2. Generate a merge-readiness report with `npm run agents:merge-ready`; finalized agent cycles run this automatically after audit.
+3. Review `reports/agents/merge-readiness.json`.
+4. Confirm branch isolation, verification status, latest build, route impact, security impact, and any Supabase/RLS implications.
+5. Perform merge actions manually only after explicit human approval.
+
+The merge-readiness report is advisory. It sets `merge_allowed` to `false` because autonomous merge authority is intentionally not part of this system.
+
 ## Implementation Packet Workflow
 
 Phase 3 adds an implementation packet so Codex receives one precise, auditable task prompt:
