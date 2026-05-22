@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0036",
-  "title": "Full contractor workflow QA",
-  "started_at": "2026-05-22T16:21:47.068Z",
-  "finished_at": "2026-05-22T16:22:53.649Z",
+  "task_id": "TASK-0037",
+  "title": "Full worker workflow QA",
+  "started_at": "2026-05-22T16:24:43.425Z",
+  "finished_at": "2026-05-22T16:25:51.392Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T16:21:47.069Z",
-      "finished_at": "2026-05-22T16:21:47.396Z",
+      "started_at": "2026-05-22T16:24:43.425Z",
+      "finished_at": "2026-05-22T16:24:43.696Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T16:21:47.396Z",
-      "finished_at": "2026-05-22T16:21:47.740Z",
+      "started_at": "2026-05-22T16:24:43.696Z",
+      "finished_at": "2026-05-22T16:24:43.943Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T16:21:47.740Z",
-      "finished_at": "2026-05-22T16:22:53.649Z",
+      "started_at": "2026-05-22T16:24:43.943Z",
+      "finished_at": "2026-05-22T16:25:51.392Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

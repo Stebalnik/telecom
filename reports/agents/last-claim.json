@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T16:21:13.247Z",
-  "task_id": "TASK-0036",
-  "title": "Full contractor workflow QA",
+  "claimed_at": "2026-05-22T16:24:17.857Z",
+  "task_id": "TASK-0037",
+  "title": "Full worker workflow QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
