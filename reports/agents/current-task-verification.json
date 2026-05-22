@@ -1,26 +1,26 @@
 {
-  "task_id": "TASK-0034",
-  "title": "Improve compliance status visibility",
-  "started_at": "2026-05-22T15:51:18.637Z",
-  "finished_at": "2026-05-22T15:52:19.574Z",
+  "task_id": "TASK-0035",
+  "title": "Full customer workflow QA",
+  "started_at": "2026-05-22T16:18:30.021Z",
+  "finished_at": "2026-05-22T16:19:43.123Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T15:51:18.638Z",
-      "finished_at": "2026-05-22T15:51:18.851Z",
+      "started_at": "2026-05-22T16:18:30.021Z",
+      "finished_at": "2026-05-22T16:18:30.384Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
         "> telecom@0.1.0 agents:verify",
         "> node scripts/agents/verify-task.mjs",
         "",
-        "Agent task verification passed for 34 task(s) across 2 queue file(s)."
+        "Agent task verification passed for 58 task(s) across 2 queue file(s)."
       ]
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T15:51:18.851Z",
-      "finished_at": "2026-05-22T15:51:19.073Z",
+      "started_at": "2026-05-22T16:18:30.384Z",
+      "finished_at": "2026-05-22T16:18:30.710Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T15:51:19.073Z",
-      "finished_at": "2026-05-22T15:52:19.574Z",
+      "started_at": "2026-05-22T16:18:30.710Z",
+      "finished_at": "2026-05-22T16:19:43.123Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -76,7 +76,7 @@
     "> telecom@0.1.0 agents:verify",
     "> node scripts/agents/verify-task.mjs",
     "",
-    "Agent task verification passed for 34 task(s) across 2 queue file(s).",
+    "Agent task verification passed for 58 task(s) across 2 queue file(s).",
     "npm run agents:self-verify: passed",
     "> telecom@0.1.0 agents:self-verify",
     "> node scripts/agents/self-verification.mjs",

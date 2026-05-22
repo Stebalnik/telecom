@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T15:50:27.816Z",
-  "task_id": "TASK-0034",
-  "title": "Improve compliance status visibility",
+  "claimed_at": "2026-05-22T16:17:57.330Z",
+  "task_id": "TASK-0035",
+  "title": "Full customer workflow QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
