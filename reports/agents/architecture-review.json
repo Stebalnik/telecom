@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T14:04:24.831Z",
-  "task_id": "TASK-0028",
-  "title": "Improve approval request UX",
-  "area": "approvals",
+  "generated_at": "2026-05-22T14:08:37.578Z",
+  "task_id": "TASK-0029",
+  "title": "Improve resources library UX",
+  "area": "resources",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve approval request UX\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve resources library UX\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
@@ -22,7 +22,7 @@
     "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
-    "security_signal_detected": true
+    "security_signal_detected": false
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",
