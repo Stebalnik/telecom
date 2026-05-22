@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T12:05:54.236Z",
-  "task_id": "TASK-0012",
-  "title": "Expand contractor workflows",
+  "claimed_at": "2026-05-22T12:09:31.970Z",
+  "task_id": "TASK-0013",
+  "title": "Expand analytics",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0012",
-  "title": "Expand contractor workflows",
-  "started_at": "2026-05-22T12:07:00.394Z",
-  "finished_at": "2026-05-22T12:08:16.341Z",
+  "task_id": "TASK-0013",
+  "title": "Expand analytics",
+  "started_at": "2026-05-22T12:10:25.650Z",
+  "finished_at": "2026-05-22T12:11:28.035Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T12:07:00.395Z",
-      "finished_at": "2026-05-22T12:07:00.671Z",
+      "started_at": "2026-05-22T12:10:25.651Z",
+      "finished_at": "2026-05-22T12:10:25.892Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T12:07:00.671Z",
-      "finished_at": "2026-05-22T12:07:00.916Z",
+      "started_at": "2026-05-22T12:10:25.892Z",
+      "finished_at": "2026-05-22T12:10:26.131Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T12:07:00.916Z",
-      "finished_at": "2026-05-22T12:08:16.335Z",
+      "started_at": "2026-05-22T12:10:26.131Z",
+      "finished_at": "2026-05-22T12:11:28.034Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

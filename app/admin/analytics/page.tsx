@@ -79,8 +79,41 @@ function StatCard({
   );
 }
 
+function InsightCard({
+  title,
+  value,
+  detail,
+  tone = "default",
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  tone?: "default" | "good" | "warning";
+}) {
+  const toneClasses =
+    tone === "good"
+      ? "border-emerald-200 bg-emerald-50"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : "border-[#D9E2EC] bg-white";
+
+  return (
+    <div className={`rounded-2xl border p-5 shadow-sm ${toneClasses}`}>
+      <div className="text-sm font-semibold text-[#111827]">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm leading-6 text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
 function formatDay(day: string) {
   return new Date(day).toLocaleDateString();
+}
+
+function getActivityTone(totalEvents: number): "default" | "good" | "warning" {
+  if (totalEvents === 0) return "warning";
+  if (totalEvents >= 25) return "good";
+  return "default";
 }
 
 export default function AdminAnalyticsPage() {
@@ -121,8 +154,8 @@ export default function AdminAnalyticsPage() {
       }
 
       setSummary(json.summary);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
       setLoading(false);
     }
@@ -221,6 +254,49 @@ export default function AdminAnalyticsPage() {
               value={summary.startDonationCheckoutCount}
               hint={`Conversion: ${summary.conversions.missionCheckoutRate}%`}
             />
+          </section>
+
+          <section className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-6 shadow-sm">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Analytics insights
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  Operational signals derived from the selected event range.
+                </p>
+              </div>
+              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                {rangeLabel}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <InsightCard
+                title="Activity health"
+                value={summary.totalEvents > 0 ? "Active" : "No activity"}
+                detail={`${summary.totalEvents} tracked events in this range.`}
+                tone={getActivityTone(summary.totalEvents)}
+              />
+              <InsightCard
+                title="Onboarding funnel"
+                value={`${summary.conversions.onboardingSubmitRate}%`}
+                detail={`${summary.contractorOnboardingSubmitted} submitted from ${summary.contractorOnboardingStarted} starts.`}
+                tone={summary.conversions.onboardingSubmitRate >= 50 ? "good" : "default"}
+              />
+              <InsightCard
+                title="Customer demand"
+                value={`${summary.customerCreateJobSubmitted}`}
+                detail="Customer job creation events captured in this range."
+                tone={summary.customerCreateJobSubmitted > 0 ? "good" : "default"}
+              />
+              <InsightCard
+                title="Contractor supply"
+                value={`${summary.submitBidCount}`}
+                detail="Submitted bids indicate contractor marketplace activity."
+                tone={summary.submitBidCount > 0 ? "good" : "default"}
+              />
+            </div>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
