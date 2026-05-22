@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T18:10:21.912Z",
-  "task_id": "TASK-0055",
-  "title": "Improve merge-readiness validation",
+  "generated_at": "2026-05-22T18:13:16.618Z",
+  "task_id": "TASK-0056",
+  "title": "Improve build performance",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve merge-readiness validation\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve build performance\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

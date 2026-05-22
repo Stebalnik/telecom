@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T18:10:21.006Z",
-  "task_id": "TASK-0055",
-  "title": "Improve merge-readiness validation",
+  "claimed_at": "2026-05-22T18:13:15.823Z",
+  "task_id": "TASK-0056",
+  "title": "Improve build performance",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
