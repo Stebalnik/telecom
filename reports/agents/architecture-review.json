@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T13:19:19.034Z",
-  "task_id": "TASK-0024",
-  "title": "Add deployment readiness checklist",
-  "area": "infrastructure",
+  "generated_at": "2026-05-22T13:23:19.384Z",
+  "task_id": "TASK-0025",
+  "title": "Improve customer job creation flow",
+  "area": "customer",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Add deployment readiness checklist\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve customer job creation flow\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

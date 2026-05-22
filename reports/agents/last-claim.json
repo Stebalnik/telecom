@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T13:19:18.021Z",
-  "task_id": "TASK-0024",
-  "title": "Add deployment readiness checklist",
+  "claimed_at": "2026-05-22T13:23:18.573Z",
+  "task_id": "TASK-0025",
+  "title": "Improve customer job creation flow",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

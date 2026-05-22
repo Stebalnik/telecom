@@ -65,6 +65,40 @@ function SectionCard({
   );
 }
 
+function ReadinessItem({
+  label,
+  ready,
+  detail,
+}: {
+  label: string;
+  ready: boolean;
+  detail: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        ready
+          ? "border-green-200 bg-green-50"
+          : "border-[#D9E2EC] bg-[#F8FAFC]"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-[#111827]">{label}</div>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+            ready
+              ? "border-green-200 bg-white text-green-700"
+              : "border-[#D9E2EC] bg-white text-[#4B5563]"
+          }`}
+        >
+          {ready ? "Ready" : "Needed"}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[#4B5563]">{detail}</p>
+    </div>
+  );
+}
+
 export default function CustomerJobsNewPage() {
   const router = useRouter();
 
@@ -154,6 +188,52 @@ export default function CustomerJobsNewPage() {
       }))
       .sort((a, b) => a.cert_name.localeCompare(b.cert_name));
   }, [custScopeReq, selectedScopeIds, certNameById, scopeLabelById, customerId]);
+
+  const budgetNum = useMemo(() => parseBudgetToNumber(budget), [budget]);
+  const setupChecks = useMemo(
+    () => [
+      {
+        label: "Job details",
+        ready: Boolean(title.trim() && deadline && budgetNum !== null),
+        detail: title.trim()
+          ? "Title, deadline, and budget are used to publish the opportunity."
+          : "Add a title, deadline, and positive budget before publishing.",
+      },
+      {
+        label: "Scopes",
+        ready: selectedScopeIds.length > 0,
+        detail: selectedScopeIds.length
+          ? `${selectedScopeIds.length} scope${selectedScopeIds.length === 1 ? "" : "s"} selected.`
+          : "Select at least one work scope so contractors can qualify the job.",
+      },
+      {
+        label: "Visibility",
+        ready: true,
+        detail:
+          visibilityMode === "public"
+            ? "All contractors can discover this job."
+            : visibilityMode === "qualified_only"
+              ? "Only qualified or approved contractors should discover this job."
+              : "Only approved contractors should discover this job.",
+      },
+      {
+        label: "Agreement",
+        ready: !requiresOneTimeContract || Boolean(agreementTemplateId),
+        detail: requiresOneTimeContract
+          ? "A one-time agreement template is required for this job."
+          : "No one-time agreement is required for this job.",
+      },
+    ],
+    [
+      agreementTemplateId,
+      budgetNum,
+      deadline,
+      requiresOneTimeContract,
+      selectedScopeIds.length,
+      title,
+      visibilityMode,
+    ]
+  );
 
   async function load() {
     setLoading(true);
@@ -282,7 +362,6 @@ export default function CustomerJobsNewPage() {
             throw new Error("Select at least one scope.");
           }
 
-          const budgetNum = parseBudgetToNumber(budget);
           if (budgetNum === null) {
             throw new Error("Budget is required (enter a positive number).");
           }
@@ -391,9 +470,9 @@ export default function CustomerJobsNewPage() {
           },
         }
       );
-    } catch (e: any) {
+    } catch (e: unknown) {
       const message =
-        typeof e?.message === "string" ? e.message : "Create job error";
+        e instanceof Error ? e.message : "Create job error";
 
       if (
         message === "Title is required." ||
@@ -439,6 +518,22 @@ export default function CustomerJobsNewPage() {
           {err}
         </section>
       ) : null}
+
+      <SectionCard
+        title="Job Setup Checklist"
+        description="Review the required setup steps before publishing this job."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {setupChecks.map((check) => (
+            <ReadinessItem
+              key={check.label}
+              label={check.label}
+              ready={check.ready}
+              detail={check.detail}
+            />
+          ))}
+        </div>
+      </SectionCard>
 
       <SectionCard title="Job Details">
         <div className="grid gap-4 md:grid-cols-2">
