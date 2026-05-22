@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T14:13:09.198Z",
-  "task_id": "TASK-0030",
-  "title": "Improve analytics visibility",
+  "claimed_at": "2026-05-22T15:39:47.798Z",
+  "task_id": "TASK-0031",
+  "title": "Improve feedback/support loop",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
