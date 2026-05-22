@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0019",
-  "title": "Add contractor workflow smoke test checklist",
-  "started_at": "2026-05-22T12:58:04.292Z",
-  "finished_at": "2026-05-22T12:59:07.565Z",
+  "task_id": "TASK-0020",
+  "title": "Add admin workflow smoke test checklist",
+  "started_at": "2026-05-22T13:01:05.654Z",
+  "finished_at": "2026-05-22T13:02:20.992Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T12:58:04.293Z",
-      "finished_at": "2026-05-22T12:58:04.581Z",
+      "started_at": "2026-05-22T13:01:05.655Z",
+      "finished_at": "2026-05-22T13:01:05.881Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-22T12:58:04.581Z",
-      "finished_at": "2026-05-22T12:58:04.851Z",
+      "started_at": "2026-05-22T13:01:05.881Z",
+      "finished_at": "2026-05-22T13:01:06.168Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-22T12:58:04.851Z",
-      "finished_at": "2026-05-22T12:59:07.565Z",
+      "started_at": "2026-05-22T13:01:06.169Z",
+      "finished_at": "2026-05-22T13:02:20.992Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

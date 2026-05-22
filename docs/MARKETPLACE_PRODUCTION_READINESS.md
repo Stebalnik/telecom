@@ -174,6 +174,50 @@ Run these checks with a contractor test account in the isolated preview workspac
 - [ ] Contractor pages do not display service keys, tokens, or raw stack traces.
 - [ ] Mobile layout keeps dashboard, compliance, teams, and HR actions readable.
 
+## Admin Workflow Smoke Test Checklist
+
+Run these checks with an admin test account in the isolated preview workspace.
+
+### Admin Access And Navigation
+
+- [ ] Signed-out access to `/admin` redirects to `/login`.
+- [ ] Non-admin roles are redirected away from `/admin`.
+- [ ] `/admin` renders the admin dashboard without exposing non-admin controls to other roles.
+- [ ] Admin sidebar counts refresh after approval actions.
+- [ ] Mobile admin navigation remains readable and does not overlap page content.
+
+### Approval Queues
+
+- [ ] `/admin/contractor-approvals` renders queue summary cards and contractor rows.
+- [ ] Contractor approve action shows a busy state, refreshes the queue, and does not duplicate requests.
+- [ ] Contractor return-to-draft action shows a busy state and preserves non-sensitive error handling.
+- [ ] `/admin/customer-approvals` renders queue summary cards and customer rows.
+- [ ] Customer approve and return-to-draft actions refresh counts and queue state.
+
+### Analytics, Feedback, And Errors
+
+- [ ] `/admin/analytics` loads summary cards and analytics insight cards for each range filter.
+- [ ] Analytics breakdown routes for customers, contractors, and admin actions render without client errors.
+- [ ] `/admin/feedback` lists feedback items or a friendly empty state.
+- [ ] Feedback detail pages load messages without leaking unrelated conversation data.
+- [ ] `/admin/errors` lists logged errors without exposing secrets or raw environment values.
+
+### Change Requests And Operational Review
+
+- [ ] `/admin/company-change-requests` renders pending company change requests or an empty state.
+- [ ] Company change request detail pages show scoped request data and action controls.
+- [ ] `/admin/team-change-requests` renders pending team change requests or an empty state.
+- [ ] Team change request detail pages show scoped request data and action controls.
+- [ ] Admin action outcomes are visible without requiring a page reload when realtime refresh is expected.
+
+### Admin Error And Security Checks
+
+- [ ] Admin API failures show non-sensitive messages.
+- [ ] Browser console has no unhandled promise rejections during admin navigation.
+- [ ] Admin endpoints reject signed-out and non-admin users.
+- [ ] Admin pages do not display service keys, tokens, or raw stack traces.
+- [ ] Admin actions are auditable through existing analytics/error logging where supported.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
