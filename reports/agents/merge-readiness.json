@@ -1,29 +1,29 @@
 {
-  "generated_at": "2026-05-22T16:19:44.000Z",
+  "generated_at": "2026-05-22T16:22:54.466Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M docs/AGENT_TASK_QUEUE.generated.md\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? docs/qa/\n?? reports/agents/history/2026-05-22T16-19-43-456Z-TASK-0035-current-task.json",
+  "working_tree_status": "M docs/AGENT_TASK_QUEUE.generated.md\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? docs/qa/CONTRACTOR_WORKFLOW_QA.md\n?? reports/agents/history/2026-05-22T16-22-53-951Z-TASK-0036-current-task.json",
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0035",
+    "task_id": "TASK-0036",
     "passed": true,
-    "finished_at": "2026-05-22T16:19:43.123Z"
+    "finished_at": "2026-05-22T16:22:53.649Z"
   },
   "audit_summary": {
     "total_tasks": 58,
-    "completed": 35,
+    "completed": 36,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 23,
-    "commit_ready": 35,
+    "pending": 22,
+    "commit_ready": 36,
     "latest_successful_build": {
-      "build_id": "YaHrigrR4trdxSOxTwQwV",
-      "detected_at": "2026-05-22T16:19:40.531Z"
+      "build_id": "AYGPklkVnzRKWuHyWgJ7j",
+      "detected_at": "2026-05-22T16:22:51.618Z"
     }
   },
   "required_human_actions": [
@@ -49,13 +49,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0035",
-      "finished_at": "2026-05-22T16:19:43.123Z"
+      "task_id": "TASK-0036",
+      "finished_at": "2026-05-22T16:22:53.649Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-22T16:18:30.655Z"
+      "generated_at": "2026-05-22T16:21:47.709Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -68,8 +68,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "YaHrigrR4trdxSOxTwQwV",
-        "detected_at": "2026-05-22T16:19:40.531Z"
+        "build_id": "AYGPklkVnzRKWuHyWgJ7j",
+        "detected_at": "2026-05-22T16:22:51.618Z"
       }
     }
   ]
