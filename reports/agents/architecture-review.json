@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T17:34:59.314Z",
-  "task_id": "TASK-0045",
-  "title": "Full navigation consistency QA",
+  "generated_at": "2026-05-22T17:38:38.274Z",
+  "task_id": "TASK-0046",
+  "title": "Full empty-state QA",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,12 +14,12 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full navigation consistency QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Full empty-state QA\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
-    "route_impact_review": true,
+    "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
     "security_signal_detected": false
