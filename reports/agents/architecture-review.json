@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T14:08:37.578Z",
-  "task_id": "TASK-0029",
-  "title": "Improve resources library UX",
-  "area": "resources",
+  "generated_at": "2026-05-22T14:13:10.364Z",
+  "task_id": "TASK-0030",
+  "title": "Improve analytics visibility",
+  "area": "analytics",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve resources library UX\" with scoped, reviewable changes.",
+    "Implement the task described by \"Improve analytics visibility\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
