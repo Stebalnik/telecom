@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T12:09:32.793Z",
-  "task_id": "TASK-0013",
-  "title": "Expand analytics",
-  "area": "analytics",
+  "generated_at": "2026-05-22T12:12:44.663Z",
+  "task_id": "TASK-0014",
+  "title": "Expand approval system",
+  "area": "approvals",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Expand analytics\" with scoped, reviewable changes.",
+    "Implement the task described by \"Expand approval system\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
@@ -22,7 +22,7 @@
     "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
-    "security_signal_detected": false
+    "security_signal_detected": true
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",

@@ -69,6 +69,57 @@ function StatusBadge({
   );
 }
 
+function QueueSummary({
+  rows,
+}: {
+  rows: ContractorApprovalRow[];
+}) {
+  const missingPublicProfile = rows.filter((row) => {
+    const publicProfile = Array.isArray(row.public_profile)
+      ? row.public_profile[0] ?? null
+      : row.public_profile;
+
+    return !publicProfile;
+  }).length;
+  const blockedCount = rows.filter((row) => row.status === "blocked").length;
+  const submittedCount = rows.filter(
+    (row) => row.onboarding_status === "submitted"
+  ).length;
+
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="text-sm text-[#4B5563]">Queue size</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {rows.length}
+        </div>
+        <div className="mt-1 text-xs text-[#6B7280]">contractors awaiting admin action</div>
+      </div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+        <div className="text-sm text-amber-700">Submitted</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {submittedCount}
+        </div>
+        <div className="mt-1 text-xs text-amber-700">ready for approval review</div>
+      </div>
+      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="text-sm text-[#4B5563]">Missing profiles</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {missingPublicProfile}
+        </div>
+        <div className="mt-1 text-xs text-[#6B7280]">may need return-to-draft</div>
+      </div>
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+        <div className="text-sm text-red-700">Blocked</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {blockedCount}
+        </div>
+        <div className="mt-1 text-xs text-red-700">requires manual review notes</div>
+      </div>
+    </section>
+  );
+}
+
 async function fetchJsonOrThrow<T>(input: string, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
     cache: "no-store",
@@ -277,6 +328,8 @@ export default function AdminContractorApprovalsPage() {
             </p>
           </section>
         ) : null}
+
+        {!loading && rows.length > 0 ? <QueueSummary rows={rows} /> : null}
 
         {!loading && rows.length > 0 ? (
           <section className="grid gap-4">
