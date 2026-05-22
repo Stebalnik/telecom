@@ -20,6 +20,10 @@ const statePath = join(reportsDir, "autonomous-cycle-state.json");
 const logPath = join(reportsDir, "autonomous-cycle-log.json");
 const requiredBranch = "agents/dev-system";
 const retryLimit = 2;
+const controllerOwnedDirtyPaths = new Set([
+  "reports/agents/autonomous-cycle-log.json",
+  "reports/agents/autonomous-cycle-state.json",
+]);
 
 function parseArgs() {
   const values = {
@@ -90,6 +94,14 @@ function getWorkingTreeStatus() {
   return runStep(["git", "status", "--short"]).stdout;
 }
 
+function getBlockingWorkingTreeStatus() {
+  return getWorkingTreeStatus()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((line) => !controllerOwnedDirtyPaths.has(line.slice(3).trim()))
+    .join("\n");
+}
+
 function assertControllerBranchPreflight() {
   const isolation = verifyBranchIsolation();
   if (!isolation.valid) {
@@ -137,16 +149,7 @@ const startedAt = new Date().toISOString();
 
 try {
   assertControllerBranchPreflight();
-  const initialWorkingTreeStatus = getWorkingTreeStatus();
-  const ignoredBootstrapPaths = new Set([
-    "reports/agents/autonomous-cycle-log.json",
-    "reports/agents/autonomous-cycle-state.json",
-  ]);
-  const blockingStatus = initialWorkingTreeStatus
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .filter((line) => !ignoredBootstrapPaths.has(line.slice(3).trim()))
-    .join("\n");
+  const blockingStatus = getBlockingWorkingTreeStatus();
 
   if (blockingStatus) {
     throw new Error(`Working tree must be clean before starting autonomous loop:\n${blockingStatus}`);
@@ -180,7 +183,7 @@ const processedTasks = [];
 try {
   while (processed < options.max) {
     assertControllerBranchPreflight();
-    const workingTreeStatus = getWorkingTreeStatus();
+    const workingTreeStatus = getBlockingWorkingTreeStatus();
     if (workingTreeStatus) {
       appendLog({
         event: "working_tree_not_clean",
