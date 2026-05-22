@@ -5,8 +5,16 @@
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev",
+    "lint": "eslint .",
     "build": "next build",
     "start": "next start",
+    "agents:plan": "node scripts/agents/create-tasks-from-plan.mjs",
+    "agents:audit": "node scripts/agents/audit-progress.mjs",
+    "agents:verify": "node scripts/agents/verify-task.mjs",
+    "agents:claim": "node scripts/agents/claim-next-task.mjs",
+    "agents:verify-current": "node scripts/agents/run-current-task-verification.mjs",
+    "agents:complete": "node scripts/agents/complete-current-task.mjs",
+    "agents:status": "node scripts/agents/agent-status.mjs",
     "docs:update": "bash ./scripts/update_project_docs.sh",
     "ship": "bash ./scripts/ship.sh",
     "release:auto": "bash ./scripts/release_auto.sh"
