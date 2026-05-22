@@ -148,6 +148,10 @@ Safety boundaries:
 - The loop appends events to `reports/agents/autonomous-cycle-log.json`.
 - Failed tasks can be blocked with `npm run agents:block-current -- --reason="..."`; tasks that reach the retry limit are blocked before the controller continues.
 
+## Retry And Fix Handling
+
+Verification failures are tracked in `reports/agents/retry-state.json`. A task that fails verification once is returned to `pending` so the controller can claim it again after Codex fixes the implementation. When a task reaches the retry limit, it is marked `blocked` with the failure reason and must be reviewed manually.
+
 ## Automatic Task Claiming
 
 Task claiming is deterministic and local. `npm run agents:claim` selects from pending tasks only, skips tasks with unmet dependencies, sorts claimable tasks by priority and task id, assigns an agent from task metadata, and writes `reports/agents/last-claim.json`.

@@ -25,6 +25,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Autonomous loops must not deploy to production, restart PM2 production, or merge to `main`.
 - Autonomous loops must stop for Codex implementation after generating an implementation packet.
 - Failed tasks must be blocked after the retry limit is reached.
+- A task that fails verification before the retry limit may return to `pending` for correction.
 - Human review is required before any merge to `main`.
 - Task claiming must be deterministic, dependency-aware, and limited to pending tasks.
 

@@ -1,0 +1,10 @@
+{
+  "claimed_at": "2026-05-22T04:42:50.846Z",
+  "task_id": "TASK-0008",
+  "title": "Implement retry/fix system",
+  "priority": "medium",
+  "assigned_agent": "Coder Agent",
+  "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
+  "selection": "automatic_priority_order",
+  "dependencies": []
+}

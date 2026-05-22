@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   archiveCurrentTask,
   currentTaskPath,
@@ -8,10 +9,23 @@ import {
   ensureReportDirs,
   readJsonFile,
   replaceTaskField,
+  reportsDir,
   updateTaskInQueue,
+  writeJsonFile,
 } from "./agent-queue-utils.mjs";
 
 ensureReportDirs();
+
+const retryStatePath = join(reportsDir, "retry-state.json");
+const retryLimit = 2;
+
+function readRetryState() {
+  return existsSync(retryStatePath) ? readJsonFile(retryStatePath) : { tasks: {} };
+}
+
+function writeRetryState(state) {
+  writeJsonFile(retryStatePath, state);
+}
 
 if (!existsSync(currentTaskPath)) {
   console.log("No current task found. Nothing to complete.");
@@ -26,10 +40,20 @@ if (!existsSync(currentVerificationPath)) {
 const task = readJsonFile(currentTaskPath);
 const verification = readJsonFile(currentVerificationPath);
 const passed = verification.passed === true;
-const nextStatus = passed ? "commit_ready" : "failed";
-const failureReason = passed
-  ? ""
-  : `Verification failed: ${(verification.output_summary ?? ["No failure summary available."])[0]}`;
+const retryState = readRetryState();
+const currentRetry = retryState.tasks[task.task_id] ?? { attempts: 0, last_failure: null };
+const nextRetry = passed
+  ? { attempts: 0, last_failure: null }
+  : {
+      attempts: currentRetry.attempts + 1,
+      last_failure: verification.finished_at ?? new Date().toISOString(),
+    };
+const retryLimitReached = !passed && nextRetry.attempts >= retryLimit;
+const nextStatus = passed ? "commit_ready" : retryLimitReached ? "blocked" : "pending";
+const failureReason = passed ? "" : `Verification failed on attempt ${nextRetry.attempts}/${retryLimit}: ${(verification.output_summary ?? ["No failure summary available."])[0]}`;
+
+retryState.tasks[task.task_id] = nextRetry;
+writeRetryState(retryState);
 
 const updatedTask = updateTaskInQueue(task, (markdown) => {
   let next = replaceTaskField(markdown, "status", nextStatus);
@@ -49,6 +73,9 @@ if (archivedPath) {
 }
 if (!passed) {
   console.log(failureReason);
+  if (!retryLimitReached) {
+    console.log("Task returned to pending for retry.");
+  }
 }
 
 process.exit(0);
