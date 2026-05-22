@@ -130,6 +130,50 @@ Run these checks with a customer test account in the isolated preview workspace.
 - [ ] Customer pages do not display service keys, tokens, or internal stack traces.
 - [ ] Mobile layout keeps primary customer actions visible and readable.
 
+## Contractor Workflow Smoke Test Checklist
+
+Run these checks with a contractor test account in the isolated preview workspace.
+
+### Contractor Access And Onboarding
+
+- [ ] Signed-out access to `/contractor` redirects to `/login`.
+- [ ] Non-contractor roles are redirected away from `/contractor`.
+- [ ] A contractor without a company is routed to `/contractor/onboarding`.
+- [ ] A submitted contractor is routed to `/contractor/onboarding/pending`.
+- [ ] An approved contractor can load `/contractor` and see the workflow panel.
+
+### Company, Compliance, And Profile
+
+- [ ] `/contractor/company` displays legal company data without exposing private auth fields.
+- [ ] `/contractor/settings/company` allows a scoped change request path to load.
+- [ ] `/contractor/insurance` renders approved, pending, rejected, and empty document states.
+- [ ] `/contractor/coi` loads COI controls and validates required upload metadata.
+- [ ] `/contractor/certifications` displays team-member certification status without cross-company leakage.
+
+### Teams, Customers, Jobs, And Bids
+
+- [ ] `/contractor/teams` lists crews or an empty state.
+- [ ] Team create/change request flows render validation errors before submission.
+- [ ] `/contractor/customers` displays customer relationship status for the current contractor only.
+- [ ] `/contractor/jobs` lists available jobs and prevents viewing restricted customer data.
+- [ ] Bid submission from a job detail validates required fields and shows a clear success/failure state.
+
+### Workforce And HR
+
+- [ ] `/contractor/hr` displays the workforce pipeline and readiness checklist.
+- [ ] `/contractor/hr/vacancies` renders vacancies or empty states.
+- [ ] `/contractor/hr/workers` renders worker discovery without leaking private worker records.
+- [ ] `/contractor/hr/invitations` shows invitation status and avoids duplicate invite actions.
+- [ ] HR routes remain hidden or redirected for contractors that should not access them.
+
+### Contractor Error And Security Checks
+
+- [ ] Contractor API failures show non-sensitive messages.
+- [ ] Browser console has no unhandled promise rejections during contractor navigation.
+- [ ] Supabase queries return only the contractor company, teams, documents, and relationships allowed by RLS.
+- [ ] Contractor pages do not display service keys, tokens, or raw stack traces.
+- [ ] Mobile layout keeps dashboard, compliance, teams, and HR actions readable.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
