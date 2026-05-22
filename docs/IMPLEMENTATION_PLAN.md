@@ -46,3 +46,33 @@
 - [ ] Improve agreements workflow
 - [ ] Improve workforce availability workflow
 - [ ] Improve compliance status visibility
+
+# Phase 6 — Pre-Production QA
+
+- [ ] Full customer workflow QA
+- [ ] Full contractor workflow QA
+- [ ] Full worker workflow QA
+- [ ] Full admin workflow QA
+- [ ] Full auth/session QA
+- [ ] Full Supabase permission QA
+- [ ] Full API error handling QA
+- [ ] Full analytics validation QA
+- [ ] Full Stripe checkout QA
+- [ ] Full mobile responsiveness QA
+- [ ] Full navigation consistency QA
+- [ ] Full empty-state QA
+- [ ] Full loading-state QA
+- [ ] Full accessibility QA
+- [ ] Full role-isolation QA
+
+# Phase 7 — Production Hardening
+
+- [ ] Improve runtime logging
+- [ ] Improve monitoring visibility
+- [ ] Improve operational metrics
+- [ ] Improve error recovery
+- [ ] Improve autonomous retry logic
+- [ ] Improve merge-readiness validation
+- [ ] Improve build performance
+- [ ] Improve agent observability
+- [ ] Improve deployment safety checks
