@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:38:37.442Z",
-  "task_id": "TASK-0046",
-  "title": "Full empty-state QA",
+  "claimed_at": "2026-05-22T17:41:49.178Z",
+  "task_id": "TASK-0047",
+  "title": "Full loading-state QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

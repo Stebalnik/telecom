@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T17:38:38.274Z",
-  "task_id": "TASK-0046",
-  "title": "Full empty-state QA",
+  "generated_at": "2026-05-22T17:41:50.062Z",
+  "task_id": "TASK-0047",
+  "title": "Full loading-state QA",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full empty-state QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Full loading-state QA\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
