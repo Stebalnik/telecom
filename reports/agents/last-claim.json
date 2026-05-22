@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:24:04.743Z",
-  "task_id": "TASK-0043",
-  "title": "Full Stripe checkout QA",
+  "claimed_at": "2026-05-22T17:27:20.569Z",
+  "task_id": "TASK-0044",
+  "title": "Full mobile responsiveness QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
