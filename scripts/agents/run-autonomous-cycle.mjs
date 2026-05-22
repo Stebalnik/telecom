@@ -135,6 +135,27 @@ ensureReportDirs();
 const options = parseArgs();
 const startedAt = new Date().toISOString();
 
+try {
+  assertControllerBranchPreflight();
+  const initialWorkingTreeStatus = getWorkingTreeStatus();
+  const ignoredBootstrapPaths = new Set([
+    "reports/agents/autonomous-cycle-log.json",
+    "reports/agents/autonomous-cycle-state.json",
+  ]);
+  const blockingStatus = initialWorkingTreeStatus
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .filter((line) => !ignoredBootstrapPaths.has(line.slice(3).trim()))
+    .join("\n");
+
+  if (blockingStatus) {
+    throw new Error(`Working tree must be clean before starting autonomous loop:\n${blockingStatus}`);
+  }
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+
 writeState({
   status: "running",
   mode: "controller",

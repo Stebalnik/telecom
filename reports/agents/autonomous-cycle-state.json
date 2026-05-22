@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-05-22T04:29:33.322Z",
+  "updated_at": "2026-05-22T04:36:10.130Z",
   "status": "stopped",
   "mode": "controller",
-  "max_iterations": 1,
+  "max_iterations": 5,
   "auto_commit": true,
   "auto_push": true,
   "processed_tasks": [],
   "stop_reason": "working_tree_not_clean",
-  "working_tree_status": "M docs/AGENT_ARCHITECTURE.md\n M docs/AGENT_EXECUTION_RULES.md\n M package.json\n M scripts/agents/agent-queue-utils.mjs\n?? docs/AUTONOMOUS_AGENT_LOOP.md\n?? reports/agents/autonomous-cycle-log.json\n?? reports/agents/autonomous-cycle-state.json\n?? scripts/agents/list-pending-tasks.mjs\n?? scripts/agents/mark-task-blocked.mjs\n?? scripts/agents/run-autonomous-cycle.mjs"
+  "working_tree_status": "M reports/agents/autonomous-cycle-log.json\n M reports/agents/autonomous-cycle-state.json"
 }
