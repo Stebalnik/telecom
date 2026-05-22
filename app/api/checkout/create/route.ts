@@ -3,11 +3,17 @@ import Stripe from "stripe";
 import { withServerErrorLogging } from "../../../../lib/errors/withServerErrorLogging";
 
 function getBaseUrl(req: NextRequest) {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
-  if (envUrl) return envUrl;
-
   const origin = req.headers.get("origin");
   if (origin) return origin.replace(/\/+$/, "");
+
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+  }
+
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  if (envUrl) return envUrl;
 
   return "http://localhost:3000";
 }

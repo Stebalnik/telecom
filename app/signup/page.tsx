@@ -23,6 +23,11 @@ function getErrorMessage(error: unknown) {
   return "Unable to create account. Please try again.";
 }
 
+function getEmailRedirectTo() {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}/dashboard`;
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const redirectTimeoutRef = useRef<number | null>(null);
@@ -75,6 +80,9 @@ export default function SignupPage() {
           const result = await supabase.auth.signUp({
             email: normalizedEmail,
             password,
+            options: {
+              emailRedirectTo: getEmailRedirectTo(),
+            },
           });
 
           if (result.error) {
@@ -89,9 +97,6 @@ export default function SignupPage() {
           source: "frontend",
           area: "auth",
           path: "/signup",
-          details: {
-            email: normalizedEmail,
-          },
         }
       );
 

@@ -20,9 +20,19 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function getBaseUrl() {
+function getBaseUrl(req: Request) {
+  const origin = req.headers.get("origin");
+  if (origin) return origin.replace(/\/$/, "");
+
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, "");
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (appUrl) return appUrl.replace(/\/$/, "");
+
   return "http://localhost:3000";
 }
 
@@ -64,7 +74,7 @@ export async function POST(req: Request) {
     }
 
     const exists = await userExistsByEmail(email);
-    const baseUrl = getBaseUrl();
+    const baseUrl = getBaseUrl(req);
 
     if (exists) {
       const redirectTo = `${baseUrl}/reset-password`;
