@@ -98,7 +98,7 @@ function getBlockingWorkingTreeStatus() {
   return getWorkingTreeStatus()
     .split(/\r?\n/)
     .filter(Boolean)
-    .filter((line) => !controllerOwnedDirtyPaths.has(line.slice(3).trim()))
+    .filter((line) => !controllerOwnedDirtyPaths.has(line.slice(2).trim()))
     .join("\n");
 }
 
