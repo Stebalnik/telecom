@@ -1,9 +1,9 @@
 {
-  "claimed_at": "2026-05-22T13:09:31.417Z",
-  "task_id": "TASK-0021",
-  "title": "Add worker workflow smoke test checklist",
+  "claimed_at": "2026-05-22T13:12:55.868Z",
+  "task_id": "TASK-0022",
+  "title": "Add Supabase/RLS verification checklist",
   "priority": "medium",
-  "assigned_agent": "Verification Agent",
+  "assigned_agent": "Reviewer Agent + Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
   "selection": "automatic_priority_order",
   "dependencies": []

@@ -254,6 +254,58 @@ Run these checks with a worker test account in the isolated preview workspace.
 - [ ] Worker pages do not display service keys, tokens, or raw stack traces.
 - [ ] Mobile layout keeps worker profile, availability, applications, and invitations readable.
 
+## Supabase/RLS Verification Checklist
+
+Run these checks against an isolated preview Supabase project or approved staging dataset. Do not run destructive SQL against production.
+
+### Authentication And Role Claims
+
+- [ ] Confirm test users exist for customer, contractor, worker, and admin roles.
+- [ ] Confirm each test user's `profiles.role` matches the intended workspace.
+- [ ] Confirm signed-out requests to protected route handlers return `401` or redirect to login.
+- [ ] Confirm non-admin users receive `403` from admin API routes.
+- [ ] Confirm role changes require an authorized admin path and are not writable by the user directly.
+
+### Customer Data Isolation
+
+- [ ] Customer A cannot read Customer B jobs, resources, bids, settings, agreements, or requests.
+- [ ] Customer resource file URL routes validate ownership before returning signed URLs.
+- [ ] Customer contractor approvals expose only contractors connected to or requesting that customer.
+- [ ] Customer settings updates affect only the authenticated customer's organization.
+- [ ] Customer feedback and support records are scoped to the current user or organization.
+
+### Contractor Data Isolation
+
+- [ ] Contractor A cannot read Contractor B company profile, teams, workers, documents, bids, or customers.
+- [ ] Contractor document upload/read routes validate company ownership before signed URL creation.
+- [ ] Contractor bid submission requires authenticated contractor ownership and eligible job access.
+- [ ] Contractor team and company change requests are scoped to the current contractor company.
+- [ ] Contractor HR routes expose only allowed worker/vacancy/invitation data.
+
+### Worker Data Isolation
+
+- [ ] Worker A cannot read Worker B profile, availability, insurance, certifications, applications, or invitations.
+- [ ] Worker application writes require the authenticated worker profile.
+- [ ] Worker invitation responses are limited to invitations addressed to the current worker.
+- [ ] Worker certification and insurance upload/read paths validate worker ownership.
+- [ ] Worker vacancy discovery exposes only intended public vacancy fields.
+
+### Admin And Service Boundaries
+
+- [ ] Admin pages and APIs require `profiles.role = admin`.
+- [ ] Admin analytics, feedback, errors, and approval routes reject customer, contractor, and worker users.
+- [ ] Service-role operations remain server-side only and are never exposed to browser bundles.
+- [ ] Storage policies prevent direct public reads of private documents.
+- [ ] RLS is enabled on all marketplace tables that store tenant, user, document, payment, or workflow data.
+
+### Evidence To Record
+
+- [ ] Supabase project/environment name tested.
+- [ ] Table or policy list reviewed.
+- [ ] Test users used for each role.
+- [ ] Pass/fail notes for cross-tenant read/write attempts.
+- [ ] Any required policy fixes or follow-up migrations.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
