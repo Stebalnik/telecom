@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 
 import {
+  currentImplementationPacketPath,
   currentTaskPath,
+  currentVerificationPath,
   ensureReportDirs,
   findFirstPendingTask,
+  removeFileIfExists,
   replaceTaskField,
   updateTaskInQueue,
   writeJsonFile,
 } from "./agent-queue-utils.mjs";
+import { existsSync } from "node:fs";
 
 function assignAgent(task) {
   const haystack = `${task.type} ${task.area} ${task.title}`.toLowerCase();
@@ -44,6 +48,11 @@ function createSafeExecutionPlan(task, assignedAgent) {
 
 ensureReportDirs();
 
+if (existsSync(currentTaskPath)) {
+  console.log("A current task already exists. Complete or archive it before claiming another task.");
+  process.exit(0);
+}
+
 const task = findFirstPendingTask();
 if (!task) {
   console.log("No pending task found.");
@@ -72,6 +81,8 @@ const currentTask = {
 };
 
 writeJsonFile(currentTaskPath, currentTask);
+removeFileIfExists(currentVerificationPath);
+removeFileIfExists(currentImplementationPacketPath);
 
 console.log(`Claimed ${currentTask.task_id}: ${currentTask.title}`);
 console.log(`Queue file: ${currentTask.queue_file}`);

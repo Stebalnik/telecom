@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
 export const root = process.cwd();
@@ -6,6 +6,7 @@ export const reportsDir = join(root, "reports", "agents");
 export const historyDir = join(reportsDir, "history");
 export const currentTaskPath = join(reportsDir, "current-task.json");
 export const currentVerificationPath = join(reportsDir, "current-task-verification.json");
+export const currentImplementationPacketPath = join(reportsDir, "current-implementation-packet.md");
 
 const queueFilePriority = [
   "docs/AGENT_TASK_QUEUE.generated.md",
@@ -70,6 +71,25 @@ export function parseTaskFields(markdown) {
   };
 }
 
+export function parseTaskList(markdown, field) {
+  const lines = markdown.split(/\r?\n/);
+  const fieldIndex = lines.findIndex((line) => line.trim() === `- ${field}:`);
+  if (fieldIndex === -1) return [];
+
+  const values = [];
+  for (let index = fieldIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^- [a-z_]+:/.test(line)) break;
+
+    const match = line.match(/^\s+-\s+(.+)$/);
+    if (match) {
+      values.push(match[1].trim());
+    }
+  }
+
+  return values;
+}
+
 export function findFirstPendingTask() {
   for (const queueFile of readQueueFiles()) {
     const task = extractTasksFromQueue(queueFile).find((candidate) => candidate.status === "pending");
@@ -79,6 +99,13 @@ export function findFirstPendingTask() {
   }
 
   return null;
+}
+
+export function findTaskById(queueFileName, taskId) {
+  const queueFile = readQueueFiles().find((candidate) => candidate.file === queueFileName);
+  if (!queueFile) return null;
+
+  return extractTasksFromQueue(queueFile).find((task) => task.task_id === taskId) ?? null;
 }
 
 export function replaceTaskField(markdown, field, value) {
@@ -122,6 +149,12 @@ export function readJsonFile(path) {
 
 export function writeJsonFile(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+export function removeFileIfExists(path) {
+  if (existsSync(path)) {
+    unlinkSync(path);
+  }
 }
 
 export function archiveCurrentTask(task) {

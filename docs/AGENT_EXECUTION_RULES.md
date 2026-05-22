@@ -16,6 +16,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - The task runner may only run allowlisted commands that are hardcoded in repository scripts.
 - Production deploy remains manual until explicitly enabled by a future approved phase.
 - Merge to `main` requires a successful build and explicit human approval.
+- Codex must use `reports/agents/current-implementation-packet.md` as the single task source of truth for claimed task implementation.
 
 ## Agent Roles
 

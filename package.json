@@ -15,6 +15,9 @@
     "agents:verify-current": "node scripts/agents/run-current-task-verification.mjs",
     "agents:complete": "node scripts/agents/complete-current-task.mjs",
     "agents:status": "node scripts/agents/agent-status.mjs",
+    "agents:packet": "node scripts/agents/create-implementation-packet.mjs",
+    "agents:start-cycle": "node scripts/agents/start-agent-cycle.mjs",
+    "agents:finalize-cycle": "node scripts/agents/finalize-agent-cycle.mjs",
     "docs:update": "bash ./scripts/update_project_docs.sh",
     "ship": "bash ./scripts/ship.sh",
     "release:auto": "bash ./scripts/release_auto.sh"

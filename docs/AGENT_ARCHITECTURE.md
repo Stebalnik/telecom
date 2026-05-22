@@ -64,6 +64,19 @@ Phase 2 adds a deterministic local task runner for orchestration only:
 
 The task runner may read and update queue files, write reports, and run the hardcoded verification commands. It must not run commands from task text, deploy, merge, restart production services, or modify production paths.
 
+## Implementation Packet Workflow
+
+Phase 3 adds an implementation packet so Codex receives one precise, auditable task prompt:
+
+1. `claim task` - Claim the next pending task and write `reports/agents/current-task.json`.
+2. `generate packet` - Build `reports/agents/current-implementation-packet.md` from the current task, queue entry, project rules, acceptance criteria, and verification allowlist.
+3. `Codex implements` - Codex uses the implementation packet as the single task source of truth and makes scoped workspace changes.
+4. `verify` - Run the safe verification runner.
+5. `complete` - Mark the task `commit_ready` only when verification passes.
+6. `commit-ready` - Preserve reports and queue status for human review.
+
+The packet workflow does not call AI APIs, deploy, merge, execute task-provided commands, or edit production files.
+
 ## Preview Runtime Usage
 
 The preview runtime is used for human validation and non-production smoke testing. Agents may recommend preview checks and document expected routes to inspect. Agents must not treat preview success as permission to deploy.

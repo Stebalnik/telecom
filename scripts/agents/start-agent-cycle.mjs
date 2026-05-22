@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+import { spawnSync } from "node:child_process";
+import { root } from "./agent-queue-utils.mjs";
+
+const steps = [
+  ["npm", "run", "agents:status"],
+  ["npm", "run", "agents:claim"],
+  ["npm", "run", "agents:packet"],
+];
+
+function runStep(command) {
+  const result = spawnSync(command[0], command.slice(1), {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+    stdio: "inherit",
+  });
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+for (const step of steps) {
+  runStep(step);
+}
+
+console.log('Use reports/agents/current-implementation-packet.md as the implementation prompt.');
