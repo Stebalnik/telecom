@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T12:16:42.713Z",
-  "task_id": "TASK-0015",
-  "title": "Expand workforce system",
-  "area": "hr-workforce",
+  "generated_at": "2026-05-22T12:48:06.635Z",
+  "task_id": "TASK-0016",
+  "title": "Review all commit_ready tasks and summarize implemented capability",
+  "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Expand workforce system\" with scoped, reviewable changes.",
+    "Implement the task described by \"Review all commit_ready tasks and summarize implemented capability\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
