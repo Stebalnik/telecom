@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-22T17:20:46.690Z",
-  "task_id": "TASK-0042",
-  "title": "Full analytics validation QA",
+  "claimed_at": "2026-05-22T17:24:04.743Z",
+  "task_id": "TASK-0043",
+  "title": "Full Stripe checkout QA",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
