@@ -306,6 +306,50 @@ Run these checks against an isolated preview Supabase project or approved stagin
 - [ ] Pass/fail notes for cross-tenant read/write attempts.
 - [ ] Any required policy fixes or follow-up migrations.
 
+## Stripe Checkout Verification Checklist
+
+Run these checks in Stripe test mode only. Do not use live keys, live products, or real payment methods during preview verification.
+
+### Environment And Secret Safety
+
+- [ ] Confirm preview uses Stripe test keys only.
+- [ ] Confirm no Stripe secret key is present in browser bundles, page source, logs, or client responses.
+- [ ] Confirm checkout routes fail safely when required Stripe environment variables are missing.
+- [ ] Confirm allowed price/product identifiers are configured through server-side environment or trusted constants.
+- [ ] Confirm production Stripe webhook secrets are not used in preview.
+
+### Checkout Session Creation
+
+- [ ] Signed-out checkout attempts are rejected or redirected according to the intended product flow.
+- [ ] `/api/checkout/create` accepts only validated product, price, quantity, and role context.
+- [ ] Invalid price identifiers, malformed quantities, and unsupported checkout modes return non-sensitive errors.
+- [ ] Successful test checkout session creation returns only the safe redirect/session data needed by the client.
+- [ ] Checkout success and cancel URLs point to preview-safe routes.
+
+### Payment Flow
+
+- [ ] Test card success flow reaches the configured success page.
+- [ ] Test card failure flow shows a recoverable error or Stripe-hosted failure state.
+- [ ] Checkout cancel returns the user to an expected page without creating completed internal records.
+- [ ] Repeated checkout clicks do not create duplicate user-visible workflow state.
+- [ ] Mobile checkout redirection works from the preview runtime.
+
+### Webhooks And Internal Records
+
+- [ ] Stripe webhook endpoint, if enabled, verifies signatures before processing events.
+- [ ] Duplicate webhook events are idempotent.
+- [ ] Payment success updates only the authenticated or linked account/order intended by the checkout session.
+- [ ] Failed, canceled, and expired sessions do not mark internal records as paid.
+- [ ] Webhook logs avoid full card, customer, and secret payload exposure.
+
+### Evidence To Record
+
+- [ ] Stripe mode tested: test only.
+- [ ] Product or price identifiers tested, with secrets redacted.
+- [ ] Checkout success/failure/cancel screenshots.
+- [ ] Webhook event IDs tested, if applicable.
+- [ ] Follow-up fixes for checkout validation, webhook idempotency, or record reconciliation.
+
 ## Production Readiness Note
 
 The branch is not production-ready solely because tasks are `commit_ready`. Human review, smoke testing, Supabase/RLS verification, Stripe checkout verification, and deployment readiness checks must still pass before release.
