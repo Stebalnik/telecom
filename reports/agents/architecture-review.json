@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T17:13:58.194Z",
-  "task_id": "TASK-0040",
-  "title": "Full Supabase permission QA",
-  "area": "security",
+  "generated_at": "2026-05-22T17:17:33.196Z",
+  "task_id": "TASK-0041",
+  "title": "Full API error handling QA",
+  "area": "api",
   "type": "feature",
   "assigned_agent": "Reviewer Agent + Coder Agent",
   "branch_isolation": {
@@ -14,14 +14,14 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full Supabase permission QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Full API error handling QA\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
     "route_impact_review": false,
     "backend_review": true,
-    "supabase_rls_review": true,
+    "supabase_rls_review": false,
     "security_signal_detected": true
   },
   "architectural_guidance": [
