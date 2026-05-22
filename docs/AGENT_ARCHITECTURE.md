@@ -62,6 +62,17 @@ Additional checks are required when relevant:
 - Supabase/RLS review for backend, auth, storage, database, API, policy, or data-access changes.
 - Stripe review for payment, webhook, billing, agreement, or marketplace transaction changes.
 
+## Self-Verification Pipeline
+
+The autonomous runner includes a deterministic self-verification step that checks the agent system before build completion:
+
+- Branch isolation is valid.
+- The active current task exists in the queue and remains `in_progress`.
+- The implementation packet matches the claimed task and includes required safety sections.
+- Prior verification reports contain only allowlisted commands.
+
+The self-verification command writes `reports/agents/self-verification.json`. It does not call AI APIs, run task-provided commands, deploy, merge, or touch production paths.
+
 ## Safe Task Execution Loop
 
 Phase 2 adds a deterministic local task runner for orchestration only:

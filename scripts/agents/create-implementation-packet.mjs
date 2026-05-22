@@ -21,6 +21,7 @@ const ruleSources = [
 
 const allowedVerificationCommands = [
   "npm run agents:verify",
+  "npm run agents:self-verify",
   "npm run build",
 ];
 

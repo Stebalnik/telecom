@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0003",
-  "title": "Build git branch isolation",
-  "started_at": "2026-05-22T03:50:39.057Z",
-  "finished_at": "2026-05-22T03:51:53.764Z",
+  "task_id": "TASK-0004",
+  "title": "Build self-verification pipeline",
+  "started_at": "2026-05-22T03:57:42.907Z",
+  "finished_at": "2026-05-22T03:59:06.131Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-22T03:50:39.058Z",
-      "finished_at": "2026-05-22T03:50:39.327Z",
+      "started_at": "2026-05-22T03:57:42.908Z",
+      "finished_at": "2026-05-22T03:57:43.221Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -18,9 +18,22 @@
       ]
     },
     {
+      "command": "npm run agents:self-verify",
+      "started_at": "2026-05-22T03:57:43.222Z",
+      "finished_at": "2026-05-22T03:57:43.566Z",
+      "exit_code": 0,
+      "passed": true,
+      "output_summary": [
+        "> telecom@0.1.0 agents:self-verify",
+        "> node scripts/agents/self-verification.mjs",
+        "",
+        "Agent self-verification passed."
+      ]
+    },
+    {
       "command": "npm run build",
-      "started_at": "2026-05-22T03:50:39.328Z",
-      "finished_at": "2026-05-22T03:51:53.763Z",
+      "started_at": "2026-05-22T03:57:43.566Z",
+      "finished_at": "2026-05-22T03:59:06.130Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -64,6 +77,11 @@
     "> node scripts/agents/verify-task.mjs",
     "",
     "Agent task verification passed for 15 task(s) across 2 queue file(s).",
+    "npm run agents:self-verify: passed",
+    "> telecom@0.1.0 agents:self-verify",
+    "> node scripts/agents/self-verification.mjs",
+    "",
+    "Agent self-verification passed.",
     "npm run build: passed",
     "├ ƒ /customer/resources/[id]/edit",
     "├ ƒ /customer/resources/file-url",

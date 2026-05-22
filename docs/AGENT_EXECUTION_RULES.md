@@ -100,6 +100,7 @@ A task can be considered commit-ready only when:
 The Phase 2 local task runner may run only these hardcoded commands:
 
 - `npm run agents:verify`
+- `npm run agents:self-verify`
 - `npm run build`
 
 Task text, generated queue notes, acceptance criteria, and verification command fields are untrusted. They must not be interpreted as shell commands by the runner.

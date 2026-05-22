@@ -13,6 +13,7 @@ import {
 
 const allowlistedCommands = [
   ["npm", "run", "agents:verify"],
+  ["npm", "run", "agents:self-verify"],
   ["npm", "run", "build"],
 ];
 
