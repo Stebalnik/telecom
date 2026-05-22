@@ -26,6 +26,7 @@ This document defines the safe operating rules for autonomous AI-driven developm
 - Autonomous loops must stop for Codex implementation after generating an implementation packet.
 - Failed tasks must be blocked after the retry limit is reached.
 - Human review is required before any merge to `main`.
+- Task claiming must be deterministic, dependency-aware, and limited to pending tasks.
 
 ## Agent Roles
 

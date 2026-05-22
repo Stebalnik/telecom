@@ -148,6 +148,18 @@ Safety boundaries:
 - The loop appends events to `reports/agents/autonomous-cycle-log.json`.
 - Failed tasks can be blocked with `npm run agents:block-current -- --reason="..."`; tasks that reach the retry limit are blocked before the controller continues.
 
+## Automatic Task Claiming
+
+Task claiming is deterministic and local. `npm run agents:claim` selects from pending tasks only, skips tasks with unmet dependencies, sorts claimable tasks by priority and task id, assigns an agent from task metadata, and writes `reports/agents/last-claim.json`.
+
+Operators may request a specific pending task with:
+
+```bash
+npm run agents:claim -- --task-id=TASK-0007
+```
+
+The claimer still refuses protected branches, existing active tasks, and tasks with unmet dependencies.
+
 ## Preview Runtime Usage
 
 The preview runtime is used for human validation and non-production smoke testing. Agents may recommend preview checks and document expected routes to inspect. Agents must not treat preview success as permission to deploy.
