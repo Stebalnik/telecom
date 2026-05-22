@@ -18,6 +18,7 @@ import {
 
 const statePath = join(reportsDir, "autonomous-cycle-state.json");
 const logPath = join(reportsDir, "autonomous-cycle-log.json");
+const retryStatePath = join(reportsDir, "retry-state.json");
 const requiredBranch = "agents/dev-system";
 const retryLimit = 2;
 const controllerOwnedDirtyPaths = new Set([
@@ -83,6 +84,11 @@ function appendLog(entry) {
   writeJsonFile(logPath, log);
 }
 
+function readRetryState() {
+  if (!existsSync(retryStatePath)) return { tasks: {} };
+  return readJsonFile(retryStatePath);
+}
+
 function writeState(state) {
   writeJsonFile(statePath, {
     updated_at: new Date().toISOString(),
@@ -115,6 +121,10 @@ function assertControllerBranchPreflight() {
 }
 
 function countTaskFailures(taskId) {
+  const retryState = readRetryState();
+  const attempts = retryState.tasks?.[taskId]?.attempts;
+  if (Number.isInteger(attempts)) return attempts;
+
   const log = readLog();
   return log.filter((entry) => entry.task_id === taskId && entry.event === "task_failed").length;
 }

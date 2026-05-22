@@ -18,6 +18,7 @@ ensureReportDirs();
 
 const retryStatePath = join(reportsDir, "retry-state.json");
 const retryLimit = 2;
+const retryHistoryLimit = 10;
 
 function readRetryState() {
   return existsSync(retryStatePath) ? readJsonFile(retryStatePath) : { tasks: {} };
@@ -41,16 +42,35 @@ const task = readJsonFile(currentTaskPath);
 const verification = readJsonFile(currentVerificationPath);
 const passed = verification.passed === true;
 const retryState = readRetryState();
-const currentRetry = retryState.tasks[task.task_id] ?? { attempts: 0, last_failure: null };
+const currentRetry = retryState.tasks[task.task_id] ?? {
+  attempts: 0,
+  last_failure: null,
+  history: [],
+};
+const failureSummary = (verification.output_summary ?? ["No failure summary available."])[0];
 const nextRetry = passed
-  ? { attempts: 0, last_failure: null }
+  ? {
+      attempts: 0,
+      last_failure: null,
+      last_success: verification.finished_at ?? new Date().toISOString(),
+      history: currentRetry.history ?? [],
+    }
   : {
       attempts: currentRetry.attempts + 1,
       last_failure: verification.finished_at ?? new Date().toISOString(),
+      last_success: currentRetry.last_success ?? null,
+      history: [
+        ...((currentRetry.history ?? []).slice(-(retryHistoryLimit - 1))),
+        {
+          attempt: currentRetry.attempts + 1,
+          failed_at: verification.finished_at ?? new Date().toISOString(),
+          reason: failureSummary,
+        },
+      ],
     };
 const retryLimitReached = !passed && nextRetry.attempts >= retryLimit;
 const nextStatus = passed ? "commit_ready" : retryLimitReached ? "blocked" : "pending";
-const failureReason = passed ? "" : `Verification failed on attempt ${nextRetry.attempts}/${retryLimit}: ${(verification.output_summary ?? ["No failure summary available."])[0]}`;
+const failureReason = passed ? "" : `Verification failed on attempt ${nextRetry.attempts}/${retryLimit}: ${failureSummary}`;
 
 retryState.tasks[task.task_id] = nextRetry;
 writeRetryState(retryState);
