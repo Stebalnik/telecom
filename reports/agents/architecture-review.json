@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-22T16:24:18.821Z",
-  "task_id": "TASK-0037",
-  "title": "Full worker workflow QA",
-  "area": "worker",
+  "generated_at": "2026-05-22T16:27:22.009Z",
+  "task_id": "TASK-0038",
+  "title": "Full admin workflow QA",
+  "area": "admin",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Full worker workflow QA\" with scoped, reviewable changes.",
+    "Implement the task described by \"Full admin workflow QA\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
@@ -22,7 +22,7 @@
     "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
-    "security_signal_detected": false
+    "security_signal_detected": true
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",
