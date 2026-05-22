@@ -1,9 +1,9 @@
 {
-  "claimed_at": "2026-05-22T16:27:21.131Z",
-  "task_id": "TASK-0038",
-  "title": "Full admin workflow QA",
+  "claimed_at": "2026-05-22T16:30:30.579Z",
+  "task_id": "TASK-0039",
+  "title": "Full auth/session QA",
   "priority": "medium",
-  "assigned_agent": "Coder Agent",
+  "assigned_agent": "Reviewer Agent + Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
   "selection": "automatic_priority_order",
   "dependencies": []
