@@ -1,5 +1,6 @@
 import Link from "next/link";
 import TrackPageView from "@/components/analytics/TrackPageView";
+import PublicMarketplaceNav from "@/components/marketplace/PublicMarketplaceNav";
 import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getPublicJobsDirectorySnapshot } from "@/lib/marketplace/publicData";
 
@@ -24,6 +25,7 @@ export default async function PublicJobsPage() {
           </Link>
         </div>
       </header>
+      <PublicMarketplaceNav />
 
       <section className="mx-auto max-w-7xl px-6 py-12 md:px-10">
         <div className="grid gap-8 md:grid-cols-[1fr_320px] md:items-start">

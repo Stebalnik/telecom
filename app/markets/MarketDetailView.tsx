@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import TrackPageView from "@/components/analytics/TrackPageView";
+import PublicMarketplaceNav from "@/components/marketplace/PublicMarketplaceNav";
 import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getMarketplaceHubSnapshot } from "@/lib/marketplace/publicData";
 
@@ -50,6 +51,7 @@ export async function MarketDetailView({
           </Link>
         </div>
       </header>
+      <PublicMarketplaceNav />
 
       <section className="mx-auto max-w-7xl px-6 py-12 md:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#1F6FB5]">

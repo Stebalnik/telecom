@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:48:49.640Z",
-  "task_id": "TASK-0088",
-  "title": "Admin marketplace acquisition analytics",
+  "claimed_at": "2026-05-23T04:53:03.428Z",
+  "task_id": "TASK-0089",
+  "title": "Marketplace UX polish",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import TrackPageView from "@/components/analytics/TrackPageView";
+import PublicMarketplaceNav from "@/components/marketplace/PublicMarketplaceNav";
 import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getMarketplaceHubSnapshot } from "@/lib/marketplace/publicData";
 
@@ -33,6 +34,7 @@ export default async function MarketplacePage() {
           </div>
         </div>
       </header>
+      <PublicMarketplaceNav />
 
       <section className="mx-auto max-w-7xl px-6 py-12 md:px-10">
         <div className="max-w-3xl">

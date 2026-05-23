@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-23T04:48:50.500Z",
-  "task_id": "TASK-0088",
-  "title": "Admin marketplace acquisition analytics",
-  "area": "admin",
+  "generated_at": "2026-05-23T04:53:04.233Z",
+  "task_id": "TASK-0089",
+  "title": "Marketplace UX polish",
+  "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Admin marketplace acquisition analytics\" with scoped, reviewable changes.",
+    "Implement the task described by \"Marketplace UX polish\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
@@ -22,7 +22,7 @@
     "route_impact_review": false,
     "backend_review": false,
     "supabase_rls_review": false,
-    "security_signal_detected": true
+    "security_signal_detected": false
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",
