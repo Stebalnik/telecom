@@ -73,6 +73,46 @@ function InfoPill({ children }: { children: React.ReactNode }) {
   );
 }
 
+function getContractorMatchScore(
+  item: MarketplaceContractor,
+  badges: ContractorBadgeMap[string] | undefined
+) {
+  const portalVerified = Boolean(badges?.portalVerified);
+  const meetsRequirements = Boolean(badges?.meetsYourRequirements);
+  const onboarded = Boolean(badges?.onboardedWithYou);
+  const hasInsurance = item.insurance_types.length > 0;
+  const hasTeams = item.available_teams_count > 0;
+  const hasMarkets = item.markets.length > 0;
+
+  let score = 20;
+  if (portalVerified) score += 20;
+  if (meetsRequirements) score += 25;
+  if (onboarded) score += 20;
+  if (hasInsurance) score += 10;
+  if (hasTeams) score += 5;
+
+  const reasons = [
+    portalVerified ? "platform verified" : null,
+    meetsRequirements ? "insurance fit" : null,
+    onboarded ? "already approved" : null,
+    hasMarkets ? "market coverage" : null,
+    hasTeams ? "team capacity" : null,
+  ].filter(Boolean) as string[];
+  const gaps = [
+    portalVerified ? null : "verification review",
+    meetsRequirements ? null : "insurance fit",
+    onboarded ? null : "customer approval",
+    hasMarkets ? null : "market coverage",
+    hasTeams ? null : "team capacity",
+  ].filter(Boolean) as string[];
+
+  return {
+    score: Math.min(score, 100),
+    reasons,
+    gaps,
+  };
+}
+
 export default function CustomerAllContractorsPage() {
   const router = useRouter();
 
@@ -162,6 +202,16 @@ export default function CustomerAllContractorsPage() {
     ).length;
 
     return { verified, requirements, onboarded };
+  }, [badgeMap, items]);
+
+  const topMatches = useMemo(() => {
+    return items
+      .map((item) => ({
+        item,
+        match: getContractorMatchScore(item, badgeMap[item.company_id]),
+      }))
+      .sort((a, b) => b.match.score - a.match.score)
+      .slice(0, 4);
   }, [badgeMap, items]);
 
   if (loading || !allowed) {
@@ -283,6 +333,69 @@ export default function CustomerAllContractorsPage() {
         {err ? (
           <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
             {err}
+          </section>
+        ) : null}
+
+        {topMatches.length > 0 ? (
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0A2E5C]">
+                  Matching contractors
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+                  Ranked by approval status, insurance fit, verification,
+                  market coverage, and available teams.
+                </p>
+              </div>
+              <Link
+                href="/customer/jobs/new"
+                className="w-fit rounded-xl bg-[#1F6FB5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+              >
+                Post job
+              </Link>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {topMatches.map(({ item, match }) => (
+                <article
+                  key={item.company_id}
+                  className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#0A2E5C]">
+                        {item.dba_name || item.legal_name}
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-[#4B5563]">
+                        {item.markets.length
+                          ? item.markets.join(", ")
+                          : item.home_market || "Market coverage pending"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#EAF4FF] px-3 py-1 text-xs font-semibold text-[#1F6FB5]">
+                      {match.score}% fit
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(match.reasons.length ? match.reasons : ["approval path"]).map(
+                      (reason) => (
+                        <InfoPill key={reason}>{reason}</InfoPill>
+                      )
+                    )}
+                  </div>
+                  {match.gaps.length ? (
+                    <p className="mt-3 text-xs leading-5 text-[#4B5563]">
+                      Next checks: {match.gaps.slice(0, 3).join(", ")}.
+                    </p>
+                  ) : (
+                    <p className="mt-3 text-xs leading-5 text-[#166534]">
+                      Core customer matching signals are in place.
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
           </section>
         ) : null}
 

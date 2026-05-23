@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-23T04:30:13.850Z",
-  "task_id": "TASK-0084",
-  "title": "Matching jobs for contractor",
-  "area": "contractor",
+  "generated_at": "2026-05-23T04:34:28.973Z",
+  "task_id": "TASK-0085",
+  "title": "Matching contractors for customer",
+  "area": "customer",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Matching jobs for contractor\" with scoped, reviewable changes.",
+    "Implement the task described by \"Matching contractors for customer\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

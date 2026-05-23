@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:30:12.998Z",
-  "task_id": "TASK-0084",
-  "title": "Matching jobs for contractor",
+  "claimed_at": "2026-05-23T04:34:28.211Z",
+  "task_id": "TASK-0085",
+  "title": "Matching contractors for customer",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
