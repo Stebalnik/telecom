@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T02:53:44.532Z",
-  "task_id": "TASK-0063",
-  "title": "Public contractor directory",
+  "generated_at": "2026-05-23T02:56:46.938Z",
+  "task_id": "TASK-0064",
+  "title": "Public contractor profile page",
   "area": "contractor",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,12 +14,12 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Public contractor directory\" with scoped, reviewable changes.",
+    "Implement the task described by \"Public contractor profile page\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
-    "route_impact_review": false,
+    "route_impact_review": true,
     "backend_review": false,
     "supabase_rls_review": false,
     "security_signal_detected": false

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0063",
-  "title": "Public contractor directory",
-  "started_at": "2026-05-23T02:54:28.121Z",
-  "finished_at": "2026-05-23T02:55:27.465Z",
+  "task_id": "TASK-0064",
+  "title": "Public contractor profile page",
+  "started_at": "2026-05-23T02:57:17.696Z",
+  "finished_at": "2026-05-23T02:58:16.923Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T02:54:28.122Z",
-      "finished_at": "2026-05-23T02:54:28.344Z",
+      "started_at": "2026-05-23T02:57:17.697Z",
+      "finished_at": "2026-05-23T02:57:17.915Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T02:54:28.344Z",
-      "finished_at": "2026-05-23T02:54:28.567Z",
+      "started_at": "2026-05-23T02:57:17.915Z",
+      "finished_at": "2026-05-23T02:57:18.155Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,12 +32,11 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T02:54:28.568Z",
-      "finished_at": "2026-05-23T02:55:27.465Z",
+      "started_at": "2026-05-23T02:57:18.155Z",
+      "finished_at": "2026-05-23T02:58:16.923Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
-        "├ ○ /customer/settings",
         "├ ○ /customer/settings/certs-per-scope",
         "├ ○ /customer/settings/insurance",
         "├ ○ /dashboard",
@@ -47,6 +46,7 @@
         "├ ○ /logout",
         "├ ƒ /marketplace",
         "├ ƒ /marketplace/contractors",
+        "├ ƒ /marketplace/contractors/[id]",
         "├ ƒ /marketplace/jobs",
         "├ ƒ /marketplace/jobs/[id]",
         "├ ○ /mission",
@@ -83,7 +83,6 @@
     "",
     "Agent self-verification passed.",
     "npm run build: passed",
-    "├ ○ /customer/settings",
     "├ ○ /customer/settings/certs-per-scope",
     "├ ○ /customer/settings/insurance",
     "├ ○ /dashboard",
@@ -93,6 +92,7 @@
     "├ ○ /logout",
     "├ ƒ /marketplace",
     "├ ƒ /marketplace/contractors",
+    "├ ƒ /marketplace/contractors/[id]",
     "├ ƒ /marketplace/jobs",
     "├ ƒ /marketplace/jobs/[id]",
     "├ ○ /mission",

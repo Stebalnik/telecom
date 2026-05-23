@@ -55,6 +55,11 @@ export type PublicContractorsDirectorySnapshot = MarketplaceLandingSnapshot & {
   contractors: PublicContractorPreview[];
 };
 
+export type PublicContractorDetail = PublicContractorPreview & {
+  trustBadges: string[];
+  complianceSummary: string[];
+};
+
 export type PublicJobDetail = PublicJobPreview & {
   description: string;
   trustSignals: string[];
@@ -424,6 +429,37 @@ export async function getPublicContractorsDirectorySnapshot(): Promise<PublicCon
   } catch {
     return fallbackContractorsDirectorySnapshot;
   }
+}
+
+export async function getPublicContractorDetail(
+  id: string
+): Promise<PublicContractorDetail | null> {
+  const snapshot = await getPublicContractorsDirectorySnapshot();
+  const contractor = snapshot.contractors.find((item) => item.id === id);
+
+  if (!contractor) {
+    return null;
+  }
+
+  return {
+    ...contractor,
+    trustBadges: [
+      "Active marketplace profile",
+      contractor.insuranceVerified
+        ? "Insurance verified"
+        : "Insurance review pending",
+      contractor.certificationsVerified
+        ? "Certifications verified"
+        : "Certifications review pending",
+      contractor.markets.length ? "Markets published" : "Markets pending",
+      contractor.teamSize,
+    ],
+    complianceSummary: [
+      "Private insurance documents are protected",
+      "Certification evidence is reviewed inside authenticated workflows",
+      "Customer approval and invitation actions require sign in",
+    ],
+  };
 }
 
 export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirectorySnapshot> {
