@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0065",
-  "title": "Public market index",
-  "started_at": "2026-05-23T03:00:02.852Z",
-  "finished_at": "2026-05-23T03:01:09.637Z",
+  "task_id": "TASK-0066",
+  "title": "Public market detail pages",
+  "started_at": "2026-05-23T03:03:09.517Z",
+  "finished_at": "2026-05-23T03:04:09.657Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:00:02.853Z",
-      "finished_at": "2026-05-23T03:00:03.201Z",
+      "started_at": "2026-05-23T03:03:09.518Z",
+      "finished_at": "2026-05-23T03:03:09.759Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:00:03.202Z",
-      "finished_at": "2026-05-23T03:00:03.583Z",
+      "started_at": "2026-05-23T03:03:09.759Z",
+      "finished_at": "2026-05-23T03:03:10.067Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,13 +32,11 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:00:03.583Z",
-      "finished_at": "2026-05-23T03:01:09.637Z",
+      "started_at": "2026-05-23T03:03:10.067Z",
+      "finished_at": "2026-05-23T03:04:09.657Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
-        "├ ○ /customer/settings/insurance",
-        "├ ○ /dashboard",
         "├ ○ /feedback",
         "├ ○ /forgot-password",
         "├ ○ /login",
@@ -49,6 +47,8 @@
         "├ ƒ /marketplace/jobs",
         "├ ƒ /marketplace/jobs/[id]",
         "├ ƒ /markets",
+        "├ ƒ /markets/[state]",
+        "├ ƒ /markets/[state]/[market]",
         "├ ○ /mission",
         "├ ○ /privacy",
         "├ ○ /reset-password",
@@ -83,8 +83,6 @@
     "",
     "Agent self-verification passed.",
     "npm run build: passed",
-    "├ ○ /customer/settings/insurance",
-    "├ ○ /dashboard",
     "├ ○ /feedback",
     "├ ○ /forgot-password",
     "├ ○ /login",
@@ -95,6 +93,8 @@
     "├ ƒ /marketplace/jobs",
     "├ ƒ /marketplace/jobs/[id]",
     "├ ƒ /markets",
+    "├ ƒ /markets/[state]",
+    "├ ƒ /markets/[state]/[market]",
     "├ ○ /mission",
     "├ ○ /privacy",
     "├ ○ /reset-password",

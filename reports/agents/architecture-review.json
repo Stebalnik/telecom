@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T02:59:34.682Z",
-  "task_id": "TASK-0065",
-  "title": "Public market index",
+  "generated_at": "2026-05-23T03:02:28.731Z",
+  "task_id": "TASK-0066",
+  "title": "Public market detail pages",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,12 +14,12 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Public market index\" with scoped, reviewable changes.",
+    "Implement the task described by \"Public market detail pages\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
-    "route_impact_review": false,
+    "route_impact_review": true,
     "backend_review": false,
     "supabase_rls_review": false,
     "security_signal_detected": false
