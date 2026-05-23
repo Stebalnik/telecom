@@ -220,6 +220,7 @@ export default function CustomerJobsNewPage() {
   const [deadline, setDeadline] = useState("");
   const [budget, setBudget] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [inviteContractorId, setInviteContractorId] = useState<string | null>(null);
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [visibilityMode, setVisibilityMode] =
     useState<JobVisibilityMode>("public");
@@ -408,10 +409,22 @@ export default function CustomerJobsNewPage() {
   }
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const contractorId = params.get("contractorId");
+    if (contractorId) {
+      setInviteContractorId(contractorId);
+    }
+
     void load();
     void track("customer_job_started", {
       role: "customer",
       path: "/customer/jobs/new",
+      meta: contractorId
+        ? {
+            contractorCompanyId: contractorId,
+            source: "contractor_invite_flow",
+          }
+        : undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -779,6 +792,14 @@ export default function CustomerJobsNewPage() {
       {err ? (
         <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm">
           {err}
+        </section>
+      ) : null}
+
+      {inviteContractorId ? (
+        <section className="rounded-2xl border border-[#B7D9F5] bg-[#EAF4FF] p-4 text-sm text-[#0A2E5C] shadow-sm">
+          Contractor invite prepared. Create the job, then use the matching
+          preview to continue invitation and approval workflow for selected
+          contractor {inviteContractorId.slice(0, 8)}.
         </section>
       ) : null}
 

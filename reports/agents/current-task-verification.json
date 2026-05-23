@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0085",
-  "title": "Matching contractors for customer",
-  "started_at": "2026-05-23T04:34:59.617Z",
-  "finished_at": "2026-05-23T04:36:44.752Z",
+  "task_id": "TASK-0086",
+  "title": "Contractor invite flow",
+  "started_at": "2026-05-23T04:40:20.368Z",
+  "finished_at": "2026-05-23T04:42:07.784Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:34:59.617Z",
-      "finished_at": "2026-05-23T04:34:59.861Z",
+      "started_at": "2026-05-23T04:40:20.370Z",
+      "finished_at": "2026-05-23T04:40:20.658Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:34:59.861Z",
-      "finished_at": "2026-05-23T04:35:00.192Z",
+      "started_at": "2026-05-23T04:40:20.658Z",
+      "finished_at": "2026-05-23T04:40:20.890Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:35:00.192Z",
-      "finished_at": "2026-05-23T04:36:44.752Z",
+      "started_at": "2026-05-23T04:40:20.890Z",
+      "finished_at": "2026-05-23T04:42:07.784Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

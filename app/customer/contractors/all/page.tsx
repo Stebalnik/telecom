@@ -15,6 +15,7 @@ import {
   listMyCustomerRequiredInsuranceNames,
   type ContractorBadgeMap,
 } from "../../../../lib/customers";
+import { track } from "../../../../lib/track";
 
 type ContractorFilter = "all" | "verified" | "requirements" | "onboarded";
 
@@ -124,6 +125,7 @@ export default function CustomerAllContractorsPage() {
   const [activeFilter, setActiveFilter] = useState<ContractorFilter>("all");
   const [items, setItems] = useState<MarketplaceContractor[]>([]);
   const [badgeMap, setBadgeMap] = useState<ContractorBadgeMap>({});
+  const [invitingCompanyId, setInvitingCompanyId] = useState<string | null>(null);
 
   async function load(searchValue: string) {
     setLoading(true);
@@ -213,6 +215,21 @@ export default function CustomerAllContractorsPage() {
       .sort((a, b) => b.match.score - a.match.score)
       .slice(0, 4);
   }, [badgeMap, items]);
+
+  async function handleInviteIntent(item: MarketplaceContractor) {
+    setInvitingCompanyId(item.company_id);
+
+    await track("customer_invited_contractor", {
+      role: "customer",
+      path: "/customer/contractors/all",
+      meta: {
+        contractorCompanyId: item.company_id,
+        source: "contractor_directory",
+      },
+    });
+
+    router.push(`/customer/jobs/new?contractorId=${encodeURIComponent(item.company_id)}`);
+  }
 
   if (loading || !allowed) {
     return (
@@ -393,6 +410,16 @@ export default function CustomerAllContractorsPage() {
                       Core customer matching signals are in place.
                     </p>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleInviteIntent(item)}
+                    disabled={invitingCompanyId === item.company_id}
+                    className="mt-4 rounded-xl bg-[#1F6FB5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
+                  >
+                    {invitingCompanyId === item.company_id
+                      ? "Preparing invite..."
+                      : "Invite to job"}
+                  </button>
                 </article>
               ))}
             </div>
@@ -494,6 +521,17 @@ export default function CustomerAllContractorsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleInviteIntent(item)}
+                        disabled={invitingCompanyId === item.company_id}
+                        className="rounded-xl bg-[#1F6FB5] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#0A2E5C] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
+                      >
+                        {invitingCompanyId === item.company_id
+                          ? "Preparing invite..."
+                          : "Invite to job"}
+                      </button>
+
                       <Link
                         href="/customer/contractors/approved"
                         className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
