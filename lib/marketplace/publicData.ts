@@ -28,6 +28,11 @@ export type PublicContractorPreview = {
   headline: string;
   homeMarket: string;
   markets: string[];
+  services: string[];
+  insuranceVerified: boolean;
+  certificationsVerified: boolean;
+  teamSize: string;
+  responseSignal: string;
 };
 
 export type PublicMarketPreview = {
@@ -44,6 +49,10 @@ export type MarketplaceHubSnapshot = MarketplaceLandingSnapshot & {
 
 export type PublicJobsDirectorySnapshot = MarketplaceLandingSnapshot & {
   jobs: PublicJobPreview[];
+};
+
+export type PublicContractorsDirectorySnapshot = MarketplaceLandingSnapshot & {
+  contractors: PublicContractorPreview[];
 };
 
 export type PublicJobDetail = PublicJobPreview & {
@@ -91,6 +100,11 @@ const fallbackHubSnapshot: MarketplaceHubSnapshot = {
 const fallbackJobsDirectorySnapshot: PublicJobsDirectorySnapshot = {
   ...fallbackSnapshot,
   jobs: [],
+};
+
+const fallbackContractorsDirectorySnapshot: PublicContractorsDirectorySnapshot = {
+  ...fallbackSnapshot,
+  contractors: [],
 };
 
 function formatCount(value: number | null | undefined) {
@@ -284,6 +298,11 @@ export async function getMarketplaceHubSnapshot(): Promise<MarketplaceHubSnapsho
       headline: safeText(contractor.headline, "Telecom contractor profile"),
       homeMarket: normalizeMarket(contractor.home_market),
       markets: (contractor.markets ?? []).slice(0, 4),
+      services: ["Telecom execution"],
+      insuranceVerified: false,
+      certificationsVerified: false,
+      teamSize: "Team details available during approval",
+      responseSignal: "Active marketplace profile",
     }));
 
     const marketMap = new Map<string, PublicMarketPreview>();
@@ -321,6 +340,89 @@ export async function getMarketplaceHubSnapshot(): Promise<MarketplaceHubSnapsho
     };
   } catch {
     return fallbackHubSnapshot;
+  }
+}
+
+export async function getPublicContractorsDirectorySnapshot(): Promise<PublicContractorsDirectorySnapshot> {
+  try {
+    const supabase = await createClient();
+    const baseSnapshot = await getMarketplaceLandingSnapshot();
+
+    const rpcResult = await supabase.rpc("list_marketplace_contractors", {
+      p_search: null,
+    });
+
+    if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+      return {
+        ...baseSnapshot,
+        contractors: (rpcResult.data as Array<{
+          company_id: string;
+          legal_name: string | null;
+          dba_name: string | null;
+          headline: string | null;
+          home_market: string | null;
+          markets: string[] | null;
+          available_teams_count: number | null;
+          insurance_types: string[] | null;
+          average_rating: number | null;
+          reviews_count: number | null;
+        }>).map((contractor) => ({
+          id: contractor.company_id,
+          name: safeText(
+            contractor.dba_name ?? contractor.legal_name,
+            "Listed telecom contractor"
+          ),
+          headline: safeText(contractor.headline, "Telecom contractor profile"),
+          homeMarket: normalizeMarket(contractor.home_market),
+          markets: (contractor.markets ?? []).slice(0, 6),
+          services: ["Telecom execution"],
+          insuranceVerified: Boolean(contractor.insurance_types?.length),
+          certificationsVerified: false,
+          teamSize:
+            contractor.available_teams_count && contractor.available_teams_count > 0
+              ? `${contractor.available_teams_count} available teams`
+              : "Team details available during approval",
+          responseSignal:
+            contractor.reviews_count && contractor.reviews_count > 0
+              ? `${contractor.reviews_count} marketplace reviews`
+              : "Active marketplace profile",
+        })),
+      };
+    }
+
+    const profilesResult = await supabase
+      .from("contractor_public_profiles")
+      .select("company_id,headline,home_market,markets,updated_at")
+      .eq("is_listed", true)
+      .order("updated_at", { ascending: false })
+      .limit(40);
+
+    if (profilesResult.error) {
+      return fallbackContractorsDirectorySnapshot;
+    }
+
+    return {
+      ...baseSnapshot,
+      contractors: ((profilesResult.data ?? []) as Array<{
+        company_id: string;
+        headline: string | null;
+        home_market: string | null;
+        markets: string[] | null;
+      }>).map((contractor, index) => ({
+        id: contractor.company_id,
+        name: `Listed contractor ${index + 1}`,
+        headline: safeText(contractor.headline, "Telecom contractor profile"),
+        homeMarket: normalizeMarket(contractor.home_market),
+        markets: (contractor.markets ?? []).slice(0, 6),
+        services: ["Telecom execution"],
+        insuranceVerified: false,
+        certificationsVerified: false,
+        teamSize: "Team details available during approval",
+        responseSignal: "Active marketplace profile",
+      })),
+    };
+  } catch {
+    return fallbackContractorsDirectorySnapshot;
   }
 }
 

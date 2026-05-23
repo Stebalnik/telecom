@@ -1,10 +1,10 @@
 {
-  "claimed_at": "2026-05-23T02:51:29.825Z",
-  "task_id": "TASK-0062",
-  "title": "Public job detail page",
+  "claimed_at": "2026-05-23T02:53:43.709Z",
+  "task_id": "TASK-0063",
+  "title": "Public contractor directory",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
-  "selection": "requested_task_id",
+  "selection": "automatic_priority_order",
   "dependencies": []
 }

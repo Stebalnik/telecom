@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0062",
-  "title": "Public job detail page",
-  "started_at": "2026-05-23T02:51:30.660Z",
-  "finished_at": "2026-05-23T02:52:30.913Z",
+  "task_id": "TASK-0063",
+  "title": "Public contractor directory",
+  "started_at": "2026-05-23T02:54:28.121Z",
+  "finished_at": "2026-05-23T02:55:27.465Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T02:51:30.660Z",
-      "finished_at": "2026-05-23T02:51:30.949Z",
+      "started_at": "2026-05-23T02:54:28.122Z",
+      "finished_at": "2026-05-23T02:54:28.344Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T02:51:30.950Z",
-      "finished_at": "2026-05-23T02:51:31.204Z",
+      "started_at": "2026-05-23T02:54:28.344Z",
+      "finished_at": "2026-05-23T02:54:28.567Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,12 +32,11 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T02:51:31.204Z",
-      "finished_at": "2026-05-23T02:52:30.913Z",
+      "started_at": "2026-05-23T02:54:28.568Z",
+      "finished_at": "2026-05-23T02:55:27.465Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
-        "├ ƒ /customer/resources/upload-url",
         "├ ○ /customer/settings",
         "├ ○ /customer/settings/certs-per-scope",
         "├ ○ /customer/settings/insurance",
@@ -47,6 +46,7 @@
         "├ ○ /login",
         "├ ○ /logout",
         "├ ƒ /marketplace",
+        "├ ƒ /marketplace/contractors",
         "├ ƒ /marketplace/jobs",
         "├ ƒ /marketplace/jobs/[id]",
         "├ ○ /mission",
@@ -83,7 +83,6 @@
     "",
     "Agent self-verification passed.",
     "npm run build: passed",
-    "├ ƒ /customer/resources/upload-url",
     "├ ○ /customer/settings",
     "├ ○ /customer/settings/certs-per-scope",
     "├ ○ /customer/settings/insurance",
@@ -93,6 +92,7 @@
     "├ ○ /login",
     "├ ○ /logout",
     "├ ƒ /marketplace",
+    "├ ƒ /marketplace/contractors",
     "├ ƒ /marketplace/jobs",
     "├ ƒ /marketplace/jobs/[id]",
     "├ ○ /mission",
