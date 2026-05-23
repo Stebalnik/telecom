@@ -79,8 +79,100 @@ function StatCard({
   );
 }
 
+function VisibilityMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm leading-6 text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  value,
+  detail,
+  tone = "default",
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  tone?: "default" | "good" | "warning";
+}) {
+  const toneClasses =
+    tone === "good"
+      ? "border-emerald-200 bg-emerald-50"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : "border-[#D9E2EC] bg-white";
+
+  return (
+    <div className={`rounded-2xl border p-5 shadow-sm ${toneClasses}`}>
+      <div className="text-sm font-semibold text-[#111827]">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm leading-6 text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
+function ProgressRow({
+  label,
+  value,
+  max,
+  share,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  share?: number;
+}) {
+  const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
+
+  return (
+    <div className="rounded-xl border border-[#D9E2EC] bg-[#FCFDFE] px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 text-sm font-medium text-[#111827] break-words">
+          {label}
+        </div>
+        <div className="shrink-0 text-sm text-[#4B5563]">{value}</div>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-[#E8F1FA]">
+        <div
+          className="h-2 rounded-full bg-[#1F6FB5]"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      {share !== undefined ? (
+        <div className="mt-2 text-xs text-[#6B7280]">{share}% of selected range</div>
+      ) : null}
+    </div>
+  );
+}
+
 function formatDay(day: string) {
   return new Date(day).toLocaleDateString();
+}
+
+function formatShare(value: number, total: number) {
+  if (total <= 0) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function getActivityTone(totalEvents: number): "default" | "good" | "warning" {
+  if (totalEvents === 0) return "warning";
+  if (totalEvents >= 25) return "good";
+  return "default";
 }
 
 export default function AdminAnalyticsPage() {
@@ -121,8 +213,8 @@ export default function AdminAnalyticsPage() {
       }
 
       setSummary(json.summary);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Load error");
     } finally {
       setLoading(false);
     }
@@ -139,6 +231,30 @@ export default function AdminAnalyticsPage() {
     if (range === "30d") return "Last 30 days";
     return "All time";
   }, [range]);
+
+  const visibility = useMemo(() => {
+    if (!summary) return null;
+
+    const peakDay = summary.byDay.reduce(
+      (best, row) => (row.total > best.total ? row : best),
+      { day: "", total: 0 }
+    );
+    const topEvent = summary.topEvents[0] ?? null;
+    const maxDayTotal = Math.max(0, ...summary.byDay.map((row) => row.total));
+    const maxEventTotal = Math.max(0, ...summary.topEvents.map((row) => row.total));
+    const maxRoleTotal = Math.max(0, ...summary.roleBreakdown.map((row) => row.total));
+    const activeRoleCount = summary.roleBreakdown.filter((row) => row.total > 0).length;
+
+    return {
+      activeRoleCount,
+      maxDayTotal,
+      maxEventTotal,
+      maxRoleTotal,
+      peakDay,
+      topEvent,
+      topEventShare: topEvent ? formatShare(topEvent.total, summary.totalEvents) : 0,
+    };
+  }, [summary]);
 
   return (
     <div className="space-y-6">
@@ -223,6 +339,97 @@ export default function AdminAnalyticsPage() {
             />
           </section>
 
+          <section className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-6 shadow-sm">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Analytics insights
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  Operational signals derived from the selected event range.
+                </p>
+              </div>
+              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                {rangeLabel}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <InsightCard
+                title="Activity health"
+                value={summary.totalEvents > 0 ? "Active" : "No activity"}
+                detail={`${summary.totalEvents} tracked events in this range.`}
+                tone={getActivityTone(summary.totalEvents)}
+              />
+              <InsightCard
+                title="Onboarding funnel"
+                value={`${summary.conversions.onboardingSubmitRate}%`}
+                detail={`${summary.contractorOnboardingSubmitted} submitted from ${summary.contractorOnboardingStarted} starts.`}
+                tone={summary.conversions.onboardingSubmitRate >= 50 ? "good" : "default"}
+              />
+              <InsightCard
+                title="Customer demand"
+                value={`${summary.customerCreateJobSubmitted}`}
+                detail="Customer job creation events captured in this range."
+                tone={summary.customerCreateJobSubmitted > 0 ? "good" : "default"}
+              />
+              <InsightCard
+                title="Contractor supply"
+                value={`${summary.submitBidCount}`}
+                detail="Submitted bids indicate contractor marketplace activity."
+                tone={summary.submitBidCount > 0 ? "good" : "default"}
+              />
+            </div>
+          </section>
+
+          {visibility ? (
+            <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-[#111827]">
+                    Visibility snapshot
+                  </h2>
+                  <p className="mt-1 text-sm text-[#4B5563]">
+                    Fast context for where activity is concentrated in the selected range.
+                  </p>
+                </div>
+                <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                  {rangeLabel}
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <VisibilityMetric
+                  label="Top event share"
+                  value={
+                    visibility.topEvent
+                      ? `${visibility.topEventShare}%`
+                      : "No events"
+                  }
+                  detail={
+                    visibility.topEvent
+                      ? `${visibility.topEvent.event} is the highest-volume tracked event.`
+                      : "No tracked events are available for this range."
+                  }
+                />
+                <VisibilityMetric
+                  label="Peak activity day"
+                  value={
+                    visibility.peakDay.day
+                      ? formatDay(visibility.peakDay.day)
+                      : "No peak yet"
+                  }
+                  detail={`${visibility.peakDay.total} events on the busiest day in this range.`}
+                />
+                <VisibilityMetric
+                  label="Active roles"
+                  value={`${visibility.activeRoleCount}`}
+                  detail="Roles with at least one tracked event in the selected range."
+                />
+              </div>
+            </section>
+          ) : null}
+
           <section className="grid gap-6 xl:grid-cols-2">
             <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-[#111827]">
@@ -236,15 +443,13 @@ export default function AdminAnalyticsPage() {
                   </div>
                 ) : (
                   summary.byDay.map((row) => (
-                    <div
+                    <ProgressRow
                       key={row.day}
-                      className="flex items-center justify-between rounded-xl border border-[#D9E2EC] bg-[#FCFDFE] px-4 py-3"
-                    >
-                      <div className="text-sm font-medium text-[#111827]">
-                        {formatDay(row.day)}
-                      </div>
-                      <div className="text-sm text-[#4B5563]">{row.total}</div>
-                    </div>
+                      label={formatDay(row.day)}
+                      value={row.total}
+                      max={visibility?.maxDayTotal ?? 0}
+                      share={formatShare(row.total, summary.totalEvents)}
+                    />
                   ))
                 )}
               </div>
@@ -262,15 +467,13 @@ export default function AdminAnalyticsPage() {
                   </div>
                 ) : (
                   summary.topEvents.map((row) => (
-                    <div
+                    <ProgressRow
                       key={row.event}
-                      className="flex items-center justify-between rounded-xl border border-[#D9E2EC] bg-[#FCFDFE] px-4 py-3"
-                    >
-                      <div className="text-sm font-medium text-[#111827] break-all">
-                        {row.event}
-                      </div>
-                      <div className="text-sm text-[#4B5563]">{row.total}</div>
-                    </div>
+                      label={row.event}
+                      value={row.total}
+                      max={visibility?.maxEventTotal ?? 0}
+                      share={formatShare(row.total, summary.totalEvents)}
+                    />
                   ))
                 )}
               </div>
@@ -290,15 +493,13 @@ export default function AdminAnalyticsPage() {
                   </div>
                 ) : (
                   summary.roleBreakdown.map((row) => (
-                    <div
+                    <ProgressRow
                       key={row.role}
-                      className="flex items-center justify-between rounded-xl border border-[#D9E2EC] bg-[#FCFDFE] px-4 py-3"
-                    >
-                      <div className="text-sm font-medium text-[#111827]">
-                        {row.role}
-                      </div>
-                      <div className="text-sm text-[#4B5563]">{row.total}</div>
-                    </div>
+                      label={row.role}
+                      value={row.total}
+                      max={visibility?.maxRoleTotal ?? 0}
+                      share={formatShare(row.total, summary.totalEvents)}
+                    />
                   ))
                 )}
               </div>

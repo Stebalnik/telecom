@@ -25,6 +25,12 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+type AgreementFilter = "all" | "awaiting" | "signed" | "manual";
+
 function StatusBadge({
   status,
 }: {
@@ -45,6 +51,68 @@ function StatusBadge({
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${cls}`}>
       {normalized.replaceAll("_", " ")}
     </span>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+      <div className="text-sm text-[#4B5563]">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#111827]">{value}</div>
+      <div className="mt-1 text-xs text-[#6B7280]">{detail}</div>
+    </div>
+  );
+}
+
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-[#1F6FB5] text-white"
+          : "border border-[#D9E2EC] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function WorkflowStep({
+  step,
+  title,
+  detail,
+}: {
+  step: string;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-[#1F6FB5]">
+        {step}
+      </div>
+      <div className="mt-2 text-sm font-semibold text-[#111827]">{title}</div>
+      <div className="mt-1 text-sm leading-6 text-[#4B5563]">{detail}</div>
+    </div>
   );
 }
 
@@ -82,6 +150,7 @@ export default function CustomerAgreementsPage() {
     useState<AgreementTemplateType>("one_time_project_agreement");
   const [manualTitle, setManualTitle] = useState("");
   const [manualFile, setManualFile] = useState<File | null>(null);
+  const [agreementFilter, setAgreementFilter] = useState<AgreementFilter>("all");
 
   const activeTemplates = useMemo(
     () => templates.filter((x) => x.status === "active"),
@@ -97,6 +166,29 @@ export default function CustomerAgreementsPage() {
     () => agreements.filter((x) => x.status === "signed").length,
     [agreements]
   );
+
+  const manualCount = useMemo(
+    () => agreements.filter((x) => x.source === "manual_upload").length,
+    [agreements]
+  );
+
+  const filteredAgreements = useMemo(() => {
+    return agreements.filter((agreement) => {
+      if (agreementFilter === "awaiting") {
+        return ["awaiting_signature", "sent"].includes(agreement.status);
+      }
+
+      if (agreementFilter === "signed") {
+        return agreement.status === "signed";
+      }
+
+      if (agreementFilter === "manual") {
+        return agreement.source === "manual_upload";
+      }
+
+      return true;
+    });
+  }, [agreements, agreementFilter]);
 
   async function load() {
     setLoading(true);
@@ -130,8 +222,8 @@ export default function CustomerAgreementsPage() {
 
       setTemplates(tpls);
       setAgreements(agrs);
-    } catch (e: any) {
-      setErr(e?.message || "Failed to load agreements.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to load agreements."));
     } finally {
       setLoading(false);
     }
@@ -169,8 +261,8 @@ export default function CustomerAgreementsPage() {
       setTemplateFile(null);
 
       await load();
-    } catch (e: any) {
-      setErr(e?.message || "Failed to upload template.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to upload template."));
     } finally {
       setBusy(null);
     }
@@ -197,8 +289,8 @@ export default function CustomerAgreementsPage() {
       setManualFile(null);
 
       await load();
-    } catch (e: any) {
-      setErr(e?.message || "Failed to upload agreement.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to upload agreement."));
     } finally {
       setBusy(null);
     }
@@ -208,8 +300,8 @@ export default function CustomerAgreementsPage() {
     try {
       const url = await getAgreementFileUrl(path);
       window.open(url, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      setErr(e?.message || "Failed to open file.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to open file."));
     }
   }
 
@@ -219,8 +311,8 @@ export default function CustomerAgreementsPage() {
       setErr(null);
       await setCustomerAgreementTemplateDefault(templateId);
       await load();
-    } catch (e: any) {
-      setErr(e?.message || "Failed to set default.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to set default."));
     } finally {
       setBusy(null);
     }
@@ -232,8 +324,8 @@ export default function CustomerAgreementsPage() {
       setErr(null);
       await archiveCustomerAgreementTemplate(templateId);
       await load();
-    } catch (e: any) {
-      setErr(e?.message || "Failed to archive template.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to archive template."));
     } finally {
       setBusy(null);
     }
@@ -263,26 +355,56 @@ export default function CustomerAgreementsPage() {
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Active templates</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {activeTemplates.length}
-              </div>
-            </div>
+            <SummaryCard
+              label="Active templates"
+              value={activeTemplates.length}
+              detail="Ready for onboarding or per-job use"
+            />
+            <SummaryCard
+              label="Awaiting signature"
+              value={awaitingCount}
+              detail="Sent or pending contractor action"
+            />
+            <SummaryCard
+              label="Signed agreements"
+              value={signedCount}
+              detail="Executed records on file"
+            />
+            <SummaryCard
+              label="Manual uploads"
+              value={manualCount}
+              detail="Prepared outside the template flow"
+            />
+          </div>
+        </section>
 
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Awaiting signature</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {awaitingCount}
-              </div>
-            </div>
+        <section className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-6 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-[#111827]">
+              Agreement workflow
+            </h2>
+            <p className="mt-1 text-sm text-[#4B5563]">
+              Keep templates current, track signature status, and keep manual
+              agreements visible beside generated records.
+            </p>
+          </div>
 
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Signed agreements</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {signedCount}
-              </div>
-            </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <WorkflowStep
+              step="Step 1"
+              title="Prepare templates"
+              detail="Upload active defaults for onboarding and per-job agreements."
+            />
+            <WorkflowStep
+              step="Step 2"
+              title="Send or upload"
+              detail="Use templates for repeatable agreements or add prepared records manually."
+            />
+            <WorkflowStep
+              step="Step 3"
+              title="Track execution"
+              detail="Review awaiting, signed, and manual records from one queue."
+            />
           </div>
         </section>
 
@@ -544,17 +666,51 @@ export default function CustomerAgreementsPage() {
             </section>
 
             <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-[#111827]">
-                Sent / executed agreements
-              </h2>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-[#111827]">
+                    Sent / executed agreements
+                  </h2>
+                  <p className="mt-1 text-sm text-[#4B5563]">
+                    Filter the queue by signature state or manual upload source.
+                  </p>
+                </div>
 
-              {agreements.length === 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  <FilterButton
+                    active={agreementFilter === "all"}
+                    onClick={() => setAgreementFilter("all")}
+                  >
+                    All ({agreements.length})
+                  </FilterButton>
+                  <FilterButton
+                    active={agreementFilter === "awaiting"}
+                    onClick={() => setAgreementFilter("awaiting")}
+                  >
+                    Awaiting ({awaitingCount})
+                  </FilterButton>
+                  <FilterButton
+                    active={agreementFilter === "signed"}
+                    onClick={() => setAgreementFilter("signed")}
+                  >
+                    Signed ({signedCount})
+                  </FilterButton>
+                  <FilterButton
+                    active={agreementFilter === "manual"}
+                    onClick={() => setAgreementFilter("manual")}
+                  >
+                    Manual ({manualCount})
+                  </FilterButton>
+                </div>
+              </div>
+
+              {filteredAgreements.length === 0 ? (
                 <div className="mt-4 text-sm text-[#4B5563]">
-                  No agreement records yet.
+                  No agreement records found for this filter.
                 </div>
               ) : (
                 <div className="mt-4 grid gap-4">
-                  {agreements.map((agreement) => {
+                  {filteredAgreements.map((agreement) => {
                     const contractor = Array.isArray(agreement.contractor)
                       ? agreement.contractor[0] ?? null
                       : agreement.contractor ?? null;

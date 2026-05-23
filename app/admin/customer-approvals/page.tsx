@@ -56,6 +56,47 @@ function StatusBadge({
   );
 }
 
+function QueueSummary({ rows }: { rows: CustomerApprovalRow[] }) {
+  const submittedCount = rows.filter(
+    (row) => row.onboarding_status === "submitted"
+  ).length;
+  const withReviewNotes = rows.filter((row) => row.review_notes).length;
+  const missingLegalName = rows.filter((row) => !row.legal_name).length;
+
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="text-sm text-[#4B5563]">Queue size</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {rows.length}
+        </div>
+        <div className="mt-1 text-xs text-[#6B7280]">customers awaiting admin action</div>
+      </div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+        <div className="text-sm text-amber-700">Submitted</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {submittedCount}
+        </div>
+        <div className="mt-1 text-xs text-amber-700">ready for approval review</div>
+      </div>
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+        <div className="text-sm text-blue-700">With notes</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {withReviewNotes}
+        </div>
+        <div className="mt-1 text-xs text-blue-700">include prior review context</div>
+      </div>
+      <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+        <div className="text-sm text-[#4B5563]">Missing legal name</div>
+        <div className="mt-2 text-2xl font-semibold text-[#111827]">
+          {missingLegalName}
+        </div>
+        <div className="mt-1 text-xs text-[#6B7280]">may need return-to-draft</div>
+      </div>
+    </section>
+  );
+}
+
 async function fetchJsonOrThrow<T>(input: string, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
     cache: "no-store",
@@ -243,6 +284,8 @@ export default function AdminCustomerApprovalsPage() {
           </p>
         </section>
       ) : null}
+
+      {!loading && rows.length > 0 ? <QueueSummary rows={rows} /> : null}
 
       {!loading && rows.length > 0 ? (
         <section className="grid gap-4">

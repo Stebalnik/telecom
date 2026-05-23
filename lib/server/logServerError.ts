@@ -15,14 +15,81 @@ type LogServerErrorInput = {
   details?: Record<string, unknown>;
 };
 
-function sanitizeDetails(input: Record<string, unknown> | undefined) {
+const REDACTED = "[redacted]";
+const MAX_STRING_LENGTH = 3000;
+const MAX_ARRAY_ITEMS = 25;
+const MAX_OBJECT_KEYS = 50;
+const MAX_DEPTH = 4;
+
+const SENSITIVE_DETAIL_KEYS = [
+  "password",
+  "token",
+  "access_token",
+  "refresh_token",
+  "authorization",
+  "api_key",
+  "apikey",
+  "apiKey",
+  "service_role",
+  "secret",
+  "session",
+  "cookie",
+  "card",
+  "stripe",
+];
+
+function isSensitiveKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return SENSITIVE_DETAIL_KEYS.some((blocked) =>
+    normalized.includes(blocked.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
+}
+
+function sanitizeValue(value: unknown, depth: number): unknown {
+  if (value == null) return value;
+  if (typeof value === "string") return value.slice(0, MAX_STRING_LENGTH);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message.slice(0, MAX_STRING_LENGTH),
+    };
+  }
+
+  if (depth >= MAX_DEPTH) return "[max_depth]";
+
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, MAX_ARRAY_ITEMS)
+      .map((item) => sanitizeValue(item, depth + 1));
+  }
+
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    const entries = Object.entries(value as Record<string, unknown>).slice(
+      0,
+      MAX_OBJECT_KEYS
+    );
+
+    for (const [key, nestedValue] of entries) {
+      result[key] = isSensitiveKey(key)
+        ? REDACTED
+        : sanitizeValue(nestedValue, depth + 1);
+    }
+
+    return result;
+  }
+
+  return String(value).slice(0, MAX_STRING_LENGTH);
+}
+
+export function sanitizeLogDetails(input: Record<string, unknown> | undefined) {
   const raw = input ?? {};
-  const blocked = ["password", "token", "access_token", "refresh_token", "authorization", "apiKey", "service_role", "card"];
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(raw)) {
-    if (blocked.some((b) => key.toLowerCase().includes(b))) continue;
-    result[key] = typeof value === "string" ? value.slice(0, 3000) : value;
+    result[key] = isSensitiveKey(key) ? REDACTED : sanitizeValue(value, 0);
   }
 
   return result;
@@ -54,7 +121,7 @@ export async function logServerError(input: LogServerErrorInput) {
       source: input.source ?? "server",
       area: input.area ?? null,
       message: input.message,
-      details: sanitizeDetails(input.details),
+      details: sanitizeLogDetails(input.details),
       path: input.path ?? null,
       level: input.level ?? "error",
       code: input.code ?? null,
@@ -67,6 +134,13 @@ export async function logServerError(input: LogServerErrorInput) {
       }),
     });
   } catch (e) {
-    console.error("logServerError failed", e);
+    console.error("logServerError failed", {
+      message: input.message,
+      code: input.code ?? null,
+      source: input.source ?? "server",
+      area: input.area ?? null,
+      details: sanitizeLogDetails(input.details),
+      error: e instanceof Error ? e.message : "Unknown logging failure",
+    });
   }
 }

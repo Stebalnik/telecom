@@ -1,0 +1,90 @@
+{
+  "generated_at": "2026-05-22T18:54:07.928Z",
+  "ready_for_human_review": true,
+  "merge_allowed": false,
+  "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
+  "branch": "agents/dev-system",
+  "upstream": "origin/agents/dev-system",
+  "ahead_behind": "0\t0",
+  "working_tree_status": "clean",
+  "changed_files": [],
+  "warnings": [],
+  "current_task": null,
+  "verification_summary": {
+    "task_id": "TASK-0058",
+    "passed": true,
+    "finished_at": "2026-05-22T18:21:32.645Z"
+  },
+  "audit_summary": {
+    "total_tasks": 58,
+    "completed": 58,
+    "failed": 0,
+    "blocked": 0,
+    "in_progress": 0,
+    "pending": 0,
+    "commit_ready": 58,
+    "latest_successful_build": {
+      "build_id": "QRn0bK56MPy_RveXzTtk7",
+      "detected_at": "2026-05-22T18:21:29.756Z"
+    }
+  },
+  "required_human_actions": [
+    "Review changed files and verification reports.",
+    "Confirm route impact and security implications.",
+    "Confirm Supabase/RLS impact if backend or data-access files changed.",
+    "Approve and perform any merge manually outside the autonomous runner."
+  ],
+  "checks": [
+    {
+      "name": "branch isolation",
+      "passed": true,
+      "branch": "agents/dev-system",
+      "workspace": "/var/www/telecom-agent-workspace",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "not protected branch",
+      "passed": true,
+      "branch": "agents/dev-system"
+    },
+    {
+      "name": "verification passed",
+      "passed": true,
+      "task_id": "TASK-0058",
+      "finished_at": "2026-05-22T18:21:32.645Z"
+    },
+    {
+      "name": "self verification passed",
+      "passed": true,
+      "generated_at": "2026-05-22T18:20:26.648Z"
+    },
+    {
+      "name": "audit has no failed tasks",
+      "passed": true,
+      "failed": 0,
+      "blocked": 0,
+      "in_progress": 0
+    },
+    {
+      "name": "latest build recorded",
+      "passed": true,
+      "latest_successful_build": {
+        "build_id": "QRn0bK56MPy_RveXzTtk7",
+        "detected_at": "2026-05-22T18:21:29.756Z"
+      }
+    },
+    {
+      "name": "current task cleared",
+      "passed": true,
+      "current_task_id": null
+    },
+    {
+      "name": "production safety gates enforced",
+      "passed": true,
+      "deploy_allowed": false,
+      "merge_allowed": false,
+      "production_restart_allowed": false
+    }
+  ]
+}

@@ -194,6 +194,40 @@ function SectionCard({
   );
 }
 
+function ReadinessItem({
+  label,
+  ready,
+  detail,
+}: {
+  label: string;
+  ready: boolean;
+  detail: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        ready
+          ? "border-green-200 bg-green-50"
+          : "border-[#D9E2EC] bg-[#F8FAFC]"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-[#111827]">{label}</div>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+            ready
+              ? "border-green-200 bg-white text-green-700"
+              : "border-[#D9E2EC] bg-white text-[#4B5563]"
+          }`}
+        >
+          {ready ? "Ready" : "Needed"}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[#4B5563]">{detail}</p>
+    </div>
+  );
+}
+
 export default function ContractorJobBidPage() {
   const router = useRouter();
   const params = useParams();
@@ -224,6 +258,8 @@ export default function ContractorJobBidPage() {
     if (!startDate || !endDate) return 0;
     return businessDaysBetweenInclusive(startDate, endDate);
   }, [startDate, endDate]);
+  const numericPrice = Number(price);
+  const numericWorkDays = Number(workDays);
 
   const customer = normalizeCustomer(job?.customers || null);
   const approval = job?.customer_id ? approvalMap[job.customer_id] : null;
@@ -233,6 +269,46 @@ export default function ContractorJobBidPage() {
     !!approval?.cooldown_until &&
     new Date(approval.cooldown_until).getTime() > Date.now() &&
     approval?.status !== "approved";
+  const datesReady =
+    Boolean(startDate && endDate) &&
+    endDate >= startDate &&
+    (!job?.deadline_date || endDate <= job.deadline_date);
+  const workDaysReady =
+    Boolean(workDays) &&
+    Number.isFinite(numericWorkDays) &&
+    numericWorkDays >= 1 &&
+    maxBusinessDays > 0 &&
+    numericWorkDays <= maxBusinessDays;
+  const bidReadiness = [
+    {
+      label: "Customer approval",
+      ready: isApproved,
+      detail: isApproved
+        ? "This customer has approved your company for bidding."
+        : "Request customer approval before submitting a bid.",
+    },
+    {
+      label: "Company and team",
+      ready: Boolean(companyId && teamId),
+      detail: teamId
+        ? "A company and team are selected for this bid."
+        : "Select the company and crew that will perform the work.",
+    },
+    {
+      label: "Price",
+      ready: Boolean(price && Number.isFinite(numericPrice) && numericPrice > 0),
+      detail: price
+        ? "Bid price will be submitted as the contractor offer amount."
+        : "Enter a positive bid price.",
+    },
+    {
+      label: "Schedule",
+      ready: datesReady && workDaysReady,
+      detail: datesReady
+        ? `Selected window contains ${maxBusinessDays} business day${maxBusinessDays === 1 ? "" : "s"}.`
+        : "Pick a start and end date within the customer deadline.",
+    },
+  ];
 
   async function load() {
     setLoading(true);
@@ -752,6 +828,17 @@ export default function ContractorJobBidPage() {
               : "Customer approval is required before you can submit a bid for this job."}
           </div>
         ) : null}
+
+        <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {bidReadiness.map((item) => (
+            <ReadinessItem
+              key={item.label}
+              label={item.label}
+              ready={item.ready}
+              detail={item.detail}
+            />
+          ))}
+        </div>
 
         <div
           className={`grid gap-4 md:grid-cols-2 ${!isApproved ? "opacity-60" : ""}`}

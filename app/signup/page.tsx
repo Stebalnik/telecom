@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import {
+  getSanitizedAuthErrorDetails,
+  isAuthNetworkError,
+} from "../../lib/authDiagnostics";
 import { normalizeError } from "../../lib/errors/normalizeError";
 import { withErrorLogging } from "../../lib/errors/withErrorLogging";
 import { supabase } from "../../lib/supabaseClient";
 import { track } from "../../lib/track";
 
 function getErrorMessage(error: unknown) {
+  if (isAuthNetworkError(error)) {
+    return "Authentication service is temporarily unavailable. Please try again shortly.";
+  }
+
   const normalized = normalizeError(error);
   const message = String(normalized.message || "").toLowerCase();
 
@@ -21,6 +29,11 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unable to create account. Please try again.";
+}
+
+function getEmailRedirectTo() {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}/dashboard`;
 }
 
 export default function SignupPage() {
@@ -75,6 +88,9 @@ export default function SignupPage() {
           const result = await supabase.auth.signUp({
             email: normalizedEmail,
             password,
+            options: {
+              emailRedirectTo: getEmailRedirectTo(),
+            },
           });
 
           if (result.error) {
@@ -89,9 +105,6 @@ export default function SignupPage() {
           source: "frontend",
           area: "auth",
           path: "/signup",
-          details: {
-            email: normalizedEmail,
-          },
         }
       );
 
@@ -109,10 +122,17 @@ export default function SignupPage() {
       setPassword("");
       setConfirmPassword("");
 
+      if (data.session) {
+        router.replace("/dashboard");
+        router.refresh();
+        return;
+      }
+
       redirectTimeoutRef.current = window.setTimeout(() => {
         router.push("/login");
       }, 1200);
     } catch (err) {
+      console.warn("signup_auth_failed", getSanitizedAuthErrorDetails(err));
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);

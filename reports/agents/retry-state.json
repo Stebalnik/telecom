@@ -1,0 +1,218 @@
+{
+  "tasks": {
+    "TASK-0008": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0009": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0010": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0011": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0012": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0013": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0014": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0015": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0016": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0017": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0018": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0019": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0020": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0021": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0022": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0023": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0024": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0025": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0026": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0027": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0028": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0029": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0030": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0031": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0032": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0033": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0034": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0035": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0036": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0037": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0038": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0039": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0040": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0041": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0042": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0043": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0044": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0045": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0046": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0047": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0048": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0049": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0050": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0051": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0052": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0053": {
+      "attempts": 0,
+      "last_failure": null
+    },
+    "TASK-0054": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-22T18:08:43.841Z",
+      "history": []
+    },
+    "TASK-0055": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-22T18:11:52.549Z",
+      "history": []
+    },
+    "TASK-0056": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-22T18:15:12.035Z",
+      "history": []
+    },
+    "TASK-0057": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-22T18:18:17.057Z",
+      "history": []
+    },
+    "TASK-0058": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-22T18:21:32.645Z",
+      "history": []
+    }
+  }
+}

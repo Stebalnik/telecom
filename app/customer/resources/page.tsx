@@ -28,9 +28,27 @@ type ResourceMarketRow = {
   market: string;
 };
 
+type ResourceFilter = "all" | "required" | "active" | "expiring" | "selected_markets";
+
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString();
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isExpiringSoon(value: string | null) {
+  if (!value) return false;
+
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return false;
+
+  const now = Date.now();
+  const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+  return expiresAt >= now && expiresAt <= now + thirtyDays;
 }
 
 function Badge({
@@ -58,6 +76,50 @@ function Badge({
   );
 }
 
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "border-[#1F6FB5] bg-[#EBF5FF] text-[#0A2E5C]"
+          : "border-[#D9E2EC] bg-white text-[#4B5563] hover:bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function CustomerResourcesPage() {
   const router = useRouter();
 
@@ -67,6 +129,7 @@ export default function CustomerResourcesPage() {
   const [resourceMarkets, setResourceMarkets] = useState<ResourceMarketRow[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [activeFilter, setActiveFilter] = useState<ResourceFilter>("all");
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   async function openResource(resourceId: string) {
@@ -101,8 +164,8 @@ export default function CustomerResourcesPage() {
       }
 
       window.open(json.url, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      setErr(e.message ?? "Open error");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Open error"));
     } finally {
       setOpeningId(null);
     }
@@ -158,8 +221,8 @@ export default function CustomerResourcesPage() {
 
       setResources((resourceRows ?? []) as ResourceRow[]);
       setResourceMarkets((marketRows ?? []) as ResourceMarketRow[]);
-    } catch (e: any) {
-      setErr(e.message ?? "Load error");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Load error"));
     } finally {
       setLoading(false);
     }
@@ -203,22 +266,6 @@ export default function CustomerResourcesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtered = useMemo(() => {
-    return resources.filter((row) => {
-      const q = query.trim().toLowerCase();
-
-      const matchesQuery =
-        !q ||
-        row.title.toLowerCase().includes(q) ||
-        (row.description || "").toLowerCase().includes(q) ||
-        row.file_name.toLowerCase().includes(q);
-
-      const matchesCategory = category === "all" || row.category === category;
-
-      return matchesQuery && matchesCategory;
-    });
-  }, [resources, query, category]);
-
   const marketsByResource = useMemo(() => {
     const map = new Map<string, string[]>();
 
@@ -230,6 +277,47 @@ export default function CustomerResourcesPage() {
 
     return map;
   }, [resourceMarkets]);
+
+  const filtered = useMemo(() => {
+    return resources.filter((row) => {
+      const q = query.trim().toLowerCase();
+      const markets = marketsByResource.get(row.id) ?? [];
+
+      const matchesQuery =
+        !q ||
+        row.title.toLowerCase().includes(q) ||
+        (row.description || "").toLowerCase().includes(q) ||
+        row.file_name.toLowerCase().includes(q) ||
+        (row.revision_label || "").toLowerCase().includes(q) ||
+        row.category.toLowerCase().includes(q) ||
+        markets.some((market) => market.toLowerCase().includes(q));
+
+      const matchesCategory = category === "all" || row.category === category;
+
+      const matchesFilter =
+        activeFilter === "all" ||
+        (activeFilter === "required" && row.is_required) ||
+        (activeFilter === "active" && row.is_active) ||
+        (activeFilter === "expiring" && isExpiringSoon(row.expires_at)) ||
+        (activeFilter === "selected_markets" &&
+          row.audience_scope === "selected_markets");
+
+      return matchesQuery && matchesCategory && matchesFilter;
+    });
+  }, [resources, query, category, activeFilter, marketsByResource]);
+
+  const resourceSummary = useMemo(
+    () => ({
+      total: resources.length,
+      required: resources.filter((row) => row.is_required).length,
+      active: resources.filter((row) => row.is_active).length,
+      expiring: resources.filter((row) => isExpiringSoon(row.expires_at)).length,
+      selectedMarkets: resources.filter(
+        (row) => row.audience_scope === "selected_markets"
+      ).length,
+    }),
+    [resources]
+  );
 
   return (
     <main className="space-y-6">
@@ -256,12 +344,40 @@ export default function CustomerResourcesPage() {
         </div>
       </section>
 
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <SummaryCard
+          label="Resources"
+          value={resourceSummary.total}
+          detail="Total files in library"
+        />
+        <SummaryCard
+          label="Required"
+          value={resourceSummary.required}
+          detail="Mandatory contractor reads"
+        />
+        <SummaryCard
+          label="Active"
+          value={resourceSummary.active}
+          detail="Visible to contractors"
+        />
+        <SummaryCard
+          label="Expiring"
+          value={resourceSummary.expiring}
+          detail="Expires within 30 days"
+        />
+        <SummaryCard
+          label="Market scoped"
+          value={resourceSummary.selectedMarkets}
+          detail="Limited to selected markets"
+        />
+      </section>
+
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1.5fr_220px]">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, description, or file name"
+            placeholder="Search title, description, revision, market, or file name"
             className="rounded-xl border border-[#D9E2EC] bg-white px-4 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
           />
 
@@ -281,6 +397,40 @@ export default function CustomerResourcesPage() {
             <option value="template">Template</option>
             <option value="other">Other</option>
           </select>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <FilterButton active={activeFilter === "all"} onClick={() => setActiveFilter("all")}>
+            All
+          </FilterButton>
+          <FilterButton
+            active={activeFilter === "required"}
+            onClick={() => setActiveFilter("required")}
+          >
+            Required
+          </FilterButton>
+          <FilterButton
+            active={activeFilter === "active"}
+            onClick={() => setActiveFilter("active")}
+          >
+            Active
+          </FilterButton>
+          <FilterButton
+            active={activeFilter === "expiring"}
+            onClick={() => setActiveFilter("expiring")}
+          >
+            Expiring soon
+          </FilterButton>
+          <FilterButton
+            active={activeFilter === "selected_markets"}
+            onClick={() => setActiveFilter("selected_markets")}
+          >
+            Market scoped
+          </FilterButton>
+        </div>
+
+        <div className="mt-3 text-sm text-[#4B5563]">
+          Showing {filtered.length} of {resources.length} resources
         </div>
       </section>
 

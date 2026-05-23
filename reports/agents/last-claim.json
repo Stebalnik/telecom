@@ -1,0 +1,10 @@
+{
+  "claimed_at": "2026-05-22T18:19:45.069Z",
+  "task_id": "TASK-0058",
+  "title": "Improve deployment safety checks",
+  "priority": "medium",
+  "assigned_agent": "Coder Agent",
+  "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
+  "selection": "automatic_priority_order",
+  "dependencies": []
+}

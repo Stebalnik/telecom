@@ -17,6 +17,7 @@ DEPLOY_COMMAND="${DEPLOY_COMMAND:-bash /var/www/deploy.sh}"
 
 SKIP_BUILD="${SKIP_BUILD:-0}"
 SKIP_DEPLOY="${SKIP_DEPLOY:-0}"
+ALLOW_PRODUCTION_DEPLOY="${ALLOW_PRODUCTION_DEPLOY:-0}"
 RELEASE_BUMP="${RELEASE_BUMP:-}"
 
 require_git_repo() {
@@ -177,6 +178,10 @@ ensure_ssh_ready() {
     return 0
   fi
 
+  if [ "$ALLOW_PRODUCTION_DEPLOY" != "1" ]; then
+    return 0
+  fi
+
   if ! ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_HOST" "echo ok" >/dev/null 2>&1; then
     echo "ERROR: SSH access to $DEPLOY_HOST is not ready." >&2
     echo "Use SSH keys so deploy can run without password prompts." >&2
@@ -234,6 +239,12 @@ main() {
 
   if [ "$SKIP_DEPLOY" = "1" ]; then
     echo "Skipping deploy: SKIP_DEPLOY=1"
+    exit 0
+  fi
+
+  if [ "$ALLOW_PRODUCTION_DEPLOY" != "1" ]; then
+    echo "Skipping deploy: ALLOW_PRODUCTION_DEPLOY is not 1"
+    echo "Deployment must be explicitly enabled by a human operator."
     exit 0
   fi
 

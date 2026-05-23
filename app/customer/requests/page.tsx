@@ -52,6 +52,44 @@ function CompactPill({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+      <div className="text-sm text-[#4B5563]">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-[#111827]">{value}</div>
+      <div className="mt-1 text-xs text-[#6B7280]">{hint}</div>
+    </div>
+  );
+}
+
+function ReadinessPill({
+  ready,
+  children,
+}: {
+  ready: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${
+        ready
+          ? "border-green-200 bg-green-50 text-green-700"
+          : "border-amber-200 bg-amber-50 text-amber-700"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
 export default function CustomerRequestsPage() {
   const router = useRouter();
 
@@ -67,6 +105,24 @@ export default function CustomerRequestsPage() {
 
   const pendingCount = useMemo(
     () => rows.filter((x) => x.status === "pending").length,
+    [rows]
+  );
+  const withThreadsCount = useMemo(
+    () => rows.filter((x) => x.has_thread).length,
+    [rows]
+  );
+  const withInsuranceCount = useMemo(
+    () => rows.filter((x) => (x.insurance_types || []).length > 0).length,
+    [rows]
+  );
+  const readyForDecisionCount = useMemo(
+    () =>
+      rows.filter(
+        (x) =>
+          x.status === "pending" &&
+          (x.insurance_types || []).length > 0 &&
+          x.available_teams_count > 0
+      ).length,
     [rows]
   );
 
@@ -104,8 +160,8 @@ export default function CustomerRequestsPage() {
         nextMessages[threadId] = await listRequestThreadMessages(threadId);
       }
       setMessagesByThread(nextMessages);
-    } catch (e: any) {
-      setErr(e.message || "Failed to load requests.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to load requests.");
     } finally {
       setLoading(false);
     }
@@ -133,8 +189,8 @@ export default function CustomerRequestsPage() {
         decision,
       });
       await load();
-    } catch (e: any) {
-      setErr(e.message || "Failed to update request.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to update request.");
     } finally {
       setBusyKey(null);
     }
@@ -166,8 +222,8 @@ export default function CustomerRequestsPage() {
       }));
 
       await load();
-    } catch (e: any) {
-      setErr(e.message || "Failed to send question.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to send question.");
     } finally {
       setBusyKey(null);
     }
@@ -199,12 +255,26 @@ export default function CustomerRequestsPage() {
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
-              <div className="text-sm text-[#4B5563]">Pending contractor requests</div>
-              <div className="mt-2 text-2xl font-semibold text-[#111827]">
-                {pendingCount}
-              </div>
-            </div>
+            <SummaryCard
+              label="Pending requests"
+              value={pendingCount}
+              hint="contractors waiting for a customer decision"
+            />
+            <SummaryCard
+              label="Ready for decision"
+              value={readyForDecisionCount}
+              hint="pending with teams and insurance on file"
+            />
+            <SummaryCard
+              label="With questions"
+              value={withThreadsCount}
+              hint="requests with an existing clarification thread"
+            />
+            <SummaryCard
+              label="Insurance on file"
+              value={withInsuranceCount}
+              hint="requests with approved insurance types listed"
+            />
           </div>
         </section>
 
@@ -233,6 +303,9 @@ export default function CustomerRequestsPage() {
               const approveBusy = busyKey === `approved:${row.contractor_company_id}`;
               const rejectBusy = busyKey === `rejected:${row.contractor_company_id}`;
               const questionBusy = busyKey === `question:${row.contractor_company_id}`;
+              const hasInsurance = (row.insurance_types || []).length > 0;
+              const hasTeams = row.available_teams_count > 0;
+              const hasCertifiedMembers = row.approved_team_members_count > 0;
 
               return (
                 <article
@@ -301,6 +374,30 @@ export default function CustomerRequestsPage() {
                           Cooldown until: {formatDateTime(row.cooldown_until)}
                         </div>
                       ) : null}
+
+                      <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+                        <div className="text-sm font-semibold text-[#111827]">
+                          Review readiness
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <ReadinessPill ready={hasTeams}>
+                            {hasTeams ? "Teams available" : "No teams listed"}
+                          </ReadinessPill>
+                          <ReadinessPill ready={hasInsurance}>
+                            {hasInsurance ? "Insurance on file" : "No insurance listed"}
+                          </ReadinessPill>
+                          <ReadinessPill ready={hasCertifiedMembers}>
+                            {hasCertifiedMembers
+                              ? "Certified members"
+                              : "No certified members"}
+                          </ReadinessPill>
+                          <ReadinessPill ready={row.has_thread}>
+                            {row.has_thread
+                              ? "Clarification thread open"
+                              : "No questions yet"}
+                          </ReadinessPill>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">

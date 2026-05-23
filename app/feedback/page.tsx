@@ -35,6 +35,8 @@ type FeedbackApiResponse = {
   error?: string;
 };
 
+type FeedbackStatusFilter = "all" | "open" | "waiting_for_user" | "resolved";
+
 const categoryOptions = [
   { value: "bug", label: "Bug" },
   { value: "feature_request", label: "Feature request" },
@@ -57,6 +59,14 @@ function formatDate(value?: string | null) {
   } catch {
     return value;
   }
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isOpenStatus(status: string) {
+  return !["resolved", "closed"].includes(status);
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -82,6 +92,50 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function SummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9E2EC] bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-semibold text-[#0A2E5C]">{value}</div>
+      <div className="mt-1 text-sm text-[#4B5563]">{detail}</div>
+    </div>
+  );
+}
+
+function FilterButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "border-[#1F6FB5] bg-[#EAF4FF] text-[#0A2E5C]"
+          : "border-[#D9E2EC] bg-white text-[#4B5563] hover:bg-[#F8FAFC]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function FeedbackPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -99,6 +153,7 @@ export default function FeedbackPage() {
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<FeedbackMessage[]>([]);
+  const [statusFilter, setStatusFilter] = useState<FeedbackStatusFilter>("all");
   const [reply, setReply] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -125,6 +180,25 @@ export default function FeedbackPage() {
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId]
   );
+
+  const feedbackSummary = useMemo(
+    () => ({
+      total: items.length,
+      open: items.filter((item) => isOpenStatus(item.status)).length,
+      waitingForUser: items.filter((item) => item.status === "waiting_for_user")
+        .length,
+      resolved: items.filter((item) => item.status === "resolved").length,
+    }),
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (statusFilter === "all") return true;
+      if (statusFilter === "open") return isOpenStatus(item.status);
+      return item.status === statusFilter;
+    });
+  }, [items, statusFilter]);
 
   useEffect(() => {
     let mounted = true;
@@ -181,7 +255,7 @@ export default function FeedbackPage() {
       } else {
         setSelectedId(null);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
     } finally {
       setLoadingItems(false);
@@ -205,8 +279,8 @@ export default function FeedbackPage() {
       }
 
       setMessages(data.messages || []);
-    } catch (e: any) {
-      setThreadError(e?.message || "Unable to load thread.");
+    } catch (e: unknown) {
+      setThreadError(getErrorMessage(e, "Unable to load thread."));
       setMessages([]);
     } finally {
       setLoadingMessages(false);
@@ -266,9 +340,9 @@ export default function FeedbackPage() {
       if (createdId && hasSession) {
         setSelectedId(createdId);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setError(e?.message || "Unable to send feedback.");
+      setError(getErrorMessage(e, "Unable to send feedback."));
     } finally {
       setLoading(false);
     }
@@ -300,8 +374,8 @@ export default function FeedbackPage() {
       setReply("");
       await loadMessages(selectedId);
       await loadFeedback();
-    } catch (e: any) {
-      setThreadError(e?.message || "Unable to send reply.");
+    } catch (e: unknown) {
+      setThreadError(getErrorMessage(e, "Unable to send reply."));
     } finally {
       setSendingReply(false);
     }
@@ -348,6 +422,31 @@ export default function FeedbackPage() {
             </div>
           </div>
         </section>
+
+        {hasSession ? (
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              label="Total"
+              value={feedbackSummary.total}
+              detail="Feedback items submitted"
+            />
+            <SummaryCard
+              label="Open"
+              value={feedbackSummary.open}
+              detail="Threads still active"
+            />
+            <SummaryCard
+              label="Needs reply"
+              value={feedbackSummary.waitingForUser}
+              detail="Waiting for your response"
+            />
+            <SummaryCard
+              label="Resolved"
+              value={feedbackSummary.resolved}
+              detail="Completed support items"
+            />
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -511,18 +610,46 @@ export default function FeedbackPage() {
               </div>
             </div>
 
+            <div className="mt-4 flex flex-wrap gap-2">
+              <FilterButton
+                active={statusFilter === "all"}
+                onClick={() => setStatusFilter("all")}
+              >
+                All
+              </FilterButton>
+              <FilterButton
+                active={statusFilter === "open"}
+                onClick={() => setStatusFilter("open")}
+              >
+                Open
+              </FilterButton>
+              <FilterButton
+                active={statusFilter === "waiting_for_user"}
+                onClick={() => setStatusFilter("waiting_for_user")}
+              >
+                Needs reply
+              </FilterButton>
+              <FilterButton
+                active={statusFilter === "resolved"}
+                onClick={() => setStatusFilter("resolved")}
+              >
+                Resolved
+              </FilterButton>
+            </div>
+
             {loadingItems ? (
               <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
                 Loading feedback...
               </div>
-            ) : items.length === 0 ? (
+            ) : filteredItems.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-[#D9E2EC] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-                No feedback yet.
+                No feedback found for this status.
               </div>
             ) : (
               <div className="mt-4 space-y-3">
-                {items.map((item) => {
+                {filteredItems.map((item) => {
                   const active = item.id === selectedId;
+                  const needsReply = item.status === "waiting_for_user";
 
                   return (
                     <button
@@ -541,6 +668,11 @@ export default function FeedbackPage() {
                             {item.subject}
                           </h3>
                           <StatusBadge status={item.status} />
+                          {needsReply ? (
+                            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                              Reply requested
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[#6B7280]">
