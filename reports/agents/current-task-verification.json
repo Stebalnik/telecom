@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0080",
-  "title": "Customer dashboard marketplace upgrade",
-  "started_at": "2026-05-23T04:13:20.357Z",
-  "finished_at": "2026-05-23T04:15:07.950Z",
+  "task_id": "TASK-0081",
+  "title": "Contractor trust badges",
+  "started_at": "2026-05-23T04:17:51.926Z",
+  "finished_at": "2026-05-23T04:19:31.662Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:13:20.357Z",
-      "finished_at": "2026-05-23T04:13:20.674Z",
+      "started_at": "2026-05-23T04:17:51.926Z",
+      "finished_at": "2026-05-23T04:17:52.262Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:13:20.674Z",
-      "finished_at": "2026-05-23T04:13:21.037Z",
+      "started_at": "2026-05-23T04:17:52.262Z",
+      "finished_at": "2026-05-23T04:17:52.598Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:13:21.037Z",
-      "finished_at": "2026-05-23T04:15:07.950Z",
+      "started_at": "2026-05-23T04:17:52.598Z",
+      "finished_at": "2026-05-23T04:19:31.661Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

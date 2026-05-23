@@ -31,8 +31,19 @@ export type PublicContractorPreview = {
   services: string[];
   insuranceVerified: boolean;
   certificationsVerified: boolean;
+  customerApproved: boolean;
+  activeProfile: boolean;
+  teamConfigured: boolean;
+  eligibleToBid: boolean;
   teamSize: string;
   responseSignal: string;
+  trustBadges: ContractorTrustBadge[];
+};
+
+export type ContractorTrustBadge = {
+  label: string;
+  status: "verified" | "active" | "pending";
+  description: string;
 };
 
 export type PublicMarketPreview = {
@@ -73,7 +84,6 @@ export type PublicActivityFeedSnapshot = MarketplaceLandingSnapshot & {
 };
 
 export type PublicContractorDetail = PublicContractorPreview & {
-  trustBadges: string[];
   complianceSummary: string[];
 };
 
@@ -164,6 +174,75 @@ function normalizeMarket(value: string | null | undefined) {
   }
 
   return trimmed;
+}
+
+function buildContractorTrustBadges(contractor: {
+  insuranceVerified: boolean;
+  certificationsVerified: boolean;
+  customerApproved: boolean;
+  activeProfile: boolean;
+  teamConfigured: boolean;
+  eligibleToBid: boolean;
+}): ContractorTrustBadge[] {
+  return [
+    {
+      label: contractor.insuranceVerified
+        ? "Insurance verified"
+        : "Insurance review pending",
+      status: contractor.insuranceVerified ? "verified" : "pending",
+      description: contractor.insuranceVerified
+        ? "Insurance coverage is represented by public-safe verification signals."
+        : "Insurance evidence remains protected during authenticated review.",
+    },
+    {
+      label: contractor.certificationsVerified
+        ? "Certifications verified"
+        : "Certifications review pending",
+      status: contractor.certificationsVerified ? "verified" : "pending",
+      description: contractor.certificationsVerified
+        ? "Certification readiness has public-safe verification signals."
+        : "Certification evidence is reviewed inside protected workflows.",
+    },
+    {
+      label: contractor.customerApproved
+        ? "Customer approved"
+        : "Customer approval available",
+      status: contractor.customerApproved ? "verified" : "pending",
+      description: contractor.customerApproved
+        ? "This contractor has customer approval signals in marketplace workflows."
+        : "Customers can request approval after signing in.",
+    },
+    {
+      label: contractor.activeProfile ? "Active profile" : "Profile pending",
+      status: contractor.activeProfile ? "active" : "pending",
+      description: contractor.activeProfile
+        ? "Profile is listed for public marketplace discovery."
+        : "Profile is not fully listed yet.",
+    },
+    {
+      label: contractor.teamConfigured ? "Team configured" : "Team review pending",
+      status: contractor.teamConfigured ? "active" : "pending",
+      description: contractor.teamConfigured
+        ? "Team capacity is represented by a public-safe readiness signal."
+        : "Team details are confirmed inside protected workflows.",
+    },
+    {
+      label: contractor.eligibleToBid ? "Eligible to bid" : "Bid eligibility pending",
+      status: contractor.eligibleToBid ? "verified" : "pending",
+      description: contractor.eligibleToBid
+        ? "Core marketplace readiness signals are present."
+        : "Eligibility depends on protected compliance and customer approval checks.",
+    },
+  ];
+}
+
+function withContractorTrustBadges(
+  contractor: Omit<PublicContractorPreview, "trustBadges">
+): PublicContractorPreview {
+  return {
+    ...contractor,
+    trustBadges: buildContractorTrustBadges(contractor),
+  };
 }
 
 function relationName(value: unknown) {
@@ -326,18 +405,24 @@ export async function getMarketplaceHubSnapshot(): Promise<MarketplaceHubSnapsho
       headline: string | null;
       home_market: string | null;
       markets: string[] | null;
-    }>).map((contractor, index) => ({
-      id: contractor.company_id,
-      name: `Listed contractor ${index + 1}`,
-      headline: safeText(contractor.headline, "Telecom contractor profile"),
-      homeMarket: normalizeMarket(contractor.home_market),
-      markets: (contractor.markets ?? []).slice(0, 4),
-      services: ["Telecom execution"],
-      insuranceVerified: false,
-      certificationsVerified: false,
-      teamSize: "Team details available during approval",
-      responseSignal: "Active marketplace profile",
-    }));
+    }>).map((contractor, index) =>
+      withContractorTrustBadges({
+        id: contractor.company_id,
+        name: `Listed contractor ${index + 1}`,
+        headline: safeText(contractor.headline, "Telecom contractor profile"),
+        homeMarket: normalizeMarket(contractor.home_market),
+        markets: (contractor.markets ?? []).slice(0, 4),
+        services: ["Telecom execution"],
+        insuranceVerified: false,
+        certificationsVerified: false,
+        customerApproved: false,
+        activeProfile: true,
+        teamConfigured: false,
+        eligibleToBid: false,
+        teamSize: "Team details available during approval",
+        responseSignal: "Active marketplace profile",
+      })
+    );
 
     const marketMap = new Map<string, PublicMarketPreview>();
     for (const job of openJobs) {
@@ -400,27 +485,40 @@ export async function getPublicContractorsDirectorySnapshot(): Promise<PublicCon
           insurance_types: string[] | null;
           average_rating: number | null;
           reviews_count: number | null;
-        }>).map((contractor) => ({
-          id: contractor.company_id,
-          name: safeText(
-            contractor.dba_name ?? contractor.legal_name,
-            "Listed telecom contractor"
-          ),
-          headline: safeText(contractor.headline, "Telecom contractor profile"),
-          homeMarket: normalizeMarket(contractor.home_market),
-          markets: (contractor.markets ?? []).slice(0, 6),
-          services: ["Telecom execution"],
-          insuranceVerified: Boolean(contractor.insurance_types?.length),
-          certificationsVerified: false,
-          teamSize:
+        }>).map((contractor) => {
+          const insuranceVerified = Boolean(contractor.insurance_types?.length);
+          const teamConfigured = Boolean(
             contractor.available_teams_count && contractor.available_teams_count > 0
+          );
+          const customerApproved = Boolean(
+            contractor.reviews_count && contractor.reviews_count > 0
+          );
+
+          return withContractorTrustBadges({
+            id: contractor.company_id,
+            name: safeText(
+              contractor.dba_name ?? contractor.legal_name,
+              "Listed telecom contractor"
+            ),
+            headline: safeText(contractor.headline, "Telecom contractor profile"),
+            homeMarket: normalizeMarket(contractor.home_market),
+            markets: (contractor.markets ?? []).slice(0, 6),
+            services: ["Telecom execution"],
+            insuranceVerified,
+            certificationsVerified: false,
+            customerApproved,
+            activeProfile: true,
+            teamConfigured,
+            eligibleToBid: insuranceVerified && teamConfigured,
+            teamSize: teamConfigured
               ? `${contractor.available_teams_count} available teams`
               : "Team details available during approval",
-          responseSignal:
-            contractor.reviews_count && contractor.reviews_count > 0
-              ? `${contractor.reviews_count} marketplace reviews`
-              : "Active marketplace profile",
-        })),
+            responseSignal:
+              contractor.reviews_count && contractor.reviews_count > 0
+                ? `${contractor.reviews_count} marketplace reviews`
+                : "Active marketplace profile",
+          });
+        }),
       };
     }
 
@@ -442,18 +540,24 @@ export async function getPublicContractorsDirectorySnapshot(): Promise<PublicCon
         headline: string | null;
         home_market: string | null;
         markets: string[] | null;
-      }>).map((contractor, index) => ({
-        id: contractor.company_id,
-        name: `Listed contractor ${index + 1}`,
-        headline: safeText(contractor.headline, "Telecom contractor profile"),
-        homeMarket: normalizeMarket(contractor.home_market),
-        markets: (contractor.markets ?? []).slice(0, 6),
-        services: ["Telecom execution"],
-        insuranceVerified: false,
-        certificationsVerified: false,
-        teamSize: "Team details available during approval",
-        responseSignal: "Active marketplace profile",
-      })),
+      }>).map((contractor, index) =>
+        withContractorTrustBadges({
+          id: contractor.company_id,
+          name: `Listed contractor ${index + 1}`,
+          headline: safeText(contractor.headline, "Telecom contractor profile"),
+          homeMarket: normalizeMarket(contractor.home_market),
+          markets: (contractor.markets ?? []).slice(0, 6),
+          services: ["Telecom execution"],
+          insuranceVerified: false,
+          certificationsVerified: false,
+          customerApproved: false,
+          activeProfile: true,
+          teamConfigured: false,
+          eligibleToBid: false,
+          teamSize: "Team details available during approval",
+          responseSignal: "Active marketplace profile",
+        })
+      ),
     };
   } catch {
     return fallbackContractorsDirectorySnapshot;
@@ -472,17 +576,6 @@ export async function getPublicContractorDetail(
 
   return {
     ...contractor,
-    trustBadges: [
-      "Active marketplace profile",
-      contractor.insuranceVerified
-        ? "Insurance verified"
-        : "Insurance review pending",
-      contractor.certificationsVerified
-        ? "Certifications verified"
-        : "Certifications review pending",
-      contractor.markets.length ? "Markets published" : "Markets pending",
-      contractor.teamSize,
-    ],
     complianceSummary: [
       "Private insurance documents are protected",
       "Certification evidence is reviewed inside authenticated workflows",

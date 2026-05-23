@@ -91,10 +91,28 @@ export default async function PublicContractorProfilePage({
             <div className="mt-4 space-y-3">
               {contractor.trustBadges.map((badge) => (
                 <div
-                  key={badge}
-                  className="rounded-lg bg-[#F4F8FC] p-3 text-sm font-medium text-[#0A2E5C]"
+                  key={badge.label}
+                  className="rounded-lg border border-[#D9E2EC] bg-[#F4F8FC] p-3"
                 >
-                  {badge}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[#0A2E5C]">
+                      {badge.label}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                        badge.status === "verified"
+                          ? "bg-[#EAF8F0] text-[#166534]"
+                          : badge.status === "active"
+                          ? "bg-[#EAF4FF] text-[#1F6FB5]"
+                          : "bg-white text-[#4B5563]"
+                      }`}
+                    >
+                      {badge.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#4B5563]">
+                    {badge.description}
+                  </p>
                 </div>
               ))}
             </div>

@@ -91,22 +91,13 @@ export default async function PublicContractorsPage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <Badge
-                    active={contractor.insuranceVerified}
-                    label={
-                      contractor.insuranceVerified
-                        ? "Insurance verified"
-                        : "Insurance review pending"
-                    }
-                  />
-                  <Badge
-                    active={contractor.certificationsVerified}
-                    label={
-                      contractor.certificationsVerified
-                        ? "Certifications verified"
-                        : "Certifications review pending"
-                    }
-                  />
+                  {contractor.trustBadges.slice(0, 4).map((badge) => (
+                    <Badge
+                      key={badge.label}
+                      active={badge.status !== "pending"}
+                      label={badge.label}
+                    />
+                  ))}
                 </div>
 
                 <div className="mt-auto pt-6">
