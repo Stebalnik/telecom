@@ -1,10 +1,10 @@
 {
-  "claimed_at": "2026-05-23T03:57:49.609Z",
-  "task_id": "TASK-0077",
-  "title": "Fast customer job posting",
+  "claimed_at": "2026-05-23T04:00:22.802Z",
+  "task_id": "TASK-0078",
+  "title": "Job templates",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
-  "selection": "requested_task_id",
+  "selection": "automatic_priority_order",
   "dependencies": []
 }

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0077",
-  "title": "Fast customer job posting",
-  "started_at": "2026-05-23T03:57:52.316Z",
-  "finished_at": "2026-05-23T03:58:00.169Z",
+  "task_id": "TASK-0078",
+  "title": "Job templates",
+  "started_at": "2026-05-23T04:00:29.978Z",
+  "finished_at": "2026-05-23T04:00:40.026Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:57:52.316Z",
-      "finished_at": "2026-05-23T03:57:53.313Z",
+      "started_at": "2026-05-23T04:00:29.979Z",
+      "finished_at": "2026-05-23T04:00:31.408Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:57:53.313Z",
-      "finished_at": "2026-05-23T03:57:54.201Z",
+      "started_at": "2026-05-23T04:00:31.408Z",
+      "finished_at": "2026-05-23T04:00:32.679Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:57:54.201Z",
-      "finished_at": "2026-05-23T03:58:00.169Z",
+      "started_at": "2026-05-23T04:00:32.679Z",
+      "finished_at": "2026-05-23T04:00:40.025Z",
       "exit_code": 1,
       "passed": false,
       "output_summary": [
