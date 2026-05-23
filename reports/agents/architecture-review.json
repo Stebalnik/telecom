@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-23T03:02:28.731Z",
-  "task_id": "TASK-0066",
-  "title": "Public market detail pages",
-  "area": "infrastructure",
+  "generated_at": "2026-05-23T03:05:28.604Z",
+  "task_id": "TASK-0067",
+  "title": "Marketplace stats API",
+  "area": "api",
   "type": "feature",
-  "assigned_agent": "Coder Agent",
+  "assigned_agent": "Reviewer Agent + Coder Agent",
   "branch_isolation": {
     "valid": true,
     "branch": "agents/dev-system",
@@ -14,15 +14,15 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Public market detail pages\" with scoped, reviewable changes.",
+    "Implement the task described by \"Marketplace stats API\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
-    "route_impact_review": true,
-    "backend_review": false,
+    "route_impact_review": false,
+    "backend_review": true,
     "supabase_rls_review": false,
-    "security_signal_detected": false
+    "security_signal_detected": true
   },
   "architectural_guidance": [
     "Keep changes scoped to the claimed task and expected files.",
@@ -30,5 +30,5 @@
     "Do not introduce deploy, merge, or production-control behavior.",
     "Document route, security, and Supabase/RLS impact in the final task report when applicable."
   ],
-  "risk_level": "low"
+  "risk_level": "medium"
 }

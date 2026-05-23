@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0066",
-  "title": "Public market detail pages",
-  "started_at": "2026-05-23T03:03:09.517Z",
-  "finished_at": "2026-05-23T03:04:09.657Z",
+  "task_id": "TASK-0067",
+  "title": "Marketplace stats API",
+  "started_at": "2026-05-23T03:05:53.034Z",
+  "finished_at": "2026-05-23T03:06:51.883Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:03:09.518Z",
-      "finished_at": "2026-05-23T03:03:09.759Z",
+      "started_at": "2026-05-23T03:05:53.034Z",
+      "finished_at": "2026-05-23T03:05:53.268Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:03:09.759Z",
-      "finished_at": "2026-05-23T03:03:10.067Z",
+      "started_at": "2026-05-23T03:05:53.268Z",
+      "finished_at": "2026-05-23T03:05:53.518Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:03:10.067Z",
-      "finished_at": "2026-05-23T03:04:09.657Z",
+      "started_at": "2026-05-23T03:05:53.518Z",
+      "finished_at": "2026-05-23T03:06:51.882Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

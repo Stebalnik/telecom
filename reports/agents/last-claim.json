@@ -1,9 +1,9 @@
 {
-  "claimed_at": "2026-05-23T03:02:27.977Z",
-  "task_id": "TASK-0066",
-  "title": "Public market detail pages",
+  "claimed_at": "2026-05-23T03:05:27.806Z",
+  "task_id": "TASK-0067",
+  "title": "Marketplace stats API",
   "priority": "medium",
-  "assigned_agent": "Coder Agent",
+  "assigned_agent": "Reviewer Agent + Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
   "selection": "automatic_priority_order",
   "dependencies": []
