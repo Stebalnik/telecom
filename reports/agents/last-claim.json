@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:26:16.713Z",
-  "task_id": "TASK-0083",
-  "title": "Customer trust signals",
+  "claimed_at": "2026-05-23T04:30:12.998Z",
+  "task_id": "TASK-0084",
+  "title": "Matching jobs for contractor",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

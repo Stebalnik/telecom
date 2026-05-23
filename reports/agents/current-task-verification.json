@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0083",
-  "title": "Customer trust signals",
-  "started_at": "2026-05-23T04:26:55.865Z",
-  "finished_at": "2026-05-23T04:28:28.528Z",
+  "task_id": "TASK-0084",
+  "title": "Matching jobs for contractor",
+  "started_at": "2026-05-23T04:30:54.618Z",
+  "finished_at": "2026-05-23T04:32:38.730Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:26:55.865Z",
-      "finished_at": "2026-05-23T04:26:56.113Z",
+      "started_at": "2026-05-23T04:30:54.618Z",
+      "finished_at": "2026-05-23T04:30:54.893Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:26:56.113Z",
-      "finished_at": "2026-05-23T04:26:56.425Z",
+      "started_at": "2026-05-23T04:30:54.894Z",
+      "finished_at": "2026-05-23T04:30:55.241Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:26:56.425Z",
-      "finished_at": "2026-05-23T04:28:28.528Z",
+      "started_at": "2026-05-23T04:30:55.241Z",
+      "finished_at": "2026-05-23T04:32:38.730Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

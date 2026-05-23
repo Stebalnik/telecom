@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { listMyCompanies, listMyCustomerApprovalRows, approvalRowByCustomerId, requestCustomerApproval, type CustomerApprovalRow } from "../../../lib/contractor";
+import {
+  listMyCompanies,
+  listMyCustomerApprovalRows,
+  approvalRowByCustomerId,
+  requestCustomerApproval,
+  type Company,
+  type CustomerApprovalRow,
+} from "../../../lib/contractor";
 import { normalizeError } from "../../../lib/errors/normalizeError";
 import { unwrapSupabase } from "../../../lib/errors/unwrapSupabase";
 import { withErrorLogging } from "../../../lib/errors/withErrorLogging";
@@ -37,17 +44,10 @@ type JobRow = {
     | null;
 };
 
-type CompanyOption = {
-  id: string;
-  legal_name?: string | null;
-  dba_name?: string | null;
-  name?: string | null;
-};
-
 type LoadJobsResult = {
   jobs: JobRow[];
   filesByJob: Record<string, JobFileRow[]>;
-  myCompany: CompanyOption | null;
+  myCompany: Company | null;
   approvalMap: Record<string, CustomerApprovalRow>;
 };
 
@@ -77,6 +77,57 @@ function visibilityLabel(mode: JobVisibilityMode) {
   if (mode === "approved_only") return "Approved contractors only";
   if (mode === "qualified_only") return "Qualified contractors only";
   return "All contractors";
+}
+
+function normalizeMatchText(value?: string | null) {
+  return (value || "").trim().toLowerCase();
+}
+
+function getJobMatchScore({
+  job,
+  company,
+  approval,
+}: {
+  job: JobRow;
+  company: Company | null;
+  approval?: CustomerApprovalRow | null;
+}) {
+  const companyMarkets = [
+    company?.public_profile?.home_market,
+    ...(company?.public_profile?.markets ?? []),
+    company?.city && company?.state ? `${company.city}, ${company.state}` : null,
+    company?.state,
+  ]
+    .map(normalizeMatchText)
+    .filter(Boolean);
+  const jobMarket = normalizeMatchText(job.location);
+  const marketFit = Boolean(
+    jobMarket &&
+      companyMarkets.some((market) => jobMarket.includes(market) || market.includes(jobMarket))
+  );
+  const approvedCustomer = approval?.status === "approved";
+  const smallComplianceStep =
+    job.visibility_mode !== "approved_only" || approvedCustomer || approval?.status === "pending";
+
+  let score = 35;
+  if (marketFit) score += 25;
+  if (approvedCustomer) score += 20;
+  if (job.visibility_mode === "public") score += 10;
+  if (job.deadline_date) score += 10;
+
+  const gaps = [
+    marketFit ? null : "market confirmation",
+    approvedCustomer ? null : "customer approval",
+    smallComplianceStep ? null : "visibility approval",
+  ].filter(Boolean) as string[];
+
+  return {
+    score: Math.min(score, 100),
+    marketFit,
+    approvedCustomer,
+    smallComplianceStep,
+    gaps,
+  };
 }
 
 function getSafeJobsErrorMessage(error: unknown, fallback: string) {
@@ -184,13 +235,27 @@ export default function ContractorJobsPage() {
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [filesByJob, setFilesByJob] = useState<Record<string, JobFileRow[]>>({});
-  const [myCompany, setMyCompany] = useState<CompanyOption | null>(null);
+  const [myCompany, setMyCompany] = useState<Company | null>(null);
   const [approvalMap, setApprovalMap] = useState<Record<string, CustomerApprovalRow>>({});
   const [requestingCustomerId, setRequestingCustomerId] = useState<string | null>(null);
 
   const visibleJobs = useMemo(() => {
     return jobs.filter((job) => job.status === "open");
   }, [jobs]);
+
+  const matchingJobs = useMemo(() => {
+    return visibleJobs
+      .map((job) => ({
+        job,
+        match: getJobMatchScore({
+          job,
+          company: myCompany,
+          approval: job.customer_id ? approvalMap[job.customer_id] : null,
+        }),
+      }))
+      .sort((a, b) => b.match.score - a.match.score)
+      .slice(0, 4);
+  }, [approvalMap, myCompany, visibleJobs]);
 
   async function load() {
     setLoading(true);
@@ -388,6 +453,57 @@ export default function ContractorJobsPage() {
       {!loading && visibleJobs.length === 0 ? (
         <SectionCard title="Jobs">
           <p className="text-sm text-[#4B5563]">No open jobs available.</p>
+        </SectionCard>
+      ) : null}
+
+      {!loading && matchingJobs.length > 0 ? (
+        <SectionCard
+          title="Matching jobs"
+          subtitle="Ranked by market fit, customer approval, public visibility, and timeline readiness."
+        >
+          <div className="grid gap-3 lg:grid-cols-2">
+            {matchingJobs.map(({ job, match }) => (
+              <Link
+                key={job.id}
+                href={`/contractor/jobs/${job.id}`}
+                className="rounded-2xl border border-[#D9E2EC] bg-[#F8FBFF] p-4 transition hover:border-[#8FC8FF] hover:bg-white"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#0A2E5C]">
+                      {job.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-[#4B5563]">
+                      {job.location || "Market pending"} · {visibilityLabel(job.visibility_mode)}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#EAF4FF] px-3 py-1 text-xs font-semibold text-[#1F6FB5]">
+                    {match.score}% fit
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <InfoPill>{match.marketFit ? "Market fit" : "Market to confirm"}</InfoPill>
+                  <InfoPill>
+                    {match.approvedCustomer ? "Approved customer" : "Approval step"}
+                  </InfoPill>
+                  <InfoPill>
+                    {match.smallComplianceStep
+                      ? "Small compliance step"
+                      : "Approval required"}
+                  </InfoPill>
+                </div>
+                {match.gaps.length ? (
+                  <p className="mt-3 text-xs leading-5 text-[#4B5563]">
+                    Missing: {match.gaps.join(", ")}.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs leading-5 text-[#166534]">
+                    Core matching signals are in place.
+                  </p>
+                )}
+              </Link>
+            ))}
+          </div>
         </SectionCard>
       ) : null}
 
