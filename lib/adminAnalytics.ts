@@ -42,6 +42,18 @@ export type AnalyticsSummary = {
     onboardingSubmitRate: number;
     missionCheckoutRate: number;
   };
+  marketplaceAcquisition: {
+    marketplaceViews: number;
+    publicJobsViews: number;
+    publicContractorsViews: number;
+    publicMarketViews: number;
+    customerCtaClicks: number;
+    contractorCtaClicks: number;
+    customerJobsCreated: number;
+    contractorFastSignupStarts: number;
+    customerConversionRate: number;
+    contractorConversionRate: number;
+  };
 };
 
 export type AnalyticsBreakdown = {
@@ -213,6 +225,17 @@ export async function getAdminAnalyticsSummary(
     rows,
     "start_donation_checkout"
   );
+  const marketplaceViews = countEvent(rows, "marketplace_hub_viewed");
+  const publicJobsViews = countEvent(rows, "public_jobs_viewed");
+  const publicContractorsViews = countEvent(rows, "public_contractors_viewed");
+  const publicMarketViews = countEvent(rows, "public_market_page_viewed");
+  const customerCtaClicks = countEvent(rows, "customer_landing_cta_clicked");
+  const contractorCtaClicks = countEvent(rows, "contractor_landing_cta_clicked");
+  const customerJobsCreated = countEvent(rows, "customer_job_created");
+  const contractorFastSignupStarts = countEvent(
+    rows,
+    "contractor_fast_signup_started"
+  );
 
   return {
     range,
@@ -236,6 +259,21 @@ export async function getAdminAnalyticsSummary(
       missionCheckoutRate: percent(
         startDonationCheckoutCount,
         openMissionPageCount
+      ),
+    },
+    marketplaceAcquisition: {
+      marketplaceViews,
+      publicJobsViews,
+      publicContractorsViews,
+      publicMarketViews,
+      customerCtaClicks,
+      contractorCtaClicks,
+      customerJobsCreated,
+      contractorFastSignupStarts,
+      customerConversionRate: percent(customerJobsCreated, customerCtaClicks),
+      contractorConversionRate: percent(
+        contractorFastSignupStarts,
+        contractorCtaClicks
       ),
     },
   };

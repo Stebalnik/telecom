@@ -35,6 +35,18 @@ type AnalyticsSummary = {
     onboardingSubmitRate: number;
     missionCheckoutRate: number;
   };
+  marketplaceAcquisition: {
+    marketplaceViews: number;
+    publicJobsViews: number;
+    publicContractorsViews: number;
+    publicMarketViews: number;
+    customerCtaClicks: number;
+    contractorCtaClicks: number;
+    customerJobsCreated: number;
+    contractorFastSignupStarts: number;
+    customerConversionRate: number;
+    contractorConversionRate: number;
+  };
 };
 
 function FilterButton({
@@ -378,6 +390,66 @@ export default function AdminAnalyticsPage() {
                 value={`${summary.submitBidCount}`}
                 detail="Submitted bids indicate contractor marketplace activity."
                 tone={summary.submitBidCount > 0 ? "good" : "default"}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111827]">
+                  Marketplace acquisition
+                </h2>
+                <p className="mt-1 text-sm text-[#4B5563]">
+                  Public marketplace visibility, customer conversion, and
+                  contractor conversion signals.
+                </p>
+              </div>
+              <div className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                {rangeLabel}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label="Marketplace views"
+                value={summary.marketplaceAcquisition.marketplaceViews}
+                hint="Landing and marketplace hub views"
+              />
+              <StatCard
+                label="Public jobs views"
+                value={summary.marketplaceAcquisition.publicJobsViews}
+                hint="Directory and detail views"
+              />
+              <StatCard
+                label="Public contractors views"
+                value={summary.marketplaceAcquisition.publicContractorsViews}
+                hint="Directory and profile views"
+              />
+              <StatCard
+                label="Market page views"
+                value={summary.marketplaceAcquisition.publicMarketViews}
+                hint="SEO market pages"
+              />
+              <StatCard
+                label="Customer CTA clicks"
+                value={summary.marketplaceAcquisition.customerCtaClicks}
+                hint={`Job conversion: ${summary.marketplaceAcquisition.customerConversionRate}%`}
+              />
+              <StatCard
+                label="Contractor CTA clicks"
+                value={summary.marketplaceAcquisition.contractorCtaClicks}
+                hint={`Fast signup conversion: ${summary.marketplaceAcquisition.contractorConversionRate}%`}
+              />
+              <StatCard
+                label="Jobs created"
+                value={summary.marketplaceAcquisition.customerJobsCreated}
+                hint="Customer acquisition outcome"
+              />
+              <StatCard
+                label="Fast signup starts"
+                value={summary.marketplaceAcquisition.contractorFastSignupStarts}
+                hint="Contractor acquisition outcome"
               />
             </div>
           </section>

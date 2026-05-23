@@ -1,44 +1,16 @@
 {
-  "generated_at": "2026-05-23T04:47:02.955Z",
+  "generated_at": "2026-05-23T04:51:04.968Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M app/marketplace/contractors/[id]/page.tsx\n M app/marketplace/contractors/page.tsx\n M app/marketplace/jobs/[id]/page.tsx\n M app/marketplace/jobs/page.tsx\n M app/marketplace/page.tsx\n M app/markets/MarketDetailView.tsx\n M app/markets/page.tsx\n M app/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/analytics/events.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? components/analytics/TrackedLink.tsx\n?? reports/agents/history/2026-05-23T04-47-02-197Z-TASK-0087-current-task.json",
+  "working_tree_status": "M app/admin/analytics/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/adminAnalytics.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-23T04-51-04-185Z-TASK-0088-current-task.json",
   "changed_files": [
     {
       "status": "M",
-      "path": "pp/marketplace/contractors/[id]/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/marketplace/contractors/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/marketplace/jobs/[id]/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/marketplace/jobs/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/marketplace/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/markets/MarketDetailView.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/markets/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/page.tsx"
+      "path": "pp/admin/analytics/page.tsx"
     },
     {
       "status": "M",
@@ -46,7 +18,7 @@
     },
     {
       "status": "M",
-      "path": "lib/analytics/events.ts"
+      "path": "lib/adminAnalytics.ts"
     },
     {
       "status": "M",
@@ -82,34 +54,30 @@
     },
     {
       "status": "??",
-      "path": "components/analytics/TrackedLink.tsx"
-    },
-    {
-      "status": "??",
-      "path": "reports/agents/history/2026-05-23T04-47-02-197Z-TASK-0087-current-task.json"
+      "path": "reports/agents/history/2026-05-23T04-51-04-185Z-TASK-0088-current-task.json"
     }
   ],
   "warnings": [
-    "3 pending task(s) remain before the full generated queue is exhausted.",
+    "2 pending task(s) remain before the full generated queue is exhausted.",
     "Working tree has local report/code changes from the latest task cycle; commit and push before human merge review."
   ],
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0087",
+    "task_id": "TASK-0088",
     "passed": true,
-    "finished_at": "2026-05-23T04:47:01.841Z"
+    "finished_at": "2026-05-23T04:51:03.866Z"
   },
   "audit_summary": {
     "total_tasks": 90,
-    "completed": 87,
+    "completed": 88,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 3,
-    "commit_ready": 87,
+    "pending": 2,
+    "commit_ready": 88,
     "latest_successful_build": {
-      "build_id": "WcdYdpzQCSCNvB22TEdKg",
-      "detected_at": "2026-05-23T04:46:58.829Z"
+      "build_id": "qh3KhNCtYjQxNLHK3R7zO",
+      "detected_at": "2026-05-23T04:51:00.636Z"
     }
   },
   "required_human_actions": [
@@ -135,13 +103,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0087",
-      "finished_at": "2026-05-23T04:47:01.841Z"
+      "task_id": "TASK-0088",
+      "finished_at": "2026-05-23T04:51:03.866Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-23T04:45:24.762Z"
+      "generated_at": "2026-05-23T04:49:26.084Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -154,8 +122,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "WcdYdpzQCSCNvB22TEdKg",
-        "detected_at": "2026-05-23T04:46:58.829Z"
+        "build_id": "qh3KhNCtYjQxNLHK3R7zO",
+        "detected_at": "2026-05-23T04:51:00.636Z"
       }
     },
     {
