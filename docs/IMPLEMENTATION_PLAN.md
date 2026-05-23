@@ -76,3 +76,38 @@
 - [ ] Improve build performance
 - [ ] Improve agent observability
 - [ ] Improve deployment safety checks
+
+# Phase 8 — Marketplace Growth Transformation
+
+- [ ] Public marketplace landing page
+- [ ] Public marketplace hub
+- [ ] Public jobs directory
+- [ ] Public job detail page
+- [ ] Public contractor directory
+- [ ] Public contractor profile page
+- [ ] Public market index
+- [ ] Public market detail pages
+- [ ] Marketplace stats API
+- [ ] Safe marketplace activity feed
+- [ ] Job visibility model
+- [ ] Public readiness rules
+- [ ] Contractor eligibility engine
+- [ ] Compliance gap engine
+- [ ] Fast contractor signup
+- [ ] Progressive contractor onboarding
+- [ ] Contractor value dashboard
+- [ ] Job alerts foundation
+- [ ] Fast customer job posting
+- [ ] Job templates
+- [ ] Matching preview after job creation
+- [ ] Customer dashboard marketplace upgrade
+- [ ] Contractor trust badges
+- [ ] Contractor profile strength score
+- [ ] Customer trust signals
+- [ ] Matching jobs for contractor
+- [ ] Matching contractors for customer
+- [ ] Contractor invite flow
+- [ ] Marketplace conversion tracking
+- [ ] Admin marketplace acquisition analytics
+- [ ] Marketplace UX polish
+- [ ] Marketplace production hardening docs
