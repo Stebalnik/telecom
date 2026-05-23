@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T02:38:37.387Z",
-  "task_id": "TASK-0059",
-  "title": "Public marketplace landing page",
+  "claimed_at": "2026-05-23T02:42:07.230Z",
+  "task_id": "TASK-0060",
+  "title": "Public marketplace hub",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

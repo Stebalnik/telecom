@@ -11,6 +11,35 @@ export type MarketplaceLandingSnapshot = {
   recentActivity: string[];
 };
 
+export type PublicJobPreview = {
+  id: string;
+  title: string;
+  market: string;
+  scope: string;
+  status: string;
+  createdAt: string;
+};
+
+export type PublicContractorPreview = {
+  id: string;
+  name: string;
+  headline: string;
+  homeMarket: string;
+  markets: string[];
+};
+
+export type PublicMarketPreview = {
+  name: string;
+  openJobs: number;
+  activeContractors: number;
+};
+
+export type MarketplaceHubSnapshot = MarketplaceLandingSnapshot & {
+  openJobs: PublicJobPreview[];
+  contractors: PublicContractorPreview[];
+  markets: PublicMarketPreview[];
+};
+
 const fallbackSnapshot: MarketplaceLandingSnapshot = {
   counters: [
     {
@@ -41,8 +70,36 @@ const fallbackSnapshot: MarketplaceLandingSnapshot = {
   ],
 };
 
+const fallbackHubSnapshot: MarketplaceHubSnapshot = {
+  ...fallbackSnapshot,
+  openJobs: [],
+  contractors: [],
+  markets: [],
+};
+
 function formatCount(value: number | null | undefined) {
   return new Intl.NumberFormat("en-US").format(value ?? 0);
+}
+
+function safeText(value: string | null | undefined, fallback: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : fallback;
+}
+
+function normalizeMarket(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "Market pending";
+
+  const parts = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+
+  return trimmed;
 }
 
 function uniqueMarketCount(rows: Array<{ location?: string | null; markets?: string[] | null }>) {
@@ -145,5 +202,97 @@ export async function getMarketplaceLandingSnapshot(): Promise<MarketplaceLandin
     };
   } catch {
     return fallbackSnapshot;
+  }
+}
+
+export async function getMarketplaceHubSnapshot(): Promise<MarketplaceHubSnapshot> {
+  try {
+    const supabase = await createClient();
+    const baseSnapshot = await getMarketplaceLandingSnapshot();
+
+    const [jobsResult, contractorsResult] = await Promise.all([
+      supabase
+        .from("jobs")
+        .select("id,title,description,location,status,created_at")
+        .eq("status", "open")
+        .eq("visibility_mode", "public")
+        .order("created_at", { ascending: false })
+        .limit(6),
+      supabase
+        .from("contractor_public_profiles")
+        .select("company_id,headline,home_market,markets,updated_at")
+        .eq("is_listed", true)
+        .order("updated_at", { ascending: false })
+        .limit(6),
+    ]);
+
+    if (jobsResult.error || contractorsResult.error) {
+      return fallbackHubSnapshot;
+    }
+
+    const openJobs = ((jobsResult.data ?? []) as Array<{
+      id: string;
+      title: string | null;
+      description: string | null;
+      location: string | null;
+      status: string | null;
+      created_at: string;
+    }>).map((job) => ({
+      id: job.id,
+      title: safeText(job.title, "Telecom job"),
+      market: normalizeMarket(job.location),
+      scope: safeText(job.description, "Scope available after sign up").slice(0, 140),
+      status: safeText(job.status, "open"),
+      createdAt: job.created_at,
+    }));
+
+    const contractors = ((contractorsResult.data ?? []) as Array<{
+      company_id: string;
+      headline: string | null;
+      home_market: string | null;
+      markets: string[] | null;
+    }>).map((contractor, index) => ({
+      id: contractor.company_id,
+      name: `Listed contractor ${index + 1}`,
+      headline: safeText(contractor.headline, "Telecom contractor profile"),
+      homeMarket: normalizeMarket(contractor.home_market),
+      markets: (contractor.markets ?? []).slice(0, 4),
+    }));
+
+    const marketMap = new Map<string, PublicMarketPreview>();
+    for (const job of openJobs) {
+      const current = marketMap.get(job.market) ?? {
+        name: job.market,
+        openJobs: 0,
+        activeContractors: 0,
+      };
+      current.openJobs += 1;
+      marketMap.set(job.market, current);
+    }
+
+    for (const contractor of contractors) {
+      const contractorMarkets = contractor.markets.length
+        ? contractor.markets
+        : [contractor.homeMarket];
+      for (const marketName of contractorMarkets) {
+        const normalized = normalizeMarket(marketName);
+        const current = marketMap.get(normalized) ?? {
+          name: normalized,
+          openJobs: 0,
+          activeContractors: 0,
+        };
+        current.activeContractors += 1;
+        marketMap.set(normalized, current);
+      }
+    }
+
+    return {
+      ...baseSnapshot,
+      openJobs,
+      contractors,
+      markets: [...marketMap.values()].slice(0, 6),
+    };
+  } catch {
+    return fallbackHubSnapshot;
   }
 }

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0059",
-  "title": "Public marketplace landing page",
-  "started_at": "2026-05-23T02:39:49.020Z",
-  "finished_at": "2026-05-23T02:40:51.846Z",
+  "task_id": "TASK-0060",
+  "title": "Public marketplace hub",
+  "started_at": "2026-05-23T02:43:11.585Z",
+  "finished_at": "2026-05-23T02:44:11.345Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T02:39:49.020Z",
-      "finished_at": "2026-05-23T02:39:49.268Z",
+      "started_at": "2026-05-23T02:43:11.586Z",
+      "finished_at": "2026-05-23T02:43:11.863Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T02:39:49.268Z",
-      "finished_at": "2026-05-23T02:39:49.494Z",
+      "started_at": "2026-05-23T02:43:11.863Z",
+      "finished_at": "2026-05-23T02:43:12.149Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,12 +32,11 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T02:39:49.494Z",
-      "finished_at": "2026-05-23T02:40:51.846Z",
+      "started_at": "2026-05-23T02:43:12.149Z",
+      "finished_at": "2026-05-23T02:44:11.345Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
-        "├ ƒ /customer/resources/[id]/edit",
         "├ ƒ /customer/resources/file-url",
         "├ ○ /customer/resources/new",
         "├ ƒ /customer/resources/upload-url",
@@ -49,6 +48,7 @@
         "├ ○ /forgot-password",
         "├ ○ /login",
         "├ ○ /logout",
+        "├ ƒ /marketplace",
         "├ ○ /mission",
         "├ ○ /privacy",
         "├ ○ /reset-password",
@@ -83,7 +83,6 @@
     "",
     "Agent self-verification passed.",
     "npm run build: passed",
-    "├ ƒ /customer/resources/[id]/edit",
     "├ ƒ /customer/resources/file-url",
     "├ ○ /customer/resources/new",
     "├ ƒ /customer/resources/upload-url",
@@ -95,6 +94,7 @@
     "├ ○ /forgot-password",
     "├ ○ /login",
     "├ ○ /logout",
+    "├ ƒ /marketplace",
     "├ ○ /mission",
     "├ ○ /privacy",
     "├ ○ /reset-password",
