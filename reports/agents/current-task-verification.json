@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0069",
-  "title": "Job visibility model",
-  "started_at": "2026-05-23T03:11:42.706Z",
-  "finished_at": "2026-05-23T03:12:43.736Z",
+  "task_id": "TASK-0070",
+  "title": "Public readiness rules",
+  "started_at": "2026-05-23T03:14:32.944Z",
+  "finished_at": "2026-05-23T03:15:32.825Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:11:42.706Z",
-      "finished_at": "2026-05-23T03:11:42.945Z",
+      "started_at": "2026-05-23T03:14:32.945Z",
+      "finished_at": "2026-05-23T03:14:33.172Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:11:42.945Z",
-      "finished_at": "2026-05-23T03:11:43.203Z",
+      "started_at": "2026-05-23T03:14:33.172Z",
+      "finished_at": "2026-05-23T03:14:33.397Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:11:43.203Z",
-      "finished_at": "2026-05-23T03:12:43.736Z",
+      "started_at": "2026-05-23T03:14:33.397Z",
+      "finished_at": "2026-05-23T03:15:32.825Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
