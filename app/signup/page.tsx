@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   getSanitizedAuthErrorDetails,
   isAuthNetworkError,
@@ -37,12 +37,29 @@ function getEmailRedirectTo() {
 }
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupShell />}>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isFastContractorSignup = searchParams.get("role") === "contractor";
   const redirectTimeoutRef = useRef<number | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [homeMarket, setHomeMarket] = useState("");
+  const [serviceScopes, setServiceScopes] = useState("");
+  const [crewSize, setCrewSize] = useState("");
+  const [primaryCertifications, setPrimaryCertifications] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -82,7 +99,34 @@ export default function SignupPage() {
       return;
     }
 
+    if (isFastContractorSignup) {
+      if (!companyName.trim()) {
+        setError("Please enter your company name.");
+        setLoading(false);
+        return;
+      }
+
+      if (!contactName.trim()) {
+        setError("Please enter a contact name.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
+      const contractorMetadata = isFastContractorSignup
+        ? {
+            signup_mode: "fast_contractor",
+            requested_role: "contractor",
+            company_name: companyName.trim(),
+            contact_name: contactName.trim(),
+            phone: phone.trim() || null,
+            home_market: homeMarket.trim() || null,
+            service_scopes: splitList(serviceScopes),
+            crew_size: crewSize.trim() || null,
+            primary_certifications: splitList(primaryCertifications),
+          }
+        : {};
       const { data } = await withErrorLogging(
         async () => {
           const result = await supabase.auth.signUp({
@@ -90,6 +134,7 @@ export default function SignupPage() {
             password,
             options: {
               emailRedirectTo: getEmailRedirectTo(),
+              data: contractorMetadata,
             },
           });
 
@@ -108,9 +153,10 @@ export default function SignupPage() {
         }
       );
 
-      await track("signup", {
+      await track(isFastContractorSignup ? "contractor_fast_signup_completed" : "signup", {
         meta: {
           userId: data.user?.id ?? null,
+          mode: isFastContractorSignup ? "fast_contractor" : "standard",
         },
       });
 
@@ -121,6 +167,13 @@ export default function SignupPage() {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setCompanyName("");
+      setContactName("");
+      setPhone("");
+      setHomeMarket("");
+      setServiceScopes("");
+      setCrewSize("");
+      setPrimaryCertifications("");
 
       if (data.session) {
         router.replace("/dashboard");
@@ -141,14 +194,81 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] px-4 py-10">
-      <div className="mx-auto max-w-md rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-[#111827]">Sign up</h1>
+      <div className="mx-auto max-w-2xl rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-[#111827]">
+          {isFastContractorSignup ? "Join as a contractor" : "Sign up"}
+        </h1>
 
         <p className="mt-2 text-sm text-[#4B5563]">
-          Create your account to access the Telecom Marketplace.
+          {isFastContractorSignup
+            ? "Create a marketplace profile now. Complete insurance, certifications, and team documents later."
+            : "Create your account to access the Telecom Marketplace."}
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          {isFastContractorSignup ? (
+            <div className="rounded-xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+              <h2 className="text-sm font-semibold text-[#0A2E5C]">
+                Fast contractor profile
+              </h2>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <TextField
+                  id="companyName"
+                  label="Company name"
+                  value={companyName}
+                  onChange={setCompanyName}
+                  placeholder="Example Telecom LLC"
+                  required
+                />
+                <TextField
+                  id="contactName"
+                  label="Contact name"
+                  value={contactName}
+                  onChange={setContactName}
+                  placeholder="Primary contact"
+                  required
+                />
+                <TextField
+                  id="phone"
+                  label="Phone"
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="Optional"
+                />
+                <TextField
+                  id="homeMarket"
+                  label="Home market"
+                  value={homeMarket}
+                  onChange={setHomeMarket}
+                  placeholder="Dallas, TX"
+                />
+                <TextField
+                  id="serviceScopes"
+                  label="Service scopes"
+                  value={serviceScopes}
+                  onChange={setServiceScopes}
+                  placeholder="Tower work, fiber, closeout"
+                />
+                <TextField
+                  id="crewSize"
+                  label="Crew size"
+                  value={crewSize}
+                  onChange={setCrewSize}
+                  placeholder="4"
+                />
+                <div className="md:col-span-2">
+                  <TextField
+                    id="primaryCertifications"
+                    label="Primary certifications"
+                    value={primaryCertifications}
+                    onChange={setPrimaryCertifications}
+                    placeholder="OSHA 30, RF Awareness, First Aid"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <label
               htmlFor="email"
@@ -235,5 +355,58 @@ export default function SignupPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function SignupShell() {
+  return (
+    <main className="min-h-screen bg-[#F4F8FC] px-4 py-10">
+      <div className="mx-auto max-w-2xl rounded-2xl border border-[#D9E2EC] bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-[#111827]">Sign up</h1>
+        <p className="mt-2 text-sm text-[#4B5563]">Loading signup form...</p>
+      </div>
+    </main>
+  );
+}
+
+function splitList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  required = false,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-2 block text-sm font-medium text-[#111827]"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="w-full rounded-xl border border-[#D9E2EC] bg-white px-4 py-3 outline-none transition focus:border-[#1F6FB5] focus:ring-2 focus:ring-[#2EA3FF]/20"
+        placeholder={placeholder}
+      />
+    </div>
   );
 }
