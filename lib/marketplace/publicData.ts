@@ -18,6 +18,8 @@ export type PublicJobPreview = {
   scope: string;
   status: string;
   createdAt: string;
+  requiredCertifications?: string[];
+  bidCount?: number;
 };
 
 export type PublicContractorPreview = {
@@ -38,6 +40,10 @@ export type MarketplaceHubSnapshot = MarketplaceLandingSnapshot & {
   openJobs: PublicJobPreview[];
   contractors: PublicContractorPreview[];
   markets: PublicMarketPreview[];
+};
+
+export type PublicJobsDirectorySnapshot = MarketplaceLandingSnapshot & {
+  jobs: PublicJobPreview[];
 };
 
 const fallbackSnapshot: MarketplaceLandingSnapshot = {
@@ -75,6 +81,11 @@ const fallbackHubSnapshot: MarketplaceHubSnapshot = {
   openJobs: [],
   contractors: [],
   markets: [],
+};
+
+const fallbackJobsDirectorySnapshot: PublicJobsDirectorySnapshot = {
+  ...fallbackSnapshot,
+  jobs: [],
 };
 
 function formatCount(value: number | null | undefined) {
@@ -294,5 +305,106 @@ export async function getMarketplaceHubSnapshot(): Promise<MarketplaceHubSnapsho
     };
   } catch {
     return fallbackHubSnapshot;
+  }
+}
+
+export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirectorySnapshot> {
+  try {
+    const supabase = await createClient();
+    const baseSnapshot = await getMarketplaceLandingSnapshot();
+
+    const jobsResult = await supabase
+      .from("jobs")
+      .select("id,title,description,location,status,created_at")
+      .eq("status", "open")
+      .eq("visibility_mode", "public")
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (jobsResult.error) {
+      return fallbackJobsDirectorySnapshot;
+    }
+
+    const jobRows = (jobsResult.data ?? []) as Array<{
+      id: string;
+      title: string | null;
+      description: string | null;
+      location: string | null;
+      status: string | null;
+      created_at: string;
+    }>;
+    const jobIds = jobRows.map((job) => job.id);
+    const [bidsResult, certsResult, scopesResult] = jobIds.length
+      ? await Promise.all([
+          supabase.from("bids").select("id,job_id").in("job_id", jobIds),
+          supabase
+            .from("job_required_certs")
+            .select("job_id,cert_type:cert_types(name)")
+            .in("job_id", jobIds),
+          supabase
+            .from("job_scopes")
+            .select("job_id,scope:scopes(name)")
+            .in("job_id", jobIds),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
+
+    const bidCountByJob = new Map<string, number>();
+    if (!bidsResult.error) {
+      for (const bid of (bidsResult.data ?? []) as Array<{ job_id: string }>) {
+        bidCountByJob.set(bid.job_id, (bidCountByJob.get(bid.job_id) ?? 0) + 1);
+      }
+    }
+
+    const certsByJob = new Map<string, string[]>();
+    if (!certsResult.error) {
+      for (const row of (certsResult.data ?? []) as Array<{
+        job_id: string;
+        cert_type: { name: string | null } | null;
+      }>) {
+        const name = safeText(row.cert_type?.name, "");
+        if (!name) continue;
+        certsByJob.set(row.job_id, [...(certsByJob.get(row.job_id) ?? []), name]);
+      }
+    }
+
+    const scopesByJob = new Map<string, string[]>();
+    if (!scopesResult.error) {
+      for (const row of (scopesResult.data ?? []) as Array<{
+        job_id: string;
+        scope: { name: string | null } | null;
+      }>) {
+        const name = safeText(row.scope?.name, "");
+        if (!name) continue;
+        scopesByJob.set(row.job_id, [...(scopesByJob.get(row.job_id) ?? []), name]);
+      }
+    }
+
+    return {
+      ...baseSnapshot,
+      jobs: jobRows.map((job) => {
+        const scopeLabels = scopesByJob.get(job.id) ?? [];
+        const scopeFallback = safeText(
+          job.description,
+          "Scope available after sign up"
+        ).slice(0, 180);
+
+        return {
+          id: job.id,
+          title: safeText(job.title, "Telecom job"),
+          market: normalizeMarket(job.location),
+          scope: scopeLabels.length ? scopeLabels.join(", ") : scopeFallback,
+          status: safeText(job.status, "open"),
+          createdAt: job.created_at,
+          requiredCertifications: certsByJob.get(job.id) ?? [],
+          bidCount: bidCountByJob.get(job.id) ?? 0,
+        };
+      }),
+    };
+  } catch {
+    return fallbackJobsDirectorySnapshot;
   }
 }

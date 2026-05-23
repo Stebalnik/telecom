@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T02:42:08.111Z",
-  "task_id": "TASK-0060",
-  "title": "Public marketplace hub",
+  "generated_at": "2026-05-23T02:45:26.600Z",
+  "task_id": "TASK-0061",
+  "title": "Public jobs directory",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Public marketplace hub\" with scoped, reviewable changes.",
+    "Implement the task described by \"Public jobs directory\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
