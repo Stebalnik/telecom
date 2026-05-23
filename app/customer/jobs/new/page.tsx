@@ -194,10 +194,16 @@ export default function CustomerJobsNewPage() {
     () => [
       {
         label: "Job details",
-        ready: Boolean(title.trim() && deadline && budgetNum !== null),
+        ready: Boolean(
+          title.trim() &&
+            location.trim() &&
+            description.trim() &&
+            deadline &&
+            budgetNum !== null
+        ),
         detail: title.trim()
-          ? "Title, deadline, and budget are used to publish the opportunity."
-          : "Add a title, deadline, and positive budget before publishing.",
+          ? "Title, market, description, timeline, and budget are used to publish the opportunity."
+          : "Add a title, market, description, timeline, and positive budget before publishing.",
       },
       {
         label: "Scopes",
@@ -228,6 +234,8 @@ export default function CustomerJobsNewPage() {
       agreementTemplateId,
       budgetNum,
       deadline,
+      description,
+      location,
       requiresOneTimeContract,
       selectedScopeIds.length,
       title,
@@ -304,6 +312,10 @@ export default function CustomerJobsNewPage() {
 
   useEffect(() => {
     void load();
+    void track("customer_job_started", {
+      role: "customer",
+      path: "/customer/jobs/new",
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -352,6 +364,14 @@ export default function CustomerJobsNewPage() {
 
           if (!title.trim()) {
             throw new Error("Title is required.");
+          }
+
+          if (!location.trim()) {
+            throw new Error("Market is required.");
+          }
+
+          if (!description.trim()) {
+            throw new Error("Description is required.");
           }
 
           if (!deadline) {
@@ -476,6 +496,8 @@ export default function CustomerJobsNewPage() {
 
       if (
         message === "Title is required." ||
+        message === "Market is required." ||
+        message === "Description is required." ||
         message === "Deadline is required." ||
         message === "Select at least one scope." ||
         message === "Budget is required (enter a positive number)." ||
@@ -505,11 +527,11 @@ export default function CustomerJobsNewPage() {
     <main className="space-y-6">
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
         <h2 className="text-2xl font-semibold text-[#0A2E5C]">
-          Create New Job
+          Post a telecom job fast
         </h2>
         <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-          Add project details, select scopes, review required certificates,
-          choose agreement rules, and attach files for contractors.
+          Capture the essentials contractors need first: title, market, scope,
+          public description, timeline, certifications, and optional files.
         </p>
       </section>
 
@@ -521,7 +543,7 @@ export default function CustomerJobsNewPage() {
 
       <SectionCard
         title="Job Setup Checklist"
-        description="Review the required setup steps before publishing this job."
+        description="Complete the fast-posting essentials before publishing this job."
       >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {setupChecks.map((check) => (
@@ -535,7 +557,10 @@ export default function CustomerJobsNewPage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Job Details">
+      <SectionCard
+        title="Fast job details"
+        description="Use safe public-ready language. Do not include private contact info in title, market, or description."
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
@@ -543,7 +568,7 @@ export default function CustomerJobsNewPage() {
             </label>
             <input
               className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
-              placeholder="Job title"
+              placeholder="Tower compound cleanup and punch list"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={saving}
@@ -552,11 +577,11 @@ export default function CustomerJobsNewPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
-              Location
+              Market
             </label>
             <input
               className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
-              placeholder="Location (optional)"
+              placeholder="Dallas, TX"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={saving}
@@ -570,7 +595,7 @@ export default function CustomerJobsNewPage() {
           </label>
           <textarea
             className="min-h-[120px] w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
-            placeholder="Description (optional)"
+            placeholder="Summarize the scope, site conditions, schedule expectations, and contractor requirements without adding emails, phone numbers, gate codes, or private contacts."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={saving}
@@ -580,7 +605,7 @@ export default function CustomerJobsNewPage() {
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
-              Deadline
+              Timeline / target date
             </label>
             <input
               className="w-full rounded-xl border border-[#D9E2EC] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#1F6FB5]"
@@ -590,7 +615,7 @@ export default function CustomerJobsNewPage() {
               disabled={saving}
             />
             <p className="mt-1 text-xs text-[#6B7280]">
-              Contractors should propose timelines that fit within this deadline.
+              Contractors should propose timelines that fit within this target date.
             </p>
           </div>
 
@@ -606,7 +631,7 @@ export default function CustomerJobsNewPage() {
               disabled={saving}
             />
             <p className="mt-1 text-xs text-[#6B7280]">
-              Stored as one amount in both budget_min and budget_max.
+              Use a planning amount contractors can use for initial bid context.
             </p>
           </div>
         </div>

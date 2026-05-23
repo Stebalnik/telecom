@@ -1,10 +1,10 @@
 {
-  "claimed_at": "2026-05-23T03:51:43.303Z",
-  "task_id": "TASK-0076",
-  "title": "Job alerts foundation",
+  "claimed_at": "2026-05-23T03:57:49.609Z",
+  "task_id": "TASK-0077",
+  "title": "Fast customer job posting",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
-  "selection": "automatic_priority_order",
+  "selection": "requested_task_id",
   "dependencies": []
 }
