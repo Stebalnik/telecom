@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-23T04:53:04.233Z",
-  "task_id": "TASK-0089",
-  "title": "Marketplace UX polish",
+  "generated_at": "2026-05-23T04:57:19.523Z",
+  "task_id": "TASK-0090",
+  "title": "Marketplace production hardening docs",
   "area": "infrastructure",
-  "type": "feature",
-  "assigned_agent": "Coder Agent",
+  "type": "docs",
+  "assigned_agent": "Architect Agent",
   "branch_isolation": {
     "valid": true,
     "branch": "agents/dev-system",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Marketplace UX polish\" with scoped, reviewable changes.",
+    "Implement the task described by \"Marketplace production hardening docs\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

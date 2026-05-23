@@ -1,9 +1,9 @@
 {
-  "claimed_at": "2026-05-23T04:53:03.428Z",
-  "task_id": "TASK-0089",
-  "title": "Marketplace UX polish",
+  "claimed_at": "2026-05-23T04:57:18.787Z",
+  "task_id": "TASK-0090",
+  "title": "Marketplace production hardening docs",
   "priority": "medium",
-  "assigned_agent": "Coder Agent",
+  "assigned_agent": "Architect Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
   "selection": "automatic_priority_order",
   "dependencies": []

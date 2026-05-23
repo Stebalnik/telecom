@@ -85,6 +85,17 @@ customer details, and contractor records.
 - Run lint, build, typecheck, db verification, and snapshots where available.
 - Keep implementation status and next steps documented.
 
+### Current Hardening Checklist
+
+- Public marketplace routes must keep using public-ready filters and
+  public-safe contractor profile fields.
+- Authenticated customer, contractor, worker, and admin actions must remain
+  behind role checks.
+- Analytics metadata must avoid emails, phones, files, internal notes, and
+  sensitive compliance evidence.
+- Preview QA must pass before any human-approved merge to `main`.
+- Production deploy remains manual and outside the autonomous task loop.
+
 ## Agent-Readable Priority Backlog
 
 - Public marketplace landing page

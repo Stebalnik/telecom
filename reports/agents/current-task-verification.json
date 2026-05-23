@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0089",
-  "title": "Marketplace UX polish",
-  "started_at": "2026-05-23T04:53:41.595Z",
-  "finished_at": "2026-05-23T04:55:25.659Z",
+  "task_id": "TASK-0090",
+  "title": "Marketplace production hardening docs",
+  "started_at": "2026-05-23T04:58:03.102Z",
+  "finished_at": "2026-05-23T04:59:36.816Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:53:41.596Z",
-      "finished_at": "2026-05-23T04:53:41.873Z",
+      "started_at": "2026-05-23T04:58:03.102Z",
+      "finished_at": "2026-05-23T04:58:03.350Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:53:41.873Z",
-      "finished_at": "2026-05-23T04:53:42.155Z",
+      "started_at": "2026-05-23T04:58:03.350Z",
+      "finished_at": "2026-05-23T04:58:03.588Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:53:42.155Z",
-      "finished_at": "2026-05-23T04:55:25.658Z",
+      "started_at": "2026-05-23T04:58:03.588Z",
+      "finished_at": "2026-05-23T04:59:36.815Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
