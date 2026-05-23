@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-22T18:19:45.865Z",
-  "task_id": "TASK-0058",
-  "title": "Improve deployment safety checks",
+  "generated_at": "2026-05-23T02:38:38.195Z",
+  "task_id": "TASK-0059",
+  "title": "Public marketplace landing page",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,12 +14,12 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Improve deployment safety checks\" with scoped, reviewable changes.",
+    "Implement the task described by \"Public marketplace landing page\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
     "security_review": true,
-    "route_impact_review": false,
+    "route_impact_review": true,
     "backend_review": false,
     "supabase_rls_review": false,
     "security_signal_detected": false
