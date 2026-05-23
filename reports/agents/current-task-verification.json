@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0067",
-  "title": "Marketplace stats API",
-  "started_at": "2026-05-23T03:05:53.034Z",
-  "finished_at": "2026-05-23T03:06:51.883Z",
+  "task_id": "TASK-0068",
+  "title": "Safe marketplace activity feed",
+  "started_at": "2026-05-23T03:08:48.273Z",
+  "finished_at": "2026-05-23T03:09:49.107Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:05:53.034Z",
-      "finished_at": "2026-05-23T03:05:53.268Z",
+      "started_at": "2026-05-23T03:08:48.273Z",
+      "finished_at": "2026-05-23T03:08:48.518Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:05:53.268Z",
-      "finished_at": "2026-05-23T03:05:53.518Z",
+      "started_at": "2026-05-23T03:08:48.518Z",
+      "finished_at": "2026-05-23T03:08:48.773Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,16 +32,16 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:05:53.518Z",
-      "finished_at": "2026-05-23T03:06:51.882Z",
+      "started_at": "2026-05-23T03:08:48.773Z",
+      "finished_at": "2026-05-23T03:09:49.107Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
-        "├ ○ /feedback",
         "├ ○ /forgot-password",
         "├ ○ /login",
         "├ ○ /logout",
         "├ ƒ /marketplace",
+        "├ ƒ /marketplace/activity",
         "├ ƒ /marketplace/contractors",
         "├ ƒ /marketplace/contractors/[id]",
         "├ ƒ /marketplace/jobs",
@@ -83,11 +83,11 @@
     "",
     "Agent self-verification passed.",
     "npm run build: passed",
-    "├ ○ /feedback",
     "├ ○ /forgot-password",
     "├ ○ /login",
     "├ ○ /logout",
     "├ ƒ /marketplace",
+    "├ ƒ /marketplace/activity",
     "├ ƒ /marketplace/contractors",
     "├ ƒ /marketplace/contractors/[id]",
     "├ ƒ /marketplace/jobs",

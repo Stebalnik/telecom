@@ -1,9 +1,9 @@
 {
-  "claimed_at": "2026-05-23T03:05:27.806Z",
-  "task_id": "TASK-0067",
-  "title": "Marketplace stats API",
+  "claimed_at": "2026-05-23T03:08:09.039Z",
+  "task_id": "TASK-0068",
+  "title": "Safe marketplace activity feed",
   "priority": "medium",
-  "assigned_agent": "Reviewer Agent + Coder Agent",
+  "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
   "selection": "automatic_priority_order",
   "dependencies": []

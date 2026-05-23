@@ -41,6 +41,19 @@ export type PublicMarketPreview = {
   activeContractors: number;
 };
 
+export type PublicMarketplaceActivityItem = {
+  id: string;
+  type:
+    | "job_posted"
+    | "contractor_joined"
+    | "bid_activity"
+    | "market_activity";
+  label: string;
+  description: string;
+  occurredAt: string | null;
+  href: string;
+};
+
 export type MarketplaceHubSnapshot = MarketplaceLandingSnapshot & {
   openJobs: PublicJobPreview[];
   contractors: PublicContractorPreview[];
@@ -53,6 +66,10 @@ export type PublicJobsDirectorySnapshot = MarketplaceLandingSnapshot & {
 
 export type PublicContractorsDirectorySnapshot = MarketplaceLandingSnapshot & {
   contractors: PublicContractorPreview[];
+};
+
+export type PublicActivityFeedSnapshot = MarketplaceLandingSnapshot & {
+  activity: PublicMarketplaceActivityItem[];
 };
 
 export type PublicContractorDetail = PublicContractorPreview & {
@@ -110,6 +127,18 @@ const fallbackJobsDirectorySnapshot: PublicJobsDirectorySnapshot = {
 const fallbackContractorsDirectorySnapshot: PublicContractorsDirectorySnapshot = {
   ...fallbackSnapshot,
   contractors: [],
+};
+
+const fallbackActivityFeedSnapshot: PublicActivityFeedSnapshot = {
+  ...fallbackSnapshot,
+  activity: fallbackSnapshot.recentActivity.map((description, index) => ({
+    id: `fallback-${index}`,
+    type: "market_activity",
+    label: "Marketplace signal",
+    description,
+    occurredAt: null,
+    href: "/marketplace",
+  })),
 };
 
 function formatCount(value: number | null | undefined) {
@@ -460,6 +489,66 @@ export async function getPublicContractorDetail(
       "Customer approval and invitation actions require sign in",
     ],
   };
+}
+
+export async function getSafeMarketplaceActivityFeed(): Promise<PublicActivityFeedSnapshot> {
+  try {
+    const [hub, jobs] = await Promise.all([
+      getMarketplaceHubSnapshot(),
+      getPublicJobsDirectorySnapshot(),
+    ]);
+
+    const jobActivity: PublicMarketplaceActivityItem[] = jobs.jobs
+      .slice(0, 8)
+      .map((job) => ({
+        id: `job-${job.id}`,
+        type: "job_posted",
+        label: "Job posted",
+        description: `${job.title} is open in ${job.market}.`,
+        occurredAt: job.createdAt,
+        href: `/marketplace/jobs/${job.id}`,
+      }));
+
+    const contractorActivity: PublicMarketplaceActivityItem[] = hub.contractors
+      .slice(0, 8)
+      .map((contractor) => ({
+        id: `contractor-${contractor.id}`,
+        type: "contractor_joined",
+        label: "Contractor listed",
+        description: `${contractor.name} is visible for ${contractor.homeMarket}.`,
+        occurredAt: null,
+        href: `/marketplace/contractors/${contractor.id}`,
+      }));
+
+    const marketActivity: PublicMarketplaceActivityItem[] = hub.markets
+      .slice(0, 6)
+      .map((market) => ({
+        id: `market-${market.name}`,
+        type: "market_activity",
+        label: "Market activity",
+        description: `${market.name} has ${market.openJobs} open jobs and ${market.activeContractors} active contractors.`,
+        occurredAt: null,
+        href: `/markets/${encodeURIComponent(
+          market.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+        )}`,
+      }));
+
+    const activity = [...jobActivity, ...contractorActivity, ...marketActivity]
+      .sort((a, b) => {
+        if (!a.occurredAt && !b.occurredAt) return 0;
+        if (!a.occurredAt) return 1;
+        if (!b.occurredAt) return -1;
+        return a.occurredAt < b.occurredAt ? 1 : -1;
+      })
+      .slice(0, 20);
+
+    return {
+      ...hub,
+      activity: activity.length ? activity : fallbackActivityFeedSnapshot.activity,
+    };
+  } catch {
+    return fallbackActivityFeedSnapshot;
+  }
 }
 
 export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirectorySnapshot> {
