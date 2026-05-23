@@ -33,6 +33,16 @@ type JobTemplate = {
   scopeKeywords: string[];
 };
 
+type CreatedJobPreview = {
+  jobId: string;
+  title: string;
+  market: string;
+  matchingContractors: number;
+  marketContractors: number;
+  certificationFit: string;
+  insuranceFit: string;
+};
+
 const JOB_TEMPLATES: JobTemplate[] = [
   {
     id: "tower-work",
@@ -215,6 +225,8 @@ export default function CustomerJobsNewPage() {
     useState<JobVisibilityMode>("public");
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [createdJobPreview, setCreatedJobPreview] =
+    useState<CreatedJobPreview | null>(null);
 
   const certNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -464,6 +476,43 @@ export default function CustomerJobsNewPage() {
     return n;
   }
 
+  async function loadMatchingPreview(jobId: string): Promise<CreatedJobPreview> {
+    const profilesResult = await supabase
+      .from("contractor_public_profiles")
+      .select("company_id,markets")
+      .eq("is_listed", true);
+
+    if (profilesResult.error) {
+      throw profilesResult.error;
+    }
+
+    const marketText = location.trim();
+    const marketLower = marketText.toLowerCase();
+    const contractors = (profilesResult.data || []) as Array<{
+      company_id: string;
+      markets: string[] | null;
+    }>;
+    const marketContractors = contractors.filter((contractor) =>
+      (contractor.markets || []).some((market) =>
+        market.toLowerCase().includes(marketLower)
+      )
+    ).length;
+    const matchingContractors = marketContractors || contractors.length;
+
+    return {
+      jobId,
+      title: title.trim(),
+      market: marketText,
+      matchingContractors,
+      marketContractors,
+      certificationFit: unionRequirements.length
+        ? `${unionRequirements.length} certification requirement${unionRequirements.length === 1 ? "" : "s"} ready for fit checks`
+        : "Certification requirements can be added from scope settings",
+      insuranceFit:
+        "Insurance fit will use contractor compliance records during invitation review",
+    };
+  }
+
   async function createJob() {
     setErr(null);
     setSaving(true);
@@ -586,7 +635,22 @@ export default function CustomerJobsNewPage() {
             },
           });
 
-          router.push("/customer/jobs/active");
+          const preview = await withErrorLogging(
+            () => loadMatchingPreview(job.id),
+            {
+              message: "load_job_matching_preview_failed",
+              code: "load_job_matching_preview_failed",
+              source: "frontend",
+              area: "jobs",
+              path: "/customer/jobs/new",
+              role: "customer",
+              details: {
+                jobId: job.id,
+              },
+            }
+          );
+
+          setCreatedJobPreview(preview);
         },
         {
           message: "create_customer_job_failed",
@@ -631,6 +695,70 @@ export default function CustomerJobsNewPage() {
       <main className="space-y-6">
         <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
           <p className="text-sm text-[#4B5563]">Loading job creation form...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (createdJobPreview) {
+    return (
+      <main className="space-y-6">
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#1F6FB5]">
+            Job posted
+          </p>
+          <h2 className="mt-3 text-2xl font-semibold text-[#0A2E5C]">
+            Matching preview for {createdJobPreview.title}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Review the first marketplace fit signals, then invite contractors or
+            open the active jobs workspace.
+          </p>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ReadinessItem
+            label="Matching contractors"
+            ready={createdJobPreview.matchingContractors > 0}
+            detail={`${createdJobPreview.matchingContractors} listed contractor${createdJobPreview.matchingContractors === 1 ? "" : "s"} available for initial review.`}
+          />
+          <ReadinessItem
+            label="Market coverage"
+            ready={createdJobPreview.marketContractors > 0}
+            detail={`${createdJobPreview.marketContractors} contractor${createdJobPreview.marketContractors === 1 ? "" : "s"} currently list ${createdJobPreview.market}.`}
+          />
+          <ReadinessItem
+            label="Certification fit"
+            ready={unionRequirements.length > 0}
+            detail={createdJobPreview.certificationFit}
+          />
+          <ReadinessItem
+            label="Insurance fit"
+            ready
+            detail={createdJobPreview.insuranceFit}
+          />
+        </section>
+
+        <section className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-[#4B5563]">
+              Next step: invite contractors or continue managing active jobs.
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="/customer/contractors"
+                className="rounded-xl bg-[#1F6FB5] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+              >
+                Invite contractors
+              </a>
+              <a
+                href="/customer/jobs/active"
+                className="rounded-xl border border-[#D9E2EC] bg-white px-5 py-2.5 text-sm font-medium text-[#111827] transition hover:bg-[#F8FAFC]"
+              >
+                View active jobs
+              </a>
+            </div>
+          </div>
         </section>
       </main>
     );

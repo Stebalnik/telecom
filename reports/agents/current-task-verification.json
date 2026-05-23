@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0078",
-  "title": "Job templates",
-  "started_at": "2026-05-23T04:03:37.679Z",
-  "finished_at": "2026-05-23T04:05:30.345Z",
+  "task_id": "TASK-0079",
+  "title": "Matching preview after job creation",
+  "started_at": "2026-05-23T04:08:18.751Z",
+  "finished_at": "2026-05-23T04:10:17.665Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:03:37.680Z",
-      "finished_at": "2026-05-23T04:03:37.931Z",
+      "started_at": "2026-05-23T04:08:18.751Z",
+      "finished_at": "2026-05-23T04:08:19.006Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:03:37.931Z",
-      "finished_at": "2026-05-23T04:03:38.202Z",
+      "started_at": "2026-05-23T04:08:19.006Z",
+      "finished_at": "2026-05-23T04:08:19.314Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:03:38.202Z",
-      "finished_at": "2026-05-23T04:05:30.345Z",
+      "started_at": "2026-05-23T04:08:19.314Z",
+      "finished_at": "2026-05-23T04:10:17.665Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
