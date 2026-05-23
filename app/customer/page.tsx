@@ -194,6 +194,92 @@ function CustomerWorkflowPanel({ stats }: { stats: CustomerDashboardStats }) {
   );
 }
 
+function MarketplaceReadinessPanel({ stats }: { stats: CustomerDashboardStats }) {
+  const complianceIssues =
+    stats.pendingContractorApprovals + stats.jobsWithNoBids + stats.jobsCloseToDeadline;
+  const suggestedAction =
+    stats.openJobs === 0
+      ? { label: "Post demand", href: "/customer/jobs/new" }
+      : stats.jobsWithNoBids > 0
+      ? { label: "Invite contractors", href: "/customer/contractors" }
+      : stats.bidsAwaitingReview > 0
+      ? { label: "Review bids", href: "/customer/bids" }
+      : { label: "Browse marketplace", href: "/marketplace" };
+
+  return (
+    <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#1F6FB5]">
+            Marketplace readiness
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-[#0A2E5C]">
+            Turn operational demand into contractor liquidity
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+            Track public-ready jobs, pending bids, approved contractors,
+            compliance issues, and the next action most likely to move work
+            toward award.
+          </p>
+        </div>
+        <Link
+          href={suggestedAction.href}
+          className="w-fit rounded-xl bg-[#1F6FB5] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#0A2E5C]"
+        >
+          {suggestedAction.label}
+        </Link>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Active Jobs"
+          value={stats.openJobs}
+          hint="Public-ready demand contractors can respond to"
+        />
+        <StatCard
+          label="Pending Bids"
+          value={stats.bidsAwaitingReview}
+          hint="Contractor offers waiting for a decision"
+        />
+        <StatCard
+          label="Approved Contractors"
+          value={stats.approvedContractors}
+          hint="Qualified vendors ready for invitation"
+        />
+        <StatCard
+          label="Compliance Issues"
+          value={complianceIssues}
+          hint="Items that can slow matching or award"
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <QuickCard
+          title="Recent activity"
+          description={`${stats.totalBids} bids, ${stats.pendingContractorApprovals} contractor requests, and ${stats.jobsCloseToDeadline} near-deadline jobs need marketplace attention.`}
+          primaryAction={{ label: "Open activity feed", href: "/marketplace/activity" }}
+        />
+        <QuickCard
+          title="Suggested next action"
+          description={
+            stats.openJobs === 0
+              ? "Post a fast job so contractors can discover demand."
+              : stats.jobsWithNoBids > 0
+              ? "Invite contractors to jobs that have not received bids."
+              : "Keep bids and approvals moving toward award."
+          }
+          primaryAction={suggestedAction}
+        />
+        <QuickCard
+          title="Public market signal"
+          description="Review the public marketplace to understand visible jobs, contractors, and markets."
+          primaryAction={{ label: "View marketplace", href: "/marketplace" }}
+        />
+      </div>
+    </section>
+  );
+}
+
 const emptyStats: CustomerDashboardStats = {
   customerId: "",
   customerName: "",
@@ -318,6 +404,8 @@ export default function CustomerPage() {
       </section>
 
       <CustomerWorkflowPanel stats={stats} />
+
+      <MarketplaceReadinessPanel stats={stats} />
 
       <section className="rounded-2xl border border-[#D9E2EC] bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">

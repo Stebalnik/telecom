@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:07:46.566Z",
-  "task_id": "TASK-0079",
-  "title": "Matching preview after job creation",
+  "claimed_at": "2026-05-23T04:12:43.167Z",
+  "task_id": "TASK-0080",
+  "title": "Customer dashboard marketplace upgrade",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

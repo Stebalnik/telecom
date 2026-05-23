@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-23T04:07:47.481Z",
-  "task_id": "TASK-0079",
-  "title": "Matching preview after job creation",
-  "area": "infrastructure",
+  "generated_at": "2026-05-23T04:12:44.089Z",
+  "task_id": "TASK-0080",
+  "title": "Customer dashboard marketplace upgrade",
+  "area": "customer",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Matching preview after job creation\" with scoped, reviewable changes.",
+    "Implement the task described by \"Customer dashboard marketplace upgrade\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
