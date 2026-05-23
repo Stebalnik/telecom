@@ -1,4 +1,7 @@
 import Link from "next/link";
+import TrackPageView from "@/components/analytics/TrackPageView";
+import TrackedLink from "@/components/analytics/TrackedLink";
+import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getMarketplaceLandingSnapshot } from "@/lib/marketplace/publicData";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +30,7 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] text-[#111827]">
+      <TrackPageView event={AnalyticsEvent.MARKETPLACE_HUB_VIEWED} />
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5 md:px-10">
         <div className="text-base md:text-lg font-semibold text-[#0A2E5C]">
           LEOTEOR
@@ -70,18 +74,20 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
+            <TrackedLink
               href="/signup?role=customer"
+              event={AnalyticsEvent.CUSTOMER_LANDING_CTA_CLICKED}
               className="inline-flex items-center justify-center rounded-lg bg-[#1F6FB5] px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#185f9c]"
             >
               Post a Job
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href="/signup?role=contractor"
+              event={AnalyticsEvent.CONTRACTOR_LANDING_CTA_CLICKED}
               className="inline-flex items-center justify-center rounded-lg border border-[#D9E2EC] bg-white px-6 py-3 text-sm font-semibold text-[#0A2E5C] shadow-sm hover:bg-[#F8FBFF]"
             >
               Join as Contractor
-            </Link>
+            </TrackedLink>
           </div>
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

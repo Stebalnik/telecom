@@ -57,6 +57,13 @@ export const AnalyticsEvent = {
   DONATION_CHECKOUT_STARTED: "donation_checkout_started",
   DONATION_CHECKOUT_SUCCESS: "donation_checkout_success",
   DONATION_CHECKOUT_CANCELLED: "donation_checkout_cancelled",
+
+  CUSTOMER_LANDING_CTA_CLICKED: "customer_landing_cta_clicked",
+  CONTRACTOR_LANDING_CTA_CLICKED: "contractor_landing_cta_clicked",
+  PUBLIC_JOBS_VIEWED: "public_jobs_viewed",
+  PUBLIC_CONTRACTORS_VIEWED: "public_contractors_viewed",
+  PUBLIC_MARKET_PAGE_VIEWED: "public_market_page_viewed",
+  MARKETPLACE_HUB_VIEWED: "marketplace_hub_viewed",
 } as const;
 
 export type AnalyticsEventName =

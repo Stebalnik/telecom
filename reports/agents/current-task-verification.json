@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0086",
-  "title": "Contractor invite flow",
-  "started_at": "2026-05-23T04:40:20.368Z",
-  "finished_at": "2026-05-23T04:42:07.784Z",
+  "task_id": "TASK-0087",
+  "title": "Marketplace conversion tracking",
+  "started_at": "2026-05-23T04:45:24.202Z",
+  "finished_at": "2026-05-23T04:47:01.841Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:40:20.370Z",
-      "finished_at": "2026-05-23T04:40:20.658Z",
+      "started_at": "2026-05-23T04:45:24.202Z",
+      "finished_at": "2026-05-23T04:45:24.469Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:40:20.658Z",
-      "finished_at": "2026-05-23T04:40:20.890Z",
+      "started_at": "2026-05-23T04:45:24.469Z",
+      "finished_at": "2026-05-23T04:45:24.784Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:40:20.890Z",
-      "finished_at": "2026-05-23T04:42:07.784Z",
+      "started_at": "2026-05-23T04:45:24.784Z",
+      "finished_at": "2026-05-23T04:47:01.841Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

@@ -410,6 +410,12 @@
       "last_failure": null,
       "last_success": "2026-05-23T04:42:07.784Z",
       "history": []
+    },
+    "TASK-0087": {
+      "attempts": 0,
+      "last_failure": null,
+      "last_success": "2026-05-23T04:47:01.841Z",
+      "history": []
     }
   }
 }

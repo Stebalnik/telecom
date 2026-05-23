@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import TrackPageView from "@/components/analytics/TrackPageView";
+import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getPublicJobDetail } from "@/lib/marketplace/publicData";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,10 @@ export default async function PublicJobDetailPage({
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] text-[#111827]">
+      <TrackPageView
+        event={AnalyticsEvent.PUBLIC_JOBS_VIEWED}
+        meta={{ jobId: job.id, surface: "detail" }}
+      />
       <header className="border-b border-[#D9E2EC] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-10">
           <Link href="/marketplace/jobs" className="text-base font-semibold text-[#0A2E5C]">

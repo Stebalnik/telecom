@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:38:46.855Z",
-  "task_id": "TASK-0086",
-  "title": "Contractor invite flow",
+  "claimed_at": "2026-05-23T04:44:02.348Z",
+  "task_id": "TASK-0087",
+  "title": "Marketplace conversion tracking",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-23T04:38:47.749Z",
-  "task_id": "TASK-0086",
-  "title": "Contractor invite flow",
-  "area": "contractor",
+  "generated_at": "2026-05-23T04:44:03.255Z",
+  "task_id": "TASK-0087",
+  "title": "Marketplace conversion tracking",
+  "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Contractor invite flow\" with scoped, reviewable changes.",
+    "Implement the task described by \"Marketplace conversion tracking\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

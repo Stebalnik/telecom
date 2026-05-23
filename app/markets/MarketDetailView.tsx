@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import TrackPageView from "@/components/analytics/TrackPageView";
+import { AnalyticsEvent } from "@/lib/analytics/events";
 import { getMarketplaceHubSnapshot } from "@/lib/marketplace/publicData";
 
 type MarketDetailViewProps = {
@@ -31,6 +33,10 @@ export async function MarketDetailView({
 
   return (
     <main className="min-h-screen bg-[#F4F8FC] text-[#111827]">
+      <TrackPageView
+        event={AnalyticsEvent.PUBLIC_MARKET_PAGE_VIEWED}
+        meta={{ state: stateSlug, market: marketSlug ?? null }}
+      />
       <header className="border-b border-[#D9E2EC] bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-10">
           <Link href="/markets" className="text-base font-semibold text-[#0A2E5C]">
