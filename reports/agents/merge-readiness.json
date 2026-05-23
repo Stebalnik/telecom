@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-05-23T03:15:33.602Z",
+  "generated_at": "2026-05-23T03:18:14.885Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M docs/AGENT_TASK_QUEUE.generated.md\n M lib/marketplace/jobVisibility.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-23T03-15-33-075Z-TASK-0070-current-task.json",
+  "working_tree_status": "M docs/AGENT_TASK_QUEUE.generated.md\n M lib/eligibility.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-23T03-18-14-346Z-TASK-0071-current-task.json",
   "changed_files": [
     {
       "status": "M",
@@ -14,7 +14,7 @@
     },
     {
       "status": "M",
-      "path": "lib/marketplace/jobVisibility.ts"
+      "path": "lib/eligibility.ts"
     },
     {
       "status": "M",
@@ -50,30 +50,30 @@
     },
     {
       "status": "??",
-      "path": "reports/agents/history/2026-05-23T03-15-33-075Z-TASK-0070-current-task.json"
+      "path": "reports/agents/history/2026-05-23T03-18-14-346Z-TASK-0071-current-task.json"
     }
   ],
   "warnings": [
-    "20 pending task(s) remain before the full generated queue is exhausted.",
+    "19 pending task(s) remain before the full generated queue is exhausted.",
     "Working tree has local report/code changes from the latest task cycle; commit and push before human merge review."
   ],
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0070",
+    "task_id": "TASK-0071",
     "passed": true,
-    "finished_at": "2026-05-23T03:15:32.825Z"
+    "finished_at": "2026-05-23T03:18:14.093Z"
   },
   "audit_summary": {
     "total_tasks": 90,
-    "completed": 70,
+    "completed": 71,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 20,
-    "commit_ready": 70,
+    "pending": 19,
+    "commit_ready": 71,
     "latest_successful_build": {
-      "build_id": "kb_FZzfjmDg5YnE44ZH6u",
-      "detected_at": "2026-05-23T03:15:30.672Z"
+      "build_id": "TqNLk9sLV13iPkfvdEBMg",
+      "detected_at": "2026-05-23T03:18:11.924Z"
     }
   },
   "required_human_actions": [
@@ -99,13 +99,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0070",
-      "finished_at": "2026-05-23T03:15:32.825Z"
+      "task_id": "TASK-0071",
+      "finished_at": "2026-05-23T03:18:14.093Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-23T03:14:33.384Z"
+      "generated_at": "2026-05-23T03:17:11.507Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -118,8 +118,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "kb_FZzfjmDg5YnE44ZH6u",
-        "detected_at": "2026-05-23T03:15:30.672Z"
+        "build_id": "TqNLk9sLV13iPkfvdEBMg",
+        "detected_at": "2026-05-23T03:18:11.924Z"
       }
     },
     {

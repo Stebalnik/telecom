@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-05-23T03:15:33.309Z",
+  "generated_at": "2026-05-23T03:18:14.574Z",
   "queue_files": [
     "docs/AGENT_TASK_QUEUE.generated.md",
     "docs/AGENT_TASK_QUEUE.md"
   ],
   "total_tasks": 90,
-  "completed": 70,
+  "completed": 71,
   "failed": 0,
   "blocked": 0,
   "in_progress": 0,
-  "pending": 20,
-  "commit_ready": 70,
+  "pending": 19,
+  "commit_ready": 71,
   "latest_successful_build": {
-    "build_id": "kb_FZzfjmDg5YnE44ZH6u",
-    "detected_at": "2026-05-23T03:15:30.672Z"
+    "build_id": "TqNLk9sLV13iPkfvdEBMg",
+    "detected_at": "2026-05-23T03:18:11.924Z"
   }
 }
