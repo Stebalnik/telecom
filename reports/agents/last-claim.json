@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T03:47:42.434Z",
-  "task_id": "TASK-0075",
-  "title": "Contractor value dashboard",
+  "claimed_at": "2026-05-23T03:51:43.303Z",
+  "task_id": "TASK-0076",
+  "title": "Job alerts foundation",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0075",
-  "title": "Contractor value dashboard",
-  "started_at": "2026-05-23T03:47:44.260Z",
-  "finished_at": "2026-05-23T03:49:32.316Z",
+  "task_id": "TASK-0076",
+  "title": "Job alerts foundation",
+  "started_at": "2026-05-23T03:51:44.823Z",
+  "finished_at": "2026-05-23T03:53:26.544Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:47:44.260Z",
-      "finished_at": "2026-05-23T03:47:44.503Z",
+      "started_at": "2026-05-23T03:51:44.823Z",
+      "finished_at": "2026-05-23T03:51:45.139Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:47:44.503Z",
-      "finished_at": "2026-05-23T03:47:44.761Z",
+      "started_at": "2026-05-23T03:51:45.139Z",
+      "finished_at": "2026-05-23T03:51:45.508Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:47:44.761Z",
-      "finished_at": "2026-05-23T03:49:32.315Z",
+      "started_at": "2026-05-23T03:51:45.508Z",
+      "finished_at": "2026-05-23T03:53:26.544Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
