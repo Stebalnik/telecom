@@ -17,6 +17,7 @@ import {
   listMemberCerts,
   type DocumentRow,
 } from "../../lib/documents";
+import { calculateContractorProfileStrength } from "../../lib/marketplace/contractorTrust";
 import { supabase } from "../../lib/supabaseClient";
 
 type OverviewStats = {
@@ -426,6 +427,18 @@ export default function ContractorPage() {
   }, [company]);
 
   const publicProfile = useMemo(() => company?.public_profile ?? null, [company]);
+  const profileStrength = useMemo(
+    () =>
+      calculateContractorProfileStrength({
+        hasBasicInfo: Boolean(company?.legal_name && publicProfile?.headline),
+        hasMarket: Boolean(publicProfile?.home_market || publicProfile?.markets?.length),
+        hasServices: Boolean(publicProfile?.headline),
+        hasInsurance: stats.approvedInsurance > 0,
+        hasCertifications: stats.certsTotal > 0,
+        hasTeam: stats.teamsTotal > 0 && stats.membersTotal > 0,
+      }),
+    [company?.legal_name, publicProfile, stats]
+  );
 
   if (loading) {
     return (
@@ -526,6 +539,15 @@ export default function ContractorPage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Profile strength"
+          value={`${profileStrength.score}%`}
+          hint={`${profileStrength.label}: ${
+            profileStrength.missing.length
+              ? `next ${profileStrength.missing[0]}`
+              : "marketplace ready"
+          }`}
+        />
         <StatCard
           label="Company status"
           value={company?.status || "—"}

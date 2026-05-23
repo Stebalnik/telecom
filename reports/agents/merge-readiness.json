@@ -1,16 +1,20 @@
 {
-  "generated_at": "2026-05-23T04:19:32.444Z",
+  "generated_at": "2026-05-23T04:24:18.391Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M app/marketplace/contractors/[id]/page.tsx\n M app/marketplace/contractors/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/marketplace/publicData.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? reports/agents/history/2026-05-23T04-19-31-899Z-TASK-0081-current-task.json",
+  "working_tree_status": "M app/contractor/page.tsx\n M app/marketplace/contractors/[id]/page.tsx\n M app/marketplace/contractors/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/marketplace/publicData.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? lib/marketplace/contractorTrust.ts\n?? reports/agents/history/2026-05-23T04-24-17-843Z-TASK-0082-current-task.json",
   "changed_files": [
     {
       "status": "M",
-      "path": "pp/marketplace/contractors/[id]/page.tsx"
+      "path": "pp/contractor/page.tsx"
+    },
+    {
+      "status": "M",
+      "path": "app/marketplace/contractors/[id]/page.tsx"
     },
     {
       "status": "M",
@@ -58,30 +62,34 @@
     },
     {
       "status": "??",
-      "path": "reports/agents/history/2026-05-23T04-19-31-899Z-TASK-0081-current-task.json"
+      "path": "lib/marketplace/contractorTrust.ts"
+    },
+    {
+      "status": "??",
+      "path": "reports/agents/history/2026-05-23T04-24-17-843Z-TASK-0082-current-task.json"
     }
   ],
   "warnings": [
-    "9 pending task(s) remain before the full generated queue is exhausted.",
+    "8 pending task(s) remain before the full generated queue is exhausted.",
     "Working tree has local report/code changes from the latest task cycle; commit and push before human merge review."
   ],
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0081",
+    "task_id": "TASK-0082",
     "passed": true,
-    "finished_at": "2026-05-23T04:19:31.662Z"
+    "finished_at": "2026-05-23T04:24:17.603Z"
   },
   "audit_summary": {
     "total_tasks": 90,
-    "completed": 81,
+    "completed": 82,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 9,
-    "commit_ready": 81,
+    "pending": 8,
+    "commit_ready": 82,
     "latest_successful_build": {
-      "build_id": "_S0K0zet5MwB5q_m17M2_",
-      "detected_at": "2026-05-23T04:19:28.582Z"
+      "build_id": "6WlcDPJdyBNNPpd90BXMN",
+      "detected_at": "2026-05-23T04:24:14.773Z"
     }
   },
   "required_human_actions": [
@@ -107,13 +115,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0081",
-      "finished_at": "2026-05-23T04:19:31.662Z"
+      "task_id": "TASK-0082",
+      "finished_at": "2026-05-23T04:24:17.603Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-23T04:17:52.570Z"
+      "generated_at": "2026-05-23T04:22:32.778Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -126,8 +134,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "_S0K0zet5MwB5q_m17M2_",
-        "detected_at": "2026-05-23T04:19:28.582Z"
+        "build_id": "6WlcDPJdyBNNPpd90BXMN",
+        "detected_at": "2026-05-23T04:24:14.773Z"
       }
     },
     {

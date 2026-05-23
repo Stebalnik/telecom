@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T04:16:58.940Z",
-  "task_id": "TASK-0081",
-  "title": "Contractor trust badges",
+  "claimed_at": "2026-05-23T04:21:22.080Z",
+  "task_id": "TASK-0082",
+  "title": "Contractor profile strength score",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",

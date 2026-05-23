@@ -74,6 +74,10 @@ export default async function PublicContractorsPage() {
                 </div>
 
                 <div className="mt-5 space-y-3">
+                  <InfoRow
+                    label="Profile strength"
+                    value={`${contractor.profileStrength.score}% ${contractor.profileStrength.label}`}
+                  />
                   <InfoRow label="Home market" value={contractor.homeMarket} />
                   <InfoRow
                     label="Markets served"

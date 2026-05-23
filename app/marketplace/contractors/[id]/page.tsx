@@ -86,6 +86,39 @@ export default async function PublicContractorProfilePage({
         <aside className="space-y-6">
           <div className="rounded-lg border border-[#D9E2EC] bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-[#0A2E5C]">
+              Profile strength
+            </h2>
+            <div className="mt-4">
+              <div className="flex items-end justify-between gap-4">
+                <div className="text-4xl font-semibold text-[#0A2E5C]">
+                  {contractor.profileStrength.score}%
+                </div>
+                <div className="rounded-full bg-[#EAF4FF] px-3 py-1 text-xs font-semibold text-[#1F6FB5]">
+                  {contractor.profileStrength.label}
+                </div>
+              </div>
+              <div className="mt-4 h-2 rounded-full bg-[#E5EEF7]">
+                <div
+                  className="h-2 rounded-full bg-[#2EA3FF]"
+                  style={{ width: `${contractor.profileStrength.score}%` }}
+                />
+              </div>
+              {contractor.profileStrength.missing.length ? (
+                <p className="mt-3 text-sm leading-6 text-[#4B5563]">
+                  Next public readiness items:{" "}
+                  {contractor.profileStrength.missing.join(", ")}.
+                </p>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[#4B5563]">
+                  Core public profile, market, service, compliance, and team
+                  signals are present.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#D9E2EC] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[#0A2E5C]">
               Trust badges
             </h2>
             <div className="mt-4 space-y-3">

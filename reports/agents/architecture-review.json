@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T04:16:59.833Z",
-  "task_id": "TASK-0081",
-  "title": "Contractor trust badges",
+  "generated_at": "2026-05-23T04:21:22.852Z",
+  "task_id": "TASK-0082",
+  "title": "Contractor profile strength score",
   "area": "contractor",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Contractor trust badges\" with scoped, reviewable changes.",
+    "Implement the task described by \"Contractor profile strength score\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
