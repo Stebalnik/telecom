@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-05-23T02:50:14.783Z",
+  "task_id": "TASK-0062",
+  "title": "Public job detail page",
+  "recovery_needed": true,
+  "automatic_fixes_applied": false,
+  "arbitrary_commands_executed": false,
+  "failed_commands": [
+    {
+      "command": "npm run build",
+      "category": "build",
+      "exit_code": 1,
+      "suggested_action": "Inspect the build summary, fix TypeScript/Next.js/runtime build errors, then rerun verification.",
+      "output_summary": [
+        "> telecom@0.1.0 build",
+        "> next build",
+        "",
+        "▲ Next.js 16.1.6 (Turbopack)",
+        "- Environments: .env.local",
+        "",
+        "  Creating an optimized production build ...",
+        "✓ Compiled successfully in 25.1s",
+        "  Running TypeScript ...",
+        "Failed to compile.",
+        "",
+        "./lib/marketplace/publicData.ts:443:10",
+        "Type error: Conversion of type '{ cert_type: { name: any; }[]; }[]' to type '{ cert_type: { name: string | null; } | null; }[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+        "  Type '{ cert_type: { name: any; }[]; }' is not comparable to type '{ cert_type: { name: string | null; } | null; }'.",
+        "    Types of property 'cert_type' are incompatible.",
+        "      Property 'name' is missing in type '{ name: any; }[]' but required in type '{ name: string | null; }'.",
+        "",
+        "\u001b[0m \u001b[90m 441 |\u001b[39m     \u001b[36mconst\u001b[39m requiredCertifications \u001b[33m=\u001b[39m certsResult\u001b[33m.\u001b[39merror",
+        " \u001b[90m 442 |\u001b[39m       \u001b[33m?\u001b[39m []",
+        "\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 443 |\u001b[39m       \u001b[33m:\u001b[39m ((certsResult\u001b[33m.\u001b[39mdata \u001b[33m?\u001b[39m\u001b[33m?\u001b[39m []) \u001b[36mas\u001b[39m \u001b[33mArray\u001b[39m\u001b[33m<\u001b[39m{",
+        " \u001b[90m     |\u001b[39m          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m",
+        " \u001b[90m 444 |\u001b[39m           cert_type\u001b[33m:\u001b[39m { name\u001b[33m:\u001b[39m string \u001b[33m|\u001b[39m \u001b[36mnull\u001b[39m } \u001b[33m|\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m;\u001b[39m",
+        " \u001b[90m 445 |\u001b[39m         }\u001b[33m>\u001b[39m)",
+        " \u001b[90m 446 |\u001b[39m           \u001b[33m.\u001b[39mmap((row) \u001b[33m=>\u001b[39m safeText(row\u001b[33m.\u001b[39mcert_type\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mname\u001b[33m,\u001b[39m \u001b[32m\"\"\u001b[39m))\u001b[0m",
+        "Next.js build worker exited with code: 1 and signal: null"
+      ]
+    }
+  ],
+  "next_steps": [
+    "Codex must inspect the failed command summaries.",
+    "Apply scoped fixes in the workspace only.",
+    "Rerun npm run agents:finalize-cycle.",
+    "Do not deploy, merge, or run task-provided commands."
+  ]
+}

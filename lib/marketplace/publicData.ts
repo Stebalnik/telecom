@@ -46,6 +46,11 @@ export type PublicJobsDirectorySnapshot = MarketplaceLandingSnapshot & {
   jobs: PublicJobPreview[];
 };
 
+export type PublicJobDetail = PublicJobPreview & {
+  description: string;
+  trustSignals: string[];
+};
+
 const fallbackSnapshot: MarketplaceLandingSnapshot = {
   counters: [
     {
@@ -111,6 +116,17 @@ function normalizeMarket(value: string | null | undefined) {
   }
 
   return trimmed;
+}
+
+function relationName(value: unknown) {
+  if (!value) return "";
+
+  if (Array.isArray(value)) {
+    const first = value[0] as { name?: string | null } | undefined;
+    return safeText(first?.name, "");
+  }
+
+  return safeText((value as { name?: string | null }).name, "");
 }
 
 function uniqueMarketCount(rows: Array<{ location?: string | null; markets?: string[] | null }>) {
@@ -406,5 +422,70 @@ export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirect
     };
   } catch {
     return fallbackJobsDirectorySnapshot;
+  }
+}
+
+export async function getPublicJobDetail(id: string): Promise<PublicJobDetail | null> {
+  try {
+    const supabase = await createClient();
+    const jobResult = await supabase
+      .from("jobs")
+      .select("id,title,description,location,status,created_at,deadline_date")
+      .eq("id", id)
+      .eq("status", "open")
+      .eq("visibility_mode", "public")
+      .maybeSingle();
+
+    if (jobResult.error || !jobResult.data) {
+      return null;
+    }
+
+    const [bidsResult, certsResult, scopesResult] = await Promise.all([
+      supabase.from("bids").select("id", { count: "exact", head: true }).eq("job_id", id),
+      supabase
+        .from("job_required_certs")
+        .select("cert_type:cert_types(name)")
+        .eq("job_id", id),
+      supabase.from("job_scopes").select("scope:scopes(name)").eq("job_id", id),
+    ]);
+
+    const requiredCertifications = certsResult.error
+      ? []
+      : ((certsResult.data ?? []) as Array<{ cert_type: unknown }>)
+          .map((row) => relationName(row.cert_type))
+          .filter(Boolean);
+
+    const scopes = scopesResult.error
+      ? []
+      : ((scopesResult.data ?? []) as Array<{ scope: unknown }>)
+          .map((row) => relationName(row.scope))
+          .filter(Boolean);
+
+    const description = safeText(
+      jobResult.data.description,
+      "The customer has published a public-ready telecom job. Sign up to review protected workflow details and submit a bid when eligible."
+    );
+
+    return {
+      id: jobResult.data.id,
+      title: safeText(jobResult.data.title, "Telecom job"),
+      market: normalizeMarket(jobResult.data.location),
+      scope: scopes.length ? scopes.join(", ") : description.slice(0, 180),
+      status: safeText(jobResult.data.status, "open"),
+      createdAt: jobResult.data.created_at,
+      description,
+      requiredCertifications,
+      bidCount: bidsResult.error ? 0 : bidsResult.count ?? 0,
+      trustSignals: [
+        "Public-ready listing",
+        "Private contacts protected",
+        requiredCertifications.length
+          ? "Certification requirements published"
+          : "Certification requirements pending review",
+        scopes.length ? "Scope details available" : "Scope summary available",
+      ],
+    };
+  } catch {
+    return null;
   }
 }
