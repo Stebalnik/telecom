@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T02:56:46.183Z",
-  "task_id": "TASK-0064",
-  "title": "Public contractor profile page",
+  "claimed_at": "2026-05-23T02:59:33.817Z",
+  "task_id": "TASK-0065",
+  "title": "Public market index",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
