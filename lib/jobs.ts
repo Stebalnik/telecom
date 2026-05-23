@@ -1,6 +1,13 @@
 import { supabase } from "./supabaseClient";
 
 export type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
+export type JobVisibilityStatus =
+  | "draft"
+  | "internal"
+  | "public"
+  | "restricted"
+  | "awarded"
+  | "archived";
 
 export type Job = {
   id: string;
@@ -15,6 +22,11 @@ export type Job = {
   customer_user_id: string | null;
   deadline_date: string | null;
   visibility_mode: JobVisibilityMode;
+  visibility_status?: JobVisibilityStatus | null;
+  public_slug?: string | null;
+  public_description?: string | null;
+  is_public?: boolean | null;
+  public_ready_at?: string | null;
 };
 
 export async function createJob(params: {

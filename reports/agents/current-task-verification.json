@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0068",
-  "title": "Safe marketplace activity feed",
-  "started_at": "2026-05-23T03:08:48.273Z",
-  "finished_at": "2026-05-23T03:09:49.107Z",
+  "task_id": "TASK-0069",
+  "title": "Job visibility model",
+  "started_at": "2026-05-23T03:11:42.706Z",
+  "finished_at": "2026-05-23T03:12:43.736Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T03:08:48.273Z",
-      "finished_at": "2026-05-23T03:08:48.518Z",
+      "started_at": "2026-05-23T03:11:42.706Z",
+      "finished_at": "2026-05-23T03:11:42.945Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T03:08:48.518Z",
-      "finished_at": "2026-05-23T03:08:48.773Z",
+      "started_at": "2026-05-23T03:11:42.945Z",
+      "finished_at": "2026-05-23T03:11:43.203Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T03:08:48.773Z",
-      "finished_at": "2026-05-23T03:09:49.107Z",
+      "started_at": "2026-05-23T03:11:43.203Z",
+      "finished_at": "2026-05-23T03:12:43.736Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T03:08:09.861Z",
-  "task_id": "TASK-0068",
-  "title": "Safe marketplace activity feed",
+  "generated_at": "2026-05-23T03:11:19.248Z",
+  "task_id": "TASK-0069",
+  "title": "Job visibility model",
   "area": "infrastructure",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Safe marketplace activity feed\" with scoped, reviewable changes.",
+    "Implement the task described by \"Job visibility model\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

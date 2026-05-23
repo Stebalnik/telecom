@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T03:08:09.039Z",
-  "task_id": "TASK-0068",
-  "title": "Safe marketplace activity feed",
+  "claimed_at": "2026-05-23T03:11:18.372Z",
+  "task_id": "TASK-0069",
+  "title": "Job visibility model",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
