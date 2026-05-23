@@ -1,10 +1,10 @@
 {
-  "claimed_at": "2026-05-23T03:24:14.521Z",
-  "task_id": "TASK-0073",
-  "title": "Fast contractor signup",
+  "claimed_at": "2026-05-23T03:43:30.061Z",
+  "task_id": "TASK-0074",
+  "title": "Progressive contractor onboarding",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
-  "selection": "requested_task_id",
+  "selection": "automatic_priority_order",
   "dependencies": []
 }

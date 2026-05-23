@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-23T03:22:19.655Z",
-  "task_id": "TASK-0073",
-  "title": "Fast contractor signup",
+  "generated_at": "2026-05-23T03:43:31.066Z",
+  "task_id": "TASK-0074",
+  "title": "Progressive contractor onboarding",
   "area": "contractor",
   "type": "feature",
   "assigned_agent": "Coder Agent",
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Fast contractor signup\" with scoped, reviewable changes.",
+    "Implement the task described by \"Progressive contractor onboarding\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {
