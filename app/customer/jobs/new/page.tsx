@@ -24,6 +24,90 @@ import { track } from "../../../../lib/track";
 
 type JobVisibilityMode = "public" | "qualified_only" | "approved_only";
 
+type JobTemplate = {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  budget: string;
+  scopeKeywords: string[];
+};
+
+const JOB_TEMPLATES: JobTemplate[] = [
+  {
+    id: "tower-work",
+    name: "Tower work",
+    title: "Tower site field work",
+    description:
+      "Tower field work including site access, safety setup, climbing scope, installation or maintenance tasks, closeout photos, and customer acceptance requirements.",
+    budget: "7500",
+    scopeKeywords: ["tower", "climb", "antenna", "site"],
+  },
+  {
+    id: "fiber-installation",
+    name: "Fiber installation",
+    title: "Fiber installation project",
+    description:
+      "Fiber installation work including pathway review, cable placement, testing, labeling, documentation, and handoff requirements.",
+    budget: "6500",
+    scopeKeywords: ["fiber", "cable", "splice", "installation"],
+  },
+  {
+    id: "site-survey",
+    name: "Site survey",
+    title: "Telecom site survey",
+    description:
+      "Site survey including access review, photos, measurements, equipment inventory, constraints, and recommendation notes for customer review.",
+    budget: "2500",
+    scopeKeywords: ["survey", "site", "assessment"],
+  },
+  {
+    id: "civil-work",
+    name: "Civil work",
+    title: "Telecom civil work",
+    description:
+      "Civil scope including trenching, foundations, conduit, restoration, safety controls, schedule constraints, and closeout documentation.",
+    budget: "12000",
+    scopeKeywords: ["civil", "trench", "foundation", "conduit"],
+  },
+  {
+    id: "electrical",
+    name: "Electrical",
+    title: "Telecom electrical scope",
+    description:
+      "Electrical work including power review, installation, grounding, testing, labeling, safety requirements, and final documentation.",
+    budget: "8500",
+    scopeKeywords: ["electrical", "power", "ground", "utility"],
+  },
+  {
+    id: "closeout-package",
+    name: "Closeout package",
+    title: "Closeout package review",
+    description:
+      "Closeout package work including photo collection, as-built details, document review, missing item resolution, and final package submission.",
+    budget: "1800",
+    scopeKeywords: ["closeout", "photo", "document", "package"],
+  },
+  {
+    id: "maintenance",
+    name: "Maintenance",
+    title: "Telecom maintenance work",
+    description:
+      "Maintenance scope including troubleshooting, repair work, verification, site notes, customer updates, and completion evidence.",
+    budget: "4500",
+    scopeKeywords: ["maintenance", "repair", "troubleshoot"],
+  },
+  {
+    id: "emergency-repair",
+    name: "Emergency repair",
+    title: "Emergency telecom repair",
+    description:
+      "Urgent repair work including dispatch timing, outage impact, safety constraints, repair plan, verification steps, and closeout evidence.",
+    budget: "9500",
+    scopeKeywords: ["emergency", "repair", "maintenance", "outage"],
+  },
+];
+
 async function setJobScopes(jobId: string, scopeIds: string[]) {
   const deleteResult = await supabase
     .from("job_scopes")
@@ -125,6 +209,7 @@ export default function CustomerJobsNewPage() {
   const [location, setLocation] = useState("");
   const [deadline, setDeadline] = useState("");
   const [budget, setBudget] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [visibilityMode, setVisibilityMode] =
     useState<JobVisibilityMode>("public");
@@ -325,6 +410,34 @@ export default function CustomerJobsNewPage() {
         return prev.filter((x) => x !== scopeId);
       }
       return [...prev, scopeId];
+    });
+  }
+
+  function applyTemplate(template: JobTemplate) {
+    setSelectedTemplateId(template.id);
+    setTitle(template.title);
+    setDescription(template.description);
+    setBudget(template.budget);
+
+    const keywordMatches = scopes
+      .filter((scope) => {
+        const label = scopeLabel(scope).toLowerCase();
+        return template.scopeKeywords.some((keyword) =>
+          label.includes(keyword.toLowerCase())
+        );
+      })
+      .map((scope) => scope.id);
+
+    if (keywordMatches.length) {
+      setSelectedScopeIds(Array.from(new Set(keywordMatches)));
+    }
+
+    void track("customer_job_template_selected", {
+      role: "customer",
+      path: "/customer/jobs/new",
+      meta: {
+        templateId: template.id,
+      },
     });
   }
 
@@ -561,6 +674,35 @@ export default function CustomerJobsNewPage() {
         title="Fast job details"
         description="Use safe public-ready language. Do not include private contact info in title, market, or description."
       >
+        <div className="mb-5 rounded-xl border border-[#D9E2EC] bg-[#F8FBFF] p-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-semibold text-[#0A2E5C]">
+              Start from a telecom template
+            </h3>
+            <p className="text-sm leading-6 text-[#4B5563]">
+              Pick a common scope to prefill the title, public description,
+              planning budget, and matching scopes when available.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {JOB_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition ${
+                  selectedTemplateId === template.id
+                    ? "border-[#1F6FB5] bg-white text-[#0A2E5C]"
+                    : "border-[#D9E2EC] bg-white text-[#111827] hover:border-[#1F6FB5] hover:bg-[#F4F8FC]"
+                }`}
+                onClick={() => applyTemplate(template)}
+                disabled={saving}
+              >
+                {template.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-[#111827]">
