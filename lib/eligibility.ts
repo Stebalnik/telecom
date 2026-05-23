@@ -33,6 +33,18 @@ export type ContractorEligibilityResult = {
   partiallyEligible: boolean;
 };
 
+export type ComplianceGapStatus = "eligible" | "partially_eligible" | "not_eligible";
+
+export type ComplianceGapResult = ContractorEligibilityResult & {
+  status: ComplianceGapStatus;
+  missingCertifications: string[];
+  missingInsurance: string[];
+  missingMarkets: string[];
+  missingServices: string[];
+  missingTeamMembers: number;
+  summary: string;
+};
+
 function normalizeList(values?: string[]) {
   return new Set(
     (values ?? [])
@@ -59,6 +71,15 @@ function teamReadiness(required?: number | null, available?: number | null) {
   if (!required || required <= 0) return 100;
   if (!available || available <= 0) return 0;
   return Math.min(100, Math.round((available / required) * 100));
+}
+
+function missingValues(requiredValues?: string[], availableValues?: string[]) {
+  const available = normalizeList(availableValues);
+
+  return (requiredValues ?? [])
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value) => !available.has(value.toLowerCase()));
 }
 
 export function calculateContractorEligibility(
@@ -101,5 +122,53 @@ export function calculateContractorEligibility(
     },
     eligible: overall >= 90,
     partiallyEligible: overall >= 50 && overall < 90,
+  };
+}
+
+export function calculateComplianceGaps(
+  input: ContractorEligibilityInput
+): ComplianceGapResult {
+  const eligibility = calculateContractorEligibility(input);
+  const missingTeamMembers = Math.max(
+    0,
+    (input.requiredTeamSize ?? 0) - (input.contractorTeamSize ?? 0)
+  );
+  const status: ComplianceGapStatus = eligibility.eligible
+    ? "eligible"
+    : eligibility.partiallyEligible
+    ? "partially_eligible"
+    : "not_eligible";
+  const missingCertifications = missingValues(
+    input.requiredCertifications,
+    input.contractorCertifications
+  );
+  const missingInsurance = missingValues(
+    input.requiredInsurance,
+    input.contractorInsurance
+  );
+  const missingMarkets = missingValues(input.requiredMarkets, input.contractorMarkets);
+  const missingServices = missingValues(
+    input.requiredServices,
+    input.contractorServices
+  );
+  const missingLabels = [
+    ...missingCertifications,
+    ...missingInsurance,
+    ...missingMarkets,
+    ...missingServices,
+    ...(missingTeamMembers > 0 ? [`${missingTeamMembers} team member(s)`] : []),
+  ];
+
+  return {
+    ...eligibility,
+    status,
+    missingCertifications,
+    missingInsurance,
+    missingMarkets,
+    missingServices,
+    missingTeamMembers,
+    summary: missingLabels.length
+      ? `Missing: ${missingLabels.join(", ")}`
+      : "No compliance gaps detected.",
   };
 }

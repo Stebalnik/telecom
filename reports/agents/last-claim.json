@@ -1,7 +1,7 @@
 {
-  "claimed_at": "2026-05-23T03:16:51.200Z",
-  "task_id": "TASK-0071",
-  "title": "Contractor eligibility engine",
+  "claimed_at": "2026-05-23T03:19:30.754Z",
+  "task_id": "TASK-0072",
+  "title": "Compliance gap engine",
   "priority": "medium",
   "assigned_agent": "Coder Agent",
   "queue_file": "docs/AGENT_TASK_QUEUE.generated.md",
