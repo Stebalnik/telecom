@@ -118,8 +118,27 @@ export default async function PublicJobDetailPage({
             </h2>
             <div className="mt-4 space-y-3">
               {job.trustSignals.map((signal) => (
-                <div key={signal} className="rounded-lg bg-[#F4F8FC] p-3 text-sm text-[#4B5563]">
-                  {signal}
+                <div
+                  key={signal.label}
+                  className="rounded-lg border border-[#D9E2EC] bg-[#F4F8FC] p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[#0A2E5C]">
+                      {signal.label}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                        signal.status === "pending"
+                          ? "bg-white text-[#4B5563]"
+                          : "bg-[#EAF8F0] text-[#166534]"
+                      }`}
+                    >
+                      {signal.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#4B5563]">
+                    {signal.description}
+                  </p>
                 </div>
               ))}
             </div>

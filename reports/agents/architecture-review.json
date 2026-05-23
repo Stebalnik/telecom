@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-23T04:21:22.852Z",
-  "task_id": "TASK-0082",
-  "title": "Contractor profile strength score",
-  "area": "contractor",
+  "generated_at": "2026-05-23T04:26:17.586Z",
+  "task_id": "TASK-0083",
+  "title": "Customer trust signals",
+  "area": "customer",
   "type": "feature",
   "assigned_agent": "Coder Agent",
   "branch_isolation": {
@@ -14,7 +14,7 @@
   },
   "expected_files": [],
   "acceptance_criteria": [
-    "Implement the task described by \"Contractor profile strength score\" with scoped, reviewable changes.",
+    "Implement the task described by \"Customer trust signals\" with scoped, reviewable changes.",
     "Confirm security and route impact have been reviewed."
   ],
   "review_requirements": {

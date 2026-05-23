@@ -107,6 +107,21 @@ export default async function PublicJobsPage() {
                   </div>
                 </div>
 
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {job.trustSignals?.slice(0, 3).map((signal) => (
+                    <span
+                      key={signal.label}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        signal.status === "pending"
+                          ? "border-[#D9E2EC] bg-[#F8FBFF] text-[#4B5563]"
+                          : "border-[#B8E6C8] bg-[#F0FFF5] text-[#166534]"
+                      }`}
+                    >
+                      {signal.label}
+                    </span>
+                  ))}
+                </div>
+
                 <div className="mt-auto pt-6">
                   <div className="mb-4 flex items-center justify-between text-xs text-[#4B5563]">
                     <span>Posted {formatDate(job.createdAt)}</span>

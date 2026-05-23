@@ -1,13 +1,13 @@
 {
-  "task_id": "TASK-0082",
-  "title": "Contractor profile strength score",
-  "started_at": "2026-05-23T04:22:32.231Z",
-  "finished_at": "2026-05-23T04:24:17.603Z",
+  "task_id": "TASK-0083",
+  "title": "Customer trust signals",
+  "started_at": "2026-05-23T04:26:55.865Z",
+  "finished_at": "2026-05-23T04:28:28.528Z",
   "commands": [
     {
       "command": "npm run agents:verify",
-      "started_at": "2026-05-23T04:22:32.232Z",
-      "finished_at": "2026-05-23T04:22:32.490Z",
+      "started_at": "2026-05-23T04:26:55.865Z",
+      "finished_at": "2026-05-23T04:26:56.113Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -19,8 +19,8 @@
     },
     {
       "command": "npm run agents:self-verify",
-      "started_at": "2026-05-23T04:22:32.490Z",
-      "finished_at": "2026-05-23T04:22:32.796Z",
+      "started_at": "2026-05-23T04:26:56.113Z",
+      "finished_at": "2026-05-23T04:26:56.425Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [
@@ -32,8 +32,8 @@
     },
     {
       "command": "npm run build",
-      "started_at": "2026-05-23T04:22:32.796Z",
-      "finished_at": "2026-05-23T04:24:17.603Z",
+      "started_at": "2026-05-23T04:26:56.425Z",
+      "finished_at": "2026-05-23T04:28:28.528Z",
       "exit_code": 0,
       "passed": true,
       "output_summary": [

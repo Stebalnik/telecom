@@ -5,6 +5,7 @@ import {
   type ContractorProfileStrength,
   type ContractorTrustBadge,
 } from "@/lib/marketplace/contractorTrust";
+import { buildJobTrustSignals, type JobTrustSignal } from "@/lib/marketplace/jobTrust";
 
 type MarketplaceCount = {
   label: string;
@@ -26,6 +27,7 @@ export type PublicJobPreview = {
   createdAt: string;
   requiredCertifications?: string[];
   bidCount?: number;
+  trustSignals?: JobTrustSignal[];
 };
 
 export type PublicContractorPreview = {
@@ -90,7 +92,7 @@ export type PublicContractorDetail = PublicContractorPreview & {
 
 export type PublicJobDetail = PublicJobPreview & {
   description: string;
-  trustSignals: string[];
+  trustSignals: JobTrustSignal[];
 };
 
 const fallbackSnapshot: MarketplaceLandingSnapshot = {
@@ -600,7 +602,7 @@ export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirect
 
     const jobsResult = await supabase
       .from("jobs")
-      .select("id,title,description,location,status,created_at")
+      .select("id,title,description,location,status,created_at,deadline_date")
       .eq("status", "open")
       .eq("visibility_mode", "public")
       .order("created_at", { ascending: false })
@@ -617,6 +619,7 @@ export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirect
       location: string | null;
       status: string | null;
       created_at: string;
+      deadline_date: string | null;
     }>;
     const jobIds = jobRows.map((job) => job.id);
     const [bidsResult, certsResult, scopesResult] = jobIds.length
@@ -686,6 +689,13 @@ export async function getPublicJobsDirectorySnapshot(): Promise<PublicJobsDirect
           createdAt: job.created_at,
           requiredCertifications: certsByJob.get(job.id) ?? [],
           bidCount: bidCountByJob.get(job.id) ?? 0,
+          trustSignals: buildJobTrustSignals({
+            isPublicReady: true,
+            hasScope: scopeLabels.length > 0 || Boolean(job.description?.trim()),
+            hasCertRequirements: Boolean(certsByJob.get(job.id)?.length),
+            hasTimeline: Boolean(job.deadline_date),
+            hasDocuments: false,
+          }),
         };
       }),
     };
@@ -745,14 +755,13 @@ export async function getPublicJobDetail(id: string): Promise<PublicJobDetail | 
       description,
       requiredCertifications,
       bidCount: bidsResult.error ? 0 : bidsResult.count ?? 0,
-      trustSignals: [
-        "Public-ready listing",
-        "Private contacts protected",
-        requiredCertifications.length
-          ? "Certification requirements published"
-          : "Certification requirements pending review",
-        scopes.length ? "Scope details available" : "Scope summary available",
-      ],
+      trustSignals: buildJobTrustSignals({
+        isPublicReady: true,
+        hasScope: scopes.length > 0 || Boolean(description.trim()),
+        hasCertRequirements: requiredCertifications.length > 0,
+        hasTimeline: Boolean(jobResult.data.deadline_date),
+        hasDocuments: false,
+      }),
     };
   } catch {
     return null;

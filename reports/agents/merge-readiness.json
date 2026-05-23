@@ -1,24 +1,20 @@
 {
-  "generated_at": "2026-05-23T04:24:18.391Z",
+  "generated_at": "2026-05-23T04:28:29.460Z",
   "ready_for_human_review": true,
   "merge_allowed": false,
   "merge_policy": "Manual human approval required. This script never merges, deploys, or restarts production.",
   "branch": "agents/dev-system",
   "upstream": "origin/agents/dev-system",
   "ahead_behind": "0\t0",
-  "working_tree_status": "M app/contractor/page.tsx\n M app/marketplace/contractors/[id]/page.tsx\n M app/marketplace/contractors/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/marketplace/publicData.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? lib/marketplace/contractorTrust.ts\n?? reports/agents/history/2026-05-23T04-24-17-843Z-TASK-0082-current-task.json",
+  "working_tree_status": "M app/marketplace/jobs/[id]/page.tsx\n M app/marketplace/jobs/page.tsx\n M docs/AGENT_TASK_QUEUE.generated.md\n M lib/marketplace/publicData.ts\n M reports/agents/agent-progress-audit.json\n M reports/agents/architecture-review.json\n M reports/agents/current-coding-loop.json\n M reports/agents/current-implementation-packet.md\n M reports/agents/current-task-verification.json\n M reports/agents/last-claim.json\n M reports/agents/retry-state.json\n M reports/agents/self-verification.json\n?? lib/marketplace/jobTrust.ts\n?? reports/agents/history/2026-05-23T04-28-28-773Z-TASK-0083-current-task.json",
   "changed_files": [
     {
       "status": "M",
-      "path": "pp/contractor/page.tsx"
+      "path": "pp/marketplace/jobs/[id]/page.tsx"
     },
     {
       "status": "M",
-      "path": "app/marketplace/contractors/[id]/page.tsx"
-    },
-    {
-      "status": "M",
-      "path": "app/marketplace/contractors/page.tsx"
+      "path": "app/marketplace/jobs/page.tsx"
     },
     {
       "status": "M",
@@ -62,34 +58,34 @@
     },
     {
       "status": "??",
-      "path": "lib/marketplace/contractorTrust.ts"
+      "path": "lib/marketplace/jobTrust.ts"
     },
     {
       "status": "??",
-      "path": "reports/agents/history/2026-05-23T04-24-17-843Z-TASK-0082-current-task.json"
+      "path": "reports/agents/history/2026-05-23T04-28-28-773Z-TASK-0083-current-task.json"
     }
   ],
   "warnings": [
-    "8 pending task(s) remain before the full generated queue is exhausted.",
+    "7 pending task(s) remain before the full generated queue is exhausted.",
     "Working tree has local report/code changes from the latest task cycle; commit and push before human merge review."
   ],
   "current_task": null,
   "verification_summary": {
-    "task_id": "TASK-0082",
+    "task_id": "TASK-0083",
     "passed": true,
-    "finished_at": "2026-05-23T04:24:17.603Z"
+    "finished_at": "2026-05-23T04:28:28.528Z"
   },
   "audit_summary": {
     "total_tasks": 90,
-    "completed": 82,
+    "completed": 83,
     "failed": 0,
     "blocked": 0,
     "in_progress": 0,
-    "pending": 8,
-    "commit_ready": 82,
+    "pending": 7,
+    "commit_ready": 83,
     "latest_successful_build": {
-      "build_id": "6WlcDPJdyBNNPpd90BXMN",
-      "detected_at": "2026-05-23T04:24:14.773Z"
+      "build_id": "X6tic411UWcZ1hsRCA5I4",
+      "detected_at": "2026-05-23T04:28:26.288Z"
     }
   },
   "required_human_actions": [
@@ -115,13 +111,13 @@
     {
       "name": "verification passed",
       "passed": true,
-      "task_id": "TASK-0082",
-      "finished_at": "2026-05-23T04:24:17.603Z"
+      "task_id": "TASK-0083",
+      "finished_at": "2026-05-23T04:28:28.528Z"
     },
     {
       "name": "self verification passed",
       "passed": true,
-      "generated_at": "2026-05-23T04:22:32.778Z"
+      "generated_at": "2026-05-23T04:26:56.401Z"
     },
     {
       "name": "audit has no failed tasks",
@@ -134,8 +130,8 @@
       "name": "latest build recorded",
       "passed": true,
       "latest_successful_build": {
-        "build_id": "6WlcDPJdyBNNPpd90BXMN",
-        "detected_at": "2026-05-23T04:24:14.773Z"
+        "build_id": "X6tic411UWcZ1hsRCA5I4",
+        "detected_at": "2026-05-23T04:28:26.288Z"
       }
     },
     {
